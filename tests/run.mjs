@@ -6,10 +6,11 @@ import { blendStats, hydrationRangeForW, estimateW, fuCeilingForW, bandForW, FLO
 import { rateAt, fermentUnits, yeastForFU, ripeness, ripenessVerdict, waterTempFor, calibrateK, DEFAULT_MODEL } from '../src/model/ferment.js';
 import { solveSchedule, scheduleStages, STEPS, activeSteps, DEFAULT_SCHEDULE } from '../src/model/protocol.js';
 import { suggestPlan, reviewPlan, defaultLeadHours, strengthBand } from '../src/model/advisor.js';
-import { recipeFromBlend, overallScore, recipeRating, starterRecipes } from '../src/model/recipes.js';
+import { recipeFromBlend, overallScore, recipeRating, starterRecipes, houseRecipe } from '../src/model/recipes.js';
 import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIXERS } from '../src/model/equipment.js';
 import { diagnose } from '../src/model/diagnostics.js';
 import { mergeCollections } from '../src/lib/cloud.js';
+import { normaliseRecipe } from '../src/lib/store.js';
 import { cToF, fToC, deltaToDisplay, deltaFromDisplay } from '../src/model/units.js';
 
 let passed = 0;
@@ -247,12 +248,44 @@ test('a recipe generated from a blend is complete and bakeable', () => {
   assert.ok(r.schedule.coldProofHours > 0);
 });
 
-test('the shipped starters all compute without warnings about the blend', () => {
-  for (const r of starterRecipes()) {
-    const c = computeRecipe(r.recipe);
-    assert.ok(c.flour > 0, `${r.name} has no flour`);
-    assert.ok(!c.warnings.some((w) => w.includes('add up')), `${r.name}: ${c.warnings.join('; ')}`);
-  }
+test('exactly one recipe ships, and it is the house protocol', () => {
+  const starters = starterRecipes();
+  assert.equal(starters.length, 1, 'only the house protocol should ship as a preset');
+  assert.equal(starters[0].origin, 'house');
+  const c = computeRecipe(starters[0].recipe);
+  assert.ok(c.flour > 0, 'the house recipe has no flour');
+  assert.ok(!c.warnings.some((w) => w.includes('add up')), c.warnings.join('; '));
+});
+
+test('a recipe built from the creation inputs honours every one of them', () => {
+  const flours = [{ id: 'caputo-nuvola-super', pct: 100 }];
+  const r = recipeFromBlend(flours, {
+    name: 'Friday dough',
+    totalHours: 60,
+    balls: 6,
+    ballWeight: 300,
+    frozenBalls: 2,
+    roomTempC: 24,
+    fridgeTempC: 5,
+  });
+  assert.equal(r.name, 'Friday dough');
+  assert.equal(r.recipe.balls, 6);
+  assert.equal(r.recipe.ballWeight, 300);
+  assert.equal(r.recipe.frozenBalls, 2);
+  assert.equal(r.schedule.fridgeTempC, 5);
+  assert.equal(r.schedule.roomTempC, 24);
+  assert.equal(r.recipe.flours[0].id, 'caputo-nuvola-super');
+  // The schedule the engine generated should add up to the requested maturation.
+  const total = r.schedule.bigaRestHours + r.schedule.bigaColdHours + r.schedule.coldProofHours + r.schedule.temperHours;
+  near(total, 60 - 2, 1.5, 'phases should span the requested maturation');
+});
+
+test('a warmer fridge shortens the generated cold proof', () => {
+  const flours = [{ id: 'caputo-cuoco', pct: 100 }];
+  const cold = recipeFromBlend(flours, { totalHours: 72, fridgeTempC: 2 });
+  const warm = recipeFromBlend(flours, { totalHours: 72, fridgeTempC: 8 });
+  assert.equal(cold.schedule.coldProofHours, warm.schedule.coldProofHours, 'time is what the baker asked for');
+  assert.ok(warm.recipe.baseYeastPct < cold.recipe.baseYeastPct, 'a warmer fridge needs less yeast for the same clock time');
 });
 
 test('overall score averages only the marks that were given', () => {
@@ -321,6 +354,15 @@ test('cloud merge keeps the newest version of each record', () => {
   const { merged } = mergeCollections([{ id: 'a', updatedAt: '2026-02-02', v: 'local' }], [{ id: 'a', updatedAt: '2026-01-01', v: 'remote' }]);
   assert.equal(merged.length, 1);
   assert.equal(merged[0].v, 'local');
+});
+
+test('a recipe missing fields is filled in rather than left to crash a screen', () => {
+  const r = normaliseRecipe({ id: 'x', recipe: { hydrationPct: 75 } });
+  assert.equal(r.recipe.hydrationPct, 75, 'the given value survives');
+  assert.equal(typeof r.recipe.yeastType, 'string', 'missing fields get a default');
+  assert.ok(Array.isArray(r.recipe.flours) && r.recipe.flours.length, 'a flour is always present');
+  assert.ok(r.schedule.coldProofHours > 0, 'the schedule is complete');
+  assert.ok(computeRecipe(r.recipe).flour > 0, 'and it computes');
 });
 
 test('temperature conversion round-trips', () => {

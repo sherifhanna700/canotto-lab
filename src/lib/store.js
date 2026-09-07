@@ -4,11 +4,11 @@
 // app touches storage directly, so swapping in a cloud backend later means
 // reimplementing `load` and `save`, not rewriting the views.
 
-import { DEFAULT_RECIPE } from '../model/dough.js?v=e573b96c';
-import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=e573b96c';
-import { DEFAULT_MODEL } from '../model/ferment.js?v=e573b96c';
-import { starterRecipes, houseRecipe } from '../model/recipes.js?v=e573b96c';
-import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=e573b96c';
+import { DEFAULT_RECIPE } from '../model/dough.js?v=073bb50c';
+import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=073bb50c';
+import { DEFAULT_MODEL } from '../model/ferment.js?v=073bb50c';
+import { starterRecipes, houseRecipe } from '../model/recipes.js?v=073bb50c';
+import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=073bb50c';
 
 const KEY = 'canotto-lab/v1';
 const LEGACY = { steps: 'canotto_master_steps', frozen: 'canotto_frozen_count', metrics: 'canotto_step_metrics' };
@@ -97,9 +97,46 @@ function mergeState(base, saved) {
       scores: { ...EMPTY_SCORES, ...(saved.current?.scores || {}) },
       done: Array.isArray(saved.current?.done) ? saved.current.done : [],
     },
-    recipes: Array.isArray(saved.recipes) && saved.recipes.length ? saved.recipes : base.recipes,
+    recipes: reconcileRecipes(saved, base),
     bakes: Array.isArray(saved.bakes) ? saved.bakes : [],
     experiments: Array.isArray(saved.experiments) ? saved.experiments : [],
+  };
+}
+
+/**
+ * Only the house protocol ships as a preset. Earlier builds shipped several,
+ * and they survive in saved data, so they are cleared out here. A starter the
+ * baker actually used is kept and becomes theirs rather than being deleted.
+ */
+function reconcileRecipes(saved, base) {
+  const house = base.recipes.find((r) => r.origin === 'house');
+  const list = Array.isArray(saved.recipes) ? saved.recipes : [];
+  if (!list.length) return base.recipes;
+
+  const usedIds = new Set((saved.bakes || []).map((b) => b.recipeId).filter(Boolean));
+  const kept = list
+    .filter((r) => r && r.id && (r.origin !== 'starter' || usedIds.has(r.id)))
+    .map((r) => normaliseRecipe(r.origin === 'starter' ? { ...r, origin: 'user' } : r));
+
+  if (!kept.some((r) => r.origin === 'house')) kept.push(house);
+  return kept;
+}
+
+/**
+ * Fill in anything a recipe is missing.
+ * Recipes now arrive from downloaded JSON, share links and older versions of
+ * the app, so a missing field must not be able to take a screen down.
+ */
+export function normaliseRecipe(r) {
+  return {
+    origin: 'user',
+    name: 'Untitled recipe',
+    createdAt: new Date().toISOString(),
+    notes: '',
+    plan: null,
+    ...r,
+    recipe: { ...DEFAULT_RECIPE, ...(r.recipe || {}) },
+    schedule: { ...DEFAULT_SCHEDULE, ...(r.schedule || {}) },
   };
 }
 
@@ -177,10 +214,11 @@ export function resetAll() {
 const now = () => new Date().toISOString();
 
 export function addRecipe(recipe) {
+  const safe = { ...normaliseRecipe(recipe), updatedAt: now() };
   update((s) => {
-    s.recipes.unshift({ ...recipe, updatedAt: now() });
+    s.recipes.unshift(safe);
   });
-  return recipe;
+  return safe;
 }
 
 export function updateRecipe(id, patch) {
@@ -208,6 +246,8 @@ export function loadRecipeInto(s, recipe) {
   s.current.title = recipe.name;
   s.current.recipe = JSON.parse(JSON.stringify(recipe.recipe));
   s.current.schedule = JSON.parse(JSON.stringify(recipe.schedule));
+  // The maturation slider belongs to the recipe, not to the session.
+  s.current.leadHours = recipe.plan?.totalHours ?? null;
   s.current.done = [];
   s.current.actuals = { ...EMPTY_ACTUALS };
   s.current.scores = { ...EMPTY_SCORES };
@@ -222,18 +262,34 @@ export function activateRecipe(id) {
   });
 }
 
-/** Write the current session's edits back onto the recipe it came from. */
-export function saveCurrentToRecipe() {
+/**
+ * Change the dough you are working on. The edit is mirrored onto the saved
+ * recipe immediately, so there is no separate save step and no way for the
+ * name in the list to drift from the name in the field.
+ */
+export function editCurrent(fn) {
   return update((s) => {
+    fn(s.current);
     const i = s.recipes.findIndex((r) => r.id === s.current.recipeId);
-    if (i >= 0) {
-      s.recipes[i] = {
-        ...s.recipes[i],
-        name: s.current.title,
-        recipe: JSON.parse(JSON.stringify(s.current.recipe)),
-        schedule: JSON.parse(JSON.stringify(s.current.schedule)),
-      };
-    }
+    if (i < 0) return;
+    s.recipes[i] = {
+      ...s.recipes[i],
+      name: s.current.title,
+      recipe: JSON.parse(JSON.stringify(s.current.recipe)),
+      schedule: JSON.parse(JSON.stringify(s.current.schedule)),
+      updatedAt: new Date().toISOString(),
+    };
+  });
+}
+
+/** Put the house protocol back exactly as shipped. */
+export function restoreHouseRecipe() {
+  const fresh = houseRecipe();
+  return update((s) => {
+    const i = s.recipes.findIndex((r) => r.id === fresh.id);
+    if (i >= 0) s.recipes[i] = fresh;
+    else s.recipes.unshift(fresh);
+    loadRecipeInto(s, fresh);
   });
 }
 

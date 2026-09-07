@@ -10,10 +10,20 @@ a record of what you actually baked, so you can tell which permutation was bette
 
 ## Five screens
 
-**Recipe.** The dough you are making, all in one place. Pick a flour or blend a few and
-the app proposes hydration, phase times and inoculation from that flour's published
-strength and maturation window. Create, duplicate, edit and delete your own recipes, and
-share one as a link. Every recipe carries the average score of the bakes filed against it.
+**Recipe.** One preset ships, the house protocol. Everything else you build.
+
+The screen works inputs to outputs. **Your recipes** lists what is stored, with load,
+duplicate, download as JSON, share as a link and delete on each, plus a download of the
+lot. **Inputs** is what you have and what you want: the flour or blend, how much dough,
+your fridge and room temperatures, and how long you want it to mature. Recompute, and the
+engine works out the hydration, the biga ratios, the inoculation and the length of every
+phase, which in turn become the 19-step protocol. Everything it produced stays editable
+afterwards if you want to override it.
+
+Creating from scratch walks the same five inputs and previews what they give you before
+anything is saved. Edits save onto the selected recipe as you make them, so the name in
+the list is always the name in the field. Every recipe carries the average score of the
+bakes filed against it.
 
 Fermentation is the heart of it. Every phase reduces to *fermentation units*, one FU being
 an hour at 20 °C. That is what makes two schedules comparable: 66 hours at 37 °F and

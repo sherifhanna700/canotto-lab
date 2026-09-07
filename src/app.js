@@ -1,16 +1,16 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe } from './lib/store.js?v=e573b96c';
-import { readRecipeLink } from './lib/share.js?v=e573b96c';
-import { h, clear, $, icon } from './lib/ui.js?v=e573b96c';
-import { computeRecipe } from './model/dough.js?v=e573b96c';
-import { solveSchedule, activeSteps } from './model/protocol.js?v=e573b96c';
+import { load, subscribe, update, addRecipe } from './lib/store.js?v=073bb50c';
+import { readRecipeLink } from './lib/share.js?v=073bb50c';
+import { h, clear, $, icon } from './lib/ui.js?v=073bb50c';
+import { computeRecipe } from './model/dough.js?v=073bb50c';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=073bb50c';
 
-import renderRecipe from './views/recipe.js?v=e573b96c';
-import renderProtocol from './views/protocol.js?v=e573b96c';
-import renderBake from './views/bake.js?v=e573b96c';
-import renderLog from './views/log.js?v=e573b96c';
-import renderSetup from './views/setup.js?v=e573b96c';
+import renderRecipe from './views/recipe.js?v=073bb50c';
+import renderProtocol from './views/protocol.js?v=073bb50c';
+import renderBake from './views/bake.js?v=073bb50c';
+import renderLog from './views/log.js?v=073bb50c';
+import renderSetup from './views/setup.js?v=073bb50c';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
@@ -141,13 +141,12 @@ window.addEventListener('hashchange', () => {
   addRecipe({
     id: `r${Date.now().toString(36)}`,
     name: incoming.name || 'Shared recipe',
-    style: incoming.style || 'canotto',
-    origin: 'shared',
+    origin: 'user',
     derivedFrom: null,
     createdAt: new Date().toISOString(),
     notes: incoming.notes || '',
-    recipe: { ...s.current.recipe, ...incoming.recipe },
-    schedule: { ...s.current.schedule, ...incoming.schedule },
+    recipe: incoming.recipe,
+    schedule: incoming.schedule,
     plan: null,
   });
   history.replaceState(null, '', location.pathname);
@@ -156,6 +155,12 @@ window.addEventListener('hashchange', () => {
 
 const foot = document.querySelector('.foot p');
 if (foot) foot.textContent = `${foot.textContent} Build ${BUILD}.`;
+
+// A throw inside a click handler never reaches the caller, so it would
+// otherwise look like a button that simply does nothing.
+window.addEventListener('error', (e) => {
+  console.error('Canotto Lab:', e.message);
+});
 
 subscribe(() => render());
 render();

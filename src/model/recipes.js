@@ -5,10 +5,10 @@
 // it scored. Pick a flour, take the suggested defaults, name it, and it
 // becomes yours to edit and to score.
 
-import { DEFAULT_RECIPE } from './dough.js?v=e573b96c';
-import { DEFAULT_SCHEDULE } from './protocol.js?v=e573b96c';
-import { blendStats, blendLabel } from './flours.js?v=e573b96c';
-import { suggestPlan, defaultLeadHours } from './advisor.js?v=e573b96c';
+import { DEFAULT_RECIPE } from './dough.js?v=073bb50c';
+import { DEFAULT_SCHEDULE } from './protocol.js?v=073bb50c';
+import { blendStats, blendLabel } from './flours.js?v=073bb50c';
+import { suggestPlan, defaultLeadHours } from './advisor.js?v=073bb50c';
 
 export const SCORE_KEYS = [
   { key: 'canotto', label: 'Canotto height', hint: '1 flat, 5 massive' },
@@ -100,13 +100,13 @@ export function houseRecipe() {
   };
 }
 
-/** The house protocol plus two variations worth trying against it. */
+/**
+ * One preset, and one only: the house protocol. Everything else is either
+ * built from scratch by picking a flour, or duplicated from something that
+ * already exists.
+ */
 export function starterRecipes() {
-  const gen = [
-    { flours: [{ id: 'caputo-nuvola-super', pct: 100, stage: 'blend' }], name: 'Nuvola Super, 72 hour' },
-    { flours: [{ id: 'caputo-cuoco', pct: 85, stage: 'blend' }, { id: 'caputo-semola', pct: 15, stage: 'blend' }], name: 'Cuoco and semola, 72 hour' },
-  ].map((spec) => ({ ...recipeFromBlend(spec.flours, { name: spec.name }), origin: 'starter' }));
-  return [houseRecipe(), ...gen];
+  return [houseRecipe()];
 }
 
 /* ------------------------------- scoring -------------------------------- */

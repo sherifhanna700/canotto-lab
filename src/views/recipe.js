@@ -1,142 +1,358 @@
 // Recipe: which dough you are making, and all its numbers in one place.
+//
+// Only the house protocol ships as a preset. Everything else is built from
+// scratch by picking a flour, or duplicated from something that already exists.
+// Edits save straight onto the selected recipe, so there is no save step and
+// the name in the list is always the name in the field.
 
-import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=e573b96c';
-import { update, addRecipe, deleteRecipe, activateRecipe, saveCurrentToRecipe } from '../lib/store.js?v=e573b96c';
-import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, stageFlourLabel } from '../model/dough.js?v=e573b96c';
-import { floursByCountry, hydrationRangeForW } from '../model/flours.js?v=e573b96c';
-import { scheduleStages } from '../model/protocol.js?v=e573b96c';
-import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, waterTempFor } from '../model/ferment.js?v=e573b96c';
-import { suggestPlan, reviewPlan } from '../model/advisor.js?v=e573b96c';
-import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js?v=e573b96c';
-import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=e573b96c';
-import { recipeLink, copyText } from '../lib/share.js?v=e573b96c';
-import { findMixer, mixerLabel } from '../model/equipment.js?v=e573b96c';
-import { tempField, tempDeltaField, ratingBadge, stars } from './common.js?v=e573b96c';
+import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=073bb50c';
+import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download } from '../lib/store.js?v=073bb50c';
+import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=073bb50c';
+import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=073bb50c';
+import { scheduleStages, solveSchedule } from '../model/protocol.js?v=073bb50c';
+import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, waterTempFor } from '../model/ferment.js?v=073bb50c';
+import { suggestPlan, reviewPlan, defaultLeadHours } from '../model/advisor.js?v=073bb50c';
+import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js?v=073bb50c';
+import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=073bb50c';
+import { recipeLink, copyText } from '../lib/share.js?v=073bb50c';
+import { findMixer, mixerLabel } from '../model/equipment.js?v=073bb50c';
+import { tempField, tempDeltaField, ratingBadge, stars } from './common.js?v=073bb50c';
+import { go } from '../app.js?v=073bb50c';
 
-const setRecipe = (patch) => update((s) => Object.assign(s.current.recipe, patch));
-const setSchedule = (patch) => update((s) => Object.assign(s.current.schedule, patch));
+const setRecipe = (patch) => editCurrent((c) => Object.assign(c.recipe, patch));
+const setSchedule = (patch) => editCurrent((c) => Object.assign(c.schedule, patch));
 
 export default function renderRecipe(ctx) {
-  return [pickerCard(ctx), flourCard(ctx), doughCard(ctx), timingCard(ctx), weighCard(ctx)];
+  if (ctx.s.ui?.creating) return [createCard(ctx)];
+  return [managerCard(ctx), inputsCard(ctx), doughCard(ctx), timingCard(ctx), weighCard(ctx)];
 }
 
-/* -------------------------------- picker -------------------------------- */
-
-function pickerCard(ctx) {
-  const { s } = ctx;
-  const active = s.recipes.find((r) => r.id === s.current.recipeId) || s.recipes[0];
-  const rating = active ? recipeRating(active.id, s.bakes) : null;
-
-  return card(
-    'Recipe',
-    'Everything below belongs to this one. Save it, or duplicate it before you change things.',
-    h(
-      'div',
-      { class: 'row' },
-      selectField({
-        label: 'Working on',
-        value: s.current.recipeId,
-        options: s.recipes.map((r) => ({ value: r.id, label: r.name })),
-        onChange: (v) => { activateRecipe(v); toast('Loaded'); },
-      }),
-      textField({ label: 'Name', value: s.current.title, onInput: (v) => update((st) => { st.current.title = v; }) })
-    ),
-    rating ? h('div', { class: 'row tight' }, ratingBadge(rating), rating.average ? stars(rating.average) : null) : null,
-    h(
-      'div',
-      { class: 'item-actions' },
-      h('button', { class: 'btn small', onClick: () => { saveCurrentToRecipe(); toast('Saved'); } }, icon('save'), 'Save changes'),
-      h('button', { class: 'btn ghost small', onClick: () => duplicate(ctx, active) }, icon('content_copy'), 'Duplicate'),
-      h('button', { class: 'btn ghost small', onClick: () => newFromFlour(ctx) }, icon('add'), 'New from this flour'),
-      active ? h('button', { class: 'btn ghost small', onClick: async () => { const ok = await copyText(recipeLink(active)); toast(ok ? 'Link copied' : 'Could not copy'); } }, icon('link'), 'Share link') : null,
-      active && active.origin !== 'house' && s.recipes.length > 1
-        ? h('button', { class: 'btn ghost small', onClick: () => confirmDialog(`Delete ${active.name}? Bakes logged against it are kept.`, () => { deleteRecipe(active.id); toast('Deleted'); }, 'Delete') }, icon('delete'), 'Delete')
-        : null
-    )
-  );
+/** Maturation a schedule currently spans, so the slider has a starting value. */
+function leadHoursOf(S) {
+  const benchHours = (S.finalMixMin + S.benchRest1Min + S.benchRest2Min + 5 + S.oilRestMin + S.ballingMin) / 60;
+  return Math.round(S.bigaRestHours + S.bigaColdHours + benchHours + S.coldProofHours + S.temperHours);
 }
 
-function duplicate(ctx, active) {
-  if (!active) return;
-  const copy = deriveRecipe(active, { name: `${ctx.s.current.title} v2` });
-  copy.recipe = JSON.parse(JSON.stringify(ctx.s.current.recipe));
-  copy.schedule = JSON.parse(JSON.stringify(ctx.s.current.schedule));
-  addRecipe(copy);
-  activateRecipe(copy.id);
-  toast('Duplicated. Change what you like.');
+function recipeFileName(r) {
+  return `${(r.name || 'recipe').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.json`;
 }
 
-function newFromFlour(ctx) {
-  const r = recipeFromBlend(ctx.s.current.recipe.flours, {
-    balls: ctx.s.current.recipe.balls,
-    ballWeight: ctx.s.current.recipe.ballWeight,
-    roomTempC: ctx.S.roomTempC,
-    fridgeTempC: ctx.S.fridgeTempC,
-    model: ctx.model,
-    origin: 'user',
-  });
-  addRecipe(r);
-  activateRecipe(r.id);
-  toast('Built from the published figures for this flour');
-}
-
-/* -------------------------------- flour --------------------------------- */
-
-function flourCard(ctx) {
-  const { s, c, S } = ctx;
-  const flours = s.current.recipe.flours;
-  const blend = c.blend;
-  const groups = floursByCountry().map((g) => ({
+const flourGroups = () =>
+  floursByCountry().map((g) => ({
     label: g.label,
     options: g.list.map((f) => ({ value: f.id, label: `${f.brand} ${f.name}${f.w ? ` · W ${f.w}` : ''}` })),
   }));
 
-  const plan = suggestPlan(blend, { flours, roomTempC: S.roomTempC, fridgeTempC: S.fridgeTempC, model: ctx.model });
+/* ------------------------------ new recipe ------------------------------ */
 
-  const rows = flours.map((entry, i) =>
+function blank(s) {
+  return {
+    name: '',
+    flours: [{ id: 'caputo-cuoco', pct: 100, stage: 'blend' }],
+    balls: s.current.recipe.balls,
+    ballWeight: s.current.recipe.ballWeight,
+    frozenBalls: 0,
+    fridgeTempC: s.current.schedule.fridgeTempC,
+    roomTempC: s.current.schedule.roomTempC,
+    totalHours: null,
+  };
+}
+
+function draft(s) {
+  if (!s.ui) s.ui = {};
+  if (!s.ui.draft) s.ui.draft = blank(s);
+  return s.ui.draft;
+}
+
+function createCard(ctx) {
+  const { s, u } = ctx;
+  const d = draft(s);
+  const blend = blendStats(d.flours);
+  const lead = d.totalHours ?? defaultLeadHours(blend);
+  const plan = suggestPlan(blend, {
+    flours: d.flours,
+    totalHours: lead,
+    roomTempC: d.roomTempC,
+    fridgeTempC: d.fridgeTempC,
+    model: ctx.model,
+  });
+  const window = blend.ferment || [12, 96];
+  const setDraft = (patch) => update((st) => Object.assign(draft(st), patch));
+
+  const flourRows = d.flours.map((entry, i) =>
     h(
       'div',
       { class: 'row tight', style: { alignItems: 'flex-end' } },
       h('div', { style: { flex: '1 1 200px' } }, selectField({
         label: i === 0 ? 'Flour' : `Flour ${i + 1}`,
         value: entry.id,
-        groups,
-        onChange: (v) => update((st) => { st.current.recipe.flours[i].id = v; }),
+        groups: flourGroups(),
+        onChange: (v) => update((st) => { draft(st).flours[i].id = v; }),
       })),
       h('div', { style: { flex: '0 0 88px' } }, numberField({
         label: 'Share', value: entry.pct, min: 0, max: 100, suffix: '%',
-        onInput: (v) => update((st) => { st.current.recipe.flours[i].pct = v ?? 0; }),
+        onInput: (v) => update((st) => { draft(st).flours[i].pct = v ?? 0; }),
       })),
-      flours.length > 1
-        ? h('div', { style: { flex: '0 0 auto' } },
-            h('button', { class: 'btn ghost small', title: 'Remove', onClick: () => update((st) => { st.current.recipe.flours.splice(i, 1); }) }, icon('close')))
+      d.flours.length > 1
+        ? h('div', { style: { flex: '0 0 auto' } }, h('button', { class: 'btn ghost small', onClick: () => update((st) => { draft(st).flours.splice(i, 1); }) }, icon('close')))
         : null
     )
   );
 
   return card(
-    'Flour',
-    'Strength sets what the dough can carry. Blend as many as you like.',
-    ...rows,
+    'New recipe',
+    'Tell it what you have. It works out the ratios, the timings and the protocol.',
+
+    h('h3', { style: { fontSize: '.86rem' } }, '1. Name it'),
+    textField({ label: 'Recipe name', value: d.name, placeholder: `${blendLabel(d.flours)}, ${Math.round(lead)} hour`, onInput: (v) => setDraft({ name: v }) }),
+
+    h('h3', { style: { fontSize: '.86rem', marginTop: '4px' } }, '2. Pick the flour'),
+    ...flourRows,
     h(
       'div',
       { class: 'row tight' },
-      h('button', { class: 'btn ghost small', onClick: () => update((st) => { st.current.recipe.flours.push({ id: 'caputo-semola', pct: 10, stage: 'blend' }); }) }, icon('add'), 'Blend in another'),
+      h('button', { class: 'btn ghost small', onClick: () => update((st) => { draft(st).flours.push({ id: 'caputo-semola', pct: 10, stage: 'blend' }); }) }, icon('add'), 'Blend in another'),
+      !blend.valid ? pill(`Shares total ${blend.total}%`, 'warn') : null
+    ),
+
+    h('h3', { style: { fontSize: '.86rem', marginTop: '4px' } }, '3. How much dough'),
+    h(
+      'div',
+      { class: 'row' },
+      numberField({ label: 'Dough balls', value: d.balls, min: 1, max: 60, onInput: (v) => setDraft({ balls: v ?? 1 }) }),
+      numberField({ label: 'Ball weight', value: d.ballWeight, min: 100, max: 500, step: 5, suffix: 'g', onInput: (v) => setDraft({ ballWeight: v ?? 250 }) }),
+      numberField({ label: 'For the freezer', value: d.frozenBalls, min: 0, max: d.balls, onInput: (v) => setDraft({ frozenBalls: Math.min(v ?? 0, d.balls) }) })
+    ),
+
+    h('h3', { style: { fontSize: '.86rem', marginTop: '4px' } }, '4. Your temperatures'),
+    h(
+      'div',
+      { class: 'row' },
+      tempField({ label: 'Cold ferment', valueC: d.fridgeTempC, unit: u, step: 1, hint: 'Whatever your fridge holds', onChange: (v) => setDraft({ fridgeTempC: v }) }),
+      tempField({ label: 'Room temperature', valueC: d.roomTempC, unit: u, step: 1, hint: 'Where the biga rests and the balls temper', onChange: (v) => setDraft({ roomTempC: v }) })
+    ),
+
+    h('h3', { style: { fontSize: '.86rem', marginTop: '4px' } }, '5. How long'),
+    sliderField({
+      label: 'Total maturation',
+      value: lead,
+      min: Math.max(2, window[0]),
+      max: Math.max(window[1], window[0] + 12),
+      step: 1,
+      format: (v) => `${v} h`,
+      onInput: (v) => setDraft({ totalHours: v }),
+    }),
+    h('p', { class: 'hint', style: { fontSize: '.72rem', marginTop: '-6px' } }, blend.fermentSourced ? `Published window for this flour is ${window[0]} to ${window[1]} hours.` : `No published window, so the ${blend.band?.label || 'W band'} guide applies: ${window[0]} to ${window[1]} hours.`),
+
+    h('h3', { style: { fontSize: '.86rem', marginTop: '4px' } }, 'What that gives you'),
+    h(
+      'div',
+      { class: 'stats' },
+      stat('Strength', blend.w ? `W ${blend.w}` : '—', blend.estimated ? 'estimated' : 'published'),
+      stat('Hydration', `${plan.hydration.recommended}%`, `${plan.hydration.low} to ${plan.hydration.high}%`),
+      stat('Inoculation', `${plan.idyPct.toFixed(3)}%`, 'instant dry'),
+      stat('Biga', '45% hydration', 'all the flour')
+    ),
+    h(
+      'div',
+      { class: 'table-wrap' },
+      h(
+        'table',
+        {},
+        h('thead', {}, h('tr', {}, h('th', {}, 'Phase'), h('th', { class: 'num' }, 'Hours'), h('th', { class: 'num' }, 'Temperature'))),
+        h('tbody', {}, ...plan.stages.map((st) => h('tr', {}, h('td', {}, st.name), h('td', { class: 'num' }, fmtDuration(st.hours)), h('td', { class: 'num' }, fmtTemp(st.tempC, u)))))
+      )
+    ),
+    h('p', { class: 'note neutral' }, 'These phases become the 19-step protocol, with clock times solved backwards from when you want the first pizza on the deck. Every number stays editable afterwards.'),
+
+    h(
+      'div',
+      { class: 'row tight' },
+      h('button', { class: 'btn', onClick: () => create(ctx, d, lead) }, icon('check'), 'Create recipe'),
+      h('button', { class: 'btn ghost', onClick: () => update((st) => { st.ui.creating = false; st.ui.draft = null; }) }, 'Cancel')
+    )
+  );
+}
+
+function create(ctx, d, lead) {
+  const blend = blendStats(d.flours);
+  if (!blend.valid) {
+    toast('Flour shares need to add up to 100%');
+    return;
+  }
+  const recipe = recipeFromBlend(d.flours, {
+    name: d.name.trim() || undefined,
+    totalHours: lead,
+    balls: d.balls,
+    ballWeight: d.ballWeight,
+    frozenBalls: d.frozenBalls,
+    roomTempC: d.roomTempC,
+    fridgeTempC: d.fridgeTempC,
+    model: ctx.model,
+    origin: 'user',
+  });
+  addRecipe(recipe);
+  activateRecipe(recipe.id);
+  update((st) => { st.ui.creating = false; st.ui.draft = null; });
+  toast(`${recipe.name} created. The protocol is built from it.`);
+}
+
+/* ------------------------------- manager -------------------------------- */
+
+function managerCard(ctx) {
+  const { s, u } = ctx;
+
+  return card(
+    'Your recipes',
+    `${s.recipes.length} stored in this browser. Only the house protocol ships with the app.`,
+    h(
+      'div',
+      { class: 'row tight' },
+      h('button', { class: 'btn small', onClick: () => update((st) => { st.ui = { ...st.ui, creating: true, draft: null }; }) }, icon('add'), 'New recipe'),
+      h('button', { class: 'btn ghost small', onClick: () => download('canotto-recipes.json', JSON.stringify({ recipes: s.recipes }, null, 2)) }, icon('download'), 'Download all')
+    ),
+    h('div', { class: 'list' }, ...s.recipes.map((r) => recipeRow(ctx, r)))
+  );
+}
+
+function recipeRow(ctx, r) {
+  const { s, u } = ctx;
+  const isActive = r.id === s.current.recipeId;
+  const isHouse = r.origin === 'house';
+  const rating = recipeRating(r.id, s.bakes);
+  const c = computeRecipe(r.recipe);
+
+  return h(
+    'div',
+    { class: `item${isActive ? ' active' : ''}` },
+    h(
+      'div',
+      { class: 'item-head' },
+      h(
+        'div',
+        {},
+        h('div', { class: 'item-title' }, r.name),
+        h('div', { class: 'item-sub' }, `${c.flourLabel}${c.blend.w ? ` · W ${c.blend.w}` : ''}`)
+      ),
+      h('div', { style: { textAlign: 'right' } }, isActive ? pill('Loaded', 'accent') : ratingBadge(rating), rating.average ? h('div', {}, stars(rating.average)) : null)
+    ),
+    h('div', { class: 'item-sub' }, `${r.recipe.hydrationPct}% hydration · ${r.recipe.baseYeastPct}% ${r.recipe.yeastType.toUpperCase()} · ${fmtDuration(r.schedule.coldProofHours)} cold proof at ${fmtTemp(r.schedule.fridgeTempC, u)} · ${r.recipe.balls} × ${r.recipe.ballWeight} g`),
+    isHouse ? h('div', {}, pill('House protocol', 'neutral')) : null,
+    h(
+      'div',
+      { class: 'item-actions' },
+      isActive
+        ? h('button', { class: 'btn ghost small', onClick: () => go('protocol') }, icon('checklist'), 'Open protocol')
+        : h('button', { class: 'btn small', onClick: () => { activateRecipe(r.id); toast(`${r.name} loaded`); } }, icon('play_arrow'), 'Load'),
+      h('button', { class: 'btn ghost small', onClick: () => duplicate(ctx, r) }, icon('content_copy'), 'Duplicate'),
+      h('button', { class: 'btn ghost small', onClick: () => download(recipeFileName(r), JSON.stringify(r, null, 2)) }, icon('download'), 'JSON'),
+      h('button', { class: 'btn ghost small', onClick: async () => { const ok = await copyText(recipeLink(r)); toast(ok ? 'Link copied' : 'Could not copy'); } }, icon('link'), 'Share'),
+      isHouse
+        ? h('button', { class: 'btn ghost small', onClick: () => confirmDialog('Put the house protocol back exactly as shipped? Your edits to it are lost.', () => { restoreHouseRecipe(); toast('Restored'); }, 'Restore') }, icon('restart_alt'), 'Restore')
+        : h('button', { class: 'btn ghost small', onClick: () => confirmDialog(`Delete ${r.name}? Bakes logged against it are kept.`, () => { deleteRecipe(r.id); toast('Deleted'); }, 'Delete') }, icon('delete'), 'Delete')
+    )
+  );
+}
+
+function duplicate(ctx, source) {
+  const base = source || ctx.s.recipes.find((r) => r.id === ctx.s.current.recipeId);
+  if (!base) return;
+  const isActive = base.id === ctx.s.current.recipeId;
+  const copy = deriveRecipe(base, { name: `${base.name} v2` });
+  if (isActive) {
+    // Carry across edits that have not been reflected back yet.
+    copy.recipe = JSON.parse(JSON.stringify(ctx.s.current.recipe));
+    copy.schedule = JSON.parse(JSON.stringify(ctx.s.current.schedule));
+  }
+  addRecipe(copy);
+  activateRecipe(copy.id);
+  toast('Duplicated and loaded. Change what you like.');
+}
+
+/* -------------------------------- inputs -------------------------------- */
+
+function inputsCard(ctx) {
+  const { s, u, S, c } = ctx;
+  const r = s.current.recipe;
+  const blend = c.blend;
+  const lead = s.current.leadHours ?? leadHoursOf(S);
+  const plan = suggestPlan(blend, {
+    flours: r.flours,
+    totalHours: lead,
+    roomTempC: S.roomTempC,
+    fridgeTempC: S.fridgeTempC,
+    model: ctx.model,
+  });
+  const window = blend.ferment || [12, 96];
+
+  const flourRows = r.flours.map((entry, i) =>
+    h(
+      'div',
+      { class: 'row tight', style: { alignItems: 'flex-end' } },
+      h('div', { style: { flex: '1 1 200px' } }, selectField({
+        label: i === 0 ? 'Flour' : `Flour ${i + 1}`,
+        value: entry.id,
+        groups: flourGroups(),
+        onChange: (v) => editCurrent((cc) => { cc.recipe.flours[i].id = v; }),
+      })),
+      h('div', { style: { flex: '0 0 88px' } }, numberField({
+        label: 'Share', value: entry.pct, min: 0, max: 100, suffix: '%',
+        onInput: (v) => editCurrent((cc) => { cc.recipe.flours[i].pct = v ?? 0; }),
+      })),
+      r.flours.length > 1
+        ? h('div', { style: { flex: '0 0 auto' } }, h('button', { class: 'btn ghost small', onClick: () => editCurrent((cc) => { cc.recipe.flours.splice(i, 1); }) }, icon('close')))
+        : null
+    )
+  );
+
+  return card(
+    'Inputs',
+    'What you have and what you want. Everything below this card is worked out from these.',
+    textField({ label: 'Recipe name', value: s.current.title, onInput: (v) => editCurrent((cc) => { cc.title = v; }) }),
+    ...flourRows,
+    h(
+      'div',
+      { class: 'row tight' },
+      h('button', { class: 'btn ghost small', onClick: () => editCurrent((cc) => { cc.recipe.flours.push({ id: 'caputo-semola', pct: 10, stage: 'blend' }); }) }, icon('add'), 'Blend in another'),
       !blend.valid ? pill(`Shares total ${blend.total}%`, 'warn') : null
     ),
     h(
       'div',
+      { class: 'row' },
+      numberField({ label: 'Dough balls', value: r.balls, min: 1, max: 60, onInput: (v) => setRecipe({ balls: v ?? 1, frozenBalls: Math.min(r.frozenBalls, v ?? 1) }) }),
+      numberField({ label: 'Ball weight', value: r.ballWeight, min: 100, max: 500, step: 5, suffix: 'g', onInput: (v) => setRecipe({ ballWeight: v ?? 250 }) }),
+      numberField({ label: 'For the freezer', value: r.frozenBalls, min: 0, max: r.balls, onInput: (v) => setRecipe({ frozenBalls: Math.min(v ?? 0, r.balls) }) })
+    ),
+    h(
+      'div',
+      { class: 'row' },
+      tempField({ label: 'Cold ferment temperature', valueC: S.fridgeTempC, unit: u, step: 1, hint: 'Whatever your fridge holds', onChange: (v) => setSchedule({ fridgeTempC: v, bigaFridgeTempC: v }) }),
+      tempField({ label: 'Room temperature', valueC: S.roomTempC, unit: u, step: 1, hint: 'Where the biga rests and the balls temper', onChange: (v) => setSchedule({ roomTempC: v, bigaRoomTempC: v }) })
+    ),
+    sliderField({
+      label: 'Total maturation',
+      value: lead,
+      min: Math.max(2, window[0]),
+      max: Math.max(window[1], window[0] + 12),
+      step: 1,
+      format: (v) => `${v} h`,
+      onInput: (v) => update((st) => { st.current.leadHours = v; }),
+    }),
+    h('p', { class: 'hint', style: { fontSize: '.72rem', marginTop: '-6px' } }, blend.fermentSourced ? `Published window for this flour is ${window[0]} to ${window[1]} hours.` : `No published window, so the ${blend.band?.label || 'W band'} guide applies: ${window[0]} to ${window[1]} hours.`),
+    h(
+      'div',
       { class: 'stats' },
       stat('Strength', blend.w ? `W ${blend.w}` : '—', blend.estimated ? 'estimated from protein' : 'published'),
-      stat('Maturation window', blend.ferment ? `${blend.ferment[0]}–${blend.ferment[1]} h` : '—', blend.fermentSourced ? 'published' : 'from the W band'),
-      stat('Suggested hydration', plan.hydration ? `${plan.hydration.recommended}%` : '—', plan.hydration ? `${plan.hydration.low} to ${plan.hydration.high}%` : ''),
-      stat('Suggested yeast', `${plan.idyPct.toFixed(3)}%`, `for ${Math.round(plan.totalHours)} h`)
+      stat('Would give hydration', `${plan.hydration.recommended}%`, `${plan.hydration.low} to ${plan.hydration.high}%`),
+      stat('Would give yeast', `${plan.idyPct.toFixed(3)}%`, 'instant dry'),
+      stat('Would give cold proof', fmtDuration(plan.schedule.coldProofHours), `at ${fmtTemp(S.fridgeTempC, u)}`)
     ),
     h('p', { class: 'note neutral' }, `${plan.band.label}. ${plan.band.blurb}${blend.estimated ? ' W is estimated from protein, not published.' : ''}`),
     h(
       'div',
       { class: 'row tight' },
-      h('button', { class: 'btn tonal small', onClick: () => { update((st) => { Object.assign(st.current.recipe, plan.recipePatch); Object.assign(st.current.schedule, plan.schedule); }); toast('Applied'); } }, icon('auto_awesome'), 'Use these suggestions')
+      h('button', { class: 'btn', onClick: () => { editCurrent((cc) => { Object.assign(cc.recipe, plan.recipePatch); Object.assign(cc.schedule, plan.schedule); }); toast('Recomputed. The protocol follows these numbers.'); } }, icon('auto_awesome'), 'Recompute from these inputs'),
+      h('button', { class: 'btn ghost', onClick: () => go('protocol') }, icon('checklist'), 'See the protocol')
     )
   );
 }
@@ -149,15 +365,8 @@ function doughCard(ctx) {
   const range = hydrationRangeForW(c.blend.w, 2);
 
   return card(
-    'Dough',
-    "Baker's percentages against total flour.",
-    h(
-      'div',
-      { class: 'row' },
-      numberField({ label: 'Dough balls', value: r.balls, min: 1, max: 60, onInput: (v) => setRecipe({ balls: v ?? 1, frozenBalls: Math.min(r.frozenBalls, v ?? 1) }) }),
-      numberField({ label: 'Ball weight', value: r.ballWeight, min: 100, max: 500, step: 5, suffix: 'g', onInput: (v) => setRecipe({ ballWeight: v ?? 250 }) }),
-      numberField({ label: 'For the freezer', value: r.frozenBalls, min: 0, max: r.balls, onInput: (v) => setRecipe({ frozenBalls: Math.min(v ?? 0, r.balls) }) })
-    ),
+    'Ratios',
+    "Baker's percentages against total flour. Recomputing overwrites these; edit them afterwards to override.",
     sliderField({ label: 'Hydration', value: r.hydrationPct, min: 55, max: 85, step: 0.5, format: (v) => `${v}%`, onInput: (v) => setRecipe({ hydrationPct: v }) }),
     range ? h('p', { class: 'hint', style: { fontSize: '.72rem', marginTop: '-6px' } }, `Guide for this flour is ${range.low} to ${range.high}%.`) : null,
     h(
@@ -197,14 +406,8 @@ function timingCard(ctx) {
   const review = reviewPlan({ blend: c.blend, stages, idyPct: idy, model: ctx.model });
 
   return card(
-    'Time and temperature',
-    'Each phase is reduced to fermentation units, so two schedules can be compared directly.',
-    h(
-      'div',
-      { class: 'row' },
-      tempField({ label: 'Cold ferment temperature', valueC: S.fridgeTempC, unit: u, step: 1, hint: 'Your fridge. The biggest lever on timing.', onChange: (v) => setSchedule({ fridgeTempC: v, bigaFridgeTempC: v }) }),
-      tempField({ label: 'Room temperature', valueC: S.roomTempC, unit: u, step: 1, onChange: (v) => setSchedule({ roomTempC: v, bigaRoomTempC: v }) })
-    ),
+    'Phases',
+    `Each phase reduces to fermentation units at your temperatures, so two schedules can be compared directly. Cold phases run at ${fmtTemp(S.fridgeTempC, u)}.`,
     h(
       'div',
       { class: 'row' },
