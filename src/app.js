@@ -1,17 +1,17 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe } from './lib/store.js?v=b05e27a1';
-import { readRecipeLink } from './lib/share.js?v=b05e27a1';
-import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=b05e27a1';
-import { h, clear, $, icon } from './lib/ui.js?v=b05e27a1';
-import { computeRecipe } from './model/dough.js?v=b05e27a1';
-import { solveSchedule, activeSteps } from './model/protocol.js?v=b05e27a1';
+import { load, subscribe, update, addRecipe } from './lib/store.js?v=fe835e90';
+import { readRecipeLink } from './lib/share.js?v=fe835e90';
+import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=fe835e90';
+import { h, $, icon } from './lib/ui.js?v=fe835e90';
+import { computeRecipe } from './model/dough.js?v=fe835e90';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=fe835e90';
 
-import renderRecipe from './views/recipe.js?v=b05e27a1';
-import renderProtocol from './views/protocol.js?v=b05e27a1';
-import renderBake from './views/bake.js?v=b05e27a1';
-import renderLog from './views/log.js?v=b05e27a1';
-import renderSetup from './views/setup.js?v=b05e27a1';
+import renderRecipe from './views/recipe.js?v=fe835e90';
+import renderProtocol from './views/protocol.js?v=fe835e90';
+import renderBake from './views/bake.js?v=fe835e90';
+import renderLog from './views/log.js?v=fe835e90';
+import renderSetup from './views/setup.js?v=fe835e90';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
@@ -162,14 +162,20 @@ export function render() {
   $('#unit-toggle').textContent = `°${ctx.u}`;
   paintThemeButton();
 
-  const main = clear($('#main'));
+  // Build off-document, then swap in one mutation. Replacing children one at a
+  // time lets the browser paint a half-built screen, and leaves it juggling
+  // raster tiles for content that is on its way out.
+  const main = $('#main');
+  const next = document.createDocumentFragment();
   const tab = TABS.find((t) => t.id === activeTab);
   try {
-    for (const node of [tab.render(ctx)].flat()) if (node) main.appendChild(node);
+    for (const node of [tab.render(ctx)].flat()) if (node) next.appendChild(node);
   } catch (err) {
     console.error(err);
-    main.appendChild(h('div', { class: 'card' }, h('div', { class: 'card-body' }, h('p', { class: 'note bad' }, `Something went wrong rendering this screen: ${err.message}`))));
+    next.appendChild(h('div', { class: 'card' }, h('div', { class: 'card-body' }, h('p', { class: 'note bad' }, `Something went wrong rendering this screen: ${err.message}`))));
   }
+  main.replaceChildren(next);
+
   assignKeys(main);
   restoreFocus(main, snap);
 }

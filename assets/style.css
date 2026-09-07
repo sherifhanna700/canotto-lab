@@ -90,15 +90,18 @@ h1, h2, h3, h4 { font-family: 'Fraunces', Georgia, serif; letter-spacing: -.015e
 
 .appbar {
   position: sticky; top: 0; z-index: 20;
+  /*
+   * Deliberately opaque, with no backdrop-filter.
+   *
+   * A blurred backdrop on a sticky element forces the whole scrolling page into
+   * a texture that the compositor re-samples, and on Android that texture is
+   * not always invalidated when the content is replaced. The result is the
+   * previous screen ghosting through the new one for about a second. The blur
+   * bought almost nothing over a 94% opaque bar, so it is gone.
+   */
   background: var(--surface);
-  /* Translucency only where the blur behind it is actually supported;
-     a half-painted backdrop is what makes stale content show through. */
-  backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--outline-variant);
   padding-top: env(safe-area-inset-top, 0px);
-}
-@supports (backdrop-filter: blur(1px)) {
-  .appbar { background: color-mix(in srgb, var(--surface) 94%, transparent); }
 }
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -136,7 +139,12 @@ h1, h2, h3, h4 { font-family: 'Fraunces', Georgia, serif; letter-spacing: -.015e
 
 /* An opaque ground under the cards. Without it, a page that shrinks can leave
    the previous screen's tiles visible underneath until the next repaint. */
-main { max-width: 1080px; margin: 0 auto; padding: 16px 14px 40px; display: grid; gap: 16px; background: var(--surface); }
+/*
+ * An opaque ground under the cards, and no scroll anchoring. Every screen
+ * replaces this element's contents wholesale, and anchoring tries to preserve
+ * the scroll position against content that no longer exists.
+ */
+main { max-width: 1080px; margin: 0 auto; padding: 16px 14px 40px; display: grid; gap: 16px; background: var(--surface); overflow-anchor: none; }
 .foot { max-width: 1080px; margin: 0 auto; padding: 0 16px 32px; }
 .foot p { font-size: .74rem; color: var(--on-surface-variant); }
 
@@ -224,7 +232,9 @@ input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; border-radius
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
 .stat { background: var(--surface-low); border: 1px solid var(--outline-variant); border-radius: 13px; padding: 10px 12px; display: grid; gap: 1px; }
 .stat-label { font-size: .68rem; font-weight: 600; color: var(--on-surface-variant); text-transform: uppercase; letter-spacing: .04em; }
-.stat-value { font-family: 'Fraunces', serif; font-size: 1.22rem; font-weight: 700; color: var(--primary); font-variant-numeric: tabular-nums; }
+.stat-value { font-family: 'Fraunces', serif; font-size: 1.22rem; font-weight: 700; color: var(--primary); font-variant-numeric: tabular-nums; line-height: 1.2; text-wrap: balance; }
+/* A date or a phrase needs more room than a number; shrink rather than stack. */
+.stat-value:not(:has(*)) { font-size: clamp(.95rem, 3.4vw, 1.22rem); }
 .stat-sub { font-size: .7rem; color: var(--on-surface-variant); }
 
 .note { margin: 0; font-size: .78rem; padding: 9px 12px; border-radius: 11px; background: var(--surface-low); color: var(--on-surface-variant); border-left: 3px solid var(--outline); }
@@ -342,7 +352,7 @@ details.foldout[open] summary { margin-bottom: 8px; }
   .card-body { padding: 12px 12px 14px; }
   .card-head { padding: 12px 12px 0; }
   .row { grid-template-columns: repeat(auto-fit, minmax(136px, 1fr)); }
-  .stats { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); }
+  .stats { grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); }
   .brand h1 { font-size: 1.05rem; }
   .brand p { max-width: 40vw; }
   /* The bar is decorative; the count is the information. */

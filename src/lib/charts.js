@@ -235,12 +235,20 @@ export function timelineChart({ segments, height = 130 }) {
   const t0 = Math.min(...segments.map((s) => s.start));
   const t1 = Math.max(...segments.map((s) => s.end));
   const sx = (v) => pad.l + ((v - t0) / (t1 - t0 || 1)) * (W - pad.l - pad.r);
+  // Only label a segment that has room for it. Short phases sit next to each
+  // other, and their start times were overlapping into unreadable mush.
+  const MIN_TICK_GAP = 78;
+  let lastTickEnd = -Infinity;
+
   segments.forEach((s, i) => {
     const x = sx(s.start);
     const w = Math.max(3, sx(s.end) - x);
     root.appendChild(svg('rect', { x, y: pad.t, width: w, height: 34, rx: 6, fill: s.color || SERIES_COLORS[i % SERIES_COLORS.length], class: 'seg' }));
-    if (w > 46) root.appendChild(svg('text', { x: x + w / 2, y: pad.t + 22, class: 'seg-label', 'text-anchor': 'middle' }, s.short));
-    root.appendChild(svg('text', { x: x + 1, y: pad.t + 52, class: 'tick tiny' }, s.tick || ''));
+    if (w > 60) root.appendChild(svg('text', { x: x + w / 2, y: pad.t + 22, class: 'seg-label', 'text-anchor': 'middle' }, s.short));
+    if (s.tick && x >= lastTickEnd) {
+      root.appendChild(svg('text', { x: x + 1, y: pad.t + 52, class: 'tick tiny' }, s.tick));
+      lastTickEnd = x + MIN_TICK_GAP;
+    }
   });
   root.appendChild(svg('text', { x: pad.l, y: 16, class: 'tick tiny' }, segments[0]?.startLabel || ''));
   root.appendChild(svg('text', { x: W - pad.r, y: 16, class: 'tick tiny', 'text-anchor': 'end' }, segments[segments.length - 1]?.endLabel || ''));
