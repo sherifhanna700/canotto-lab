@@ -93,8 +93,14 @@ No build step. It is plain ES modules.
 
 ```sh
 npm run serve     # http://localhost:8080
-npm test          # model tests
+npm test          # stamps the build, then runs the model tests
+npm run stamp     # cache busting only
 ```
+
+`npm run stamp` writes a content hash onto every relative import and onto the entry
+script and stylesheet, so a deploy is a new set of URLs and no browser can serve a
+half-old build. It is idempotent, and `npm test` runs it, so committing after a test run
+is enough. The current build id is shown in the footer of the app.
 
 ## Layout
 
@@ -115,6 +121,7 @@ src/model/            pure logic, no DOM
   diagnostics.js      troubleshooting, with auto-detection
 src/lib/              storage, charts, DOM helpers, sharing, cloud
 src/views/            one module per screen
+tools/stamp.mjs       cache busting
 tests/run.mjs         model tests
 ```
 

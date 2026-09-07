@@ -1,17 +1,17 @@
 // Log: every bake, and what the differences between them add up to.
 
-import { h, card, pill, chip, selectField, numberField, toast, icon, confirmDialog } from '../lib/ui.js';
-import { update, updateBake, deleteBake, download, exportJSON } from '../lib/store.js';
-import { computeRecipe } from '../model/dough.js';
-import { scheduleStages } from '../model/protocol.js';
-import { fermentUnits } from '../model/ferment.js';
-import { overallScore, SCORE_KEYS } from '../model/recipes.js';
-import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js';
-import { scatterChart, barChart, linearFit } from '../lib/charts.js';
-import { fmtTemp, fmtDuration, round } from '../model/units.js';
-import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js';
-import { stars, scoreInputs, tempField } from './common.js';
-import { bakeCSV } from '../lib/csv.js';
+import { h, card, pill, chip, selectField, numberField, toast, icon, confirmDialog } from '../lib/ui.js?v=e573b96c';
+import { update, updateBake, deleteBake, download, exportJSON } from '../lib/store.js?v=e573b96c';
+import { computeRecipe } from '../model/dough.js?v=e573b96c';
+import { scheduleStages } from '../model/protocol.js?v=e573b96c';
+import { fermentUnits } from '../model/ferment.js?v=e573b96c';
+import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=e573b96c';
+import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js?v=e573b96c';
+import { scatterChart, barChart, linearFit } from '../lib/charts.js?v=e573b96c';
+import { fmtTemp, fmtDuration, round } from '../model/units.js?v=e573b96c';
+import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js?v=e573b96c';
+import { stars, scoreInputs, tempField } from './common.js?v=e573b96c';
+import { bakeCSV } from '../lib/csv.js?v=e573b96c';
 
 export default function renderLog(ctx) {
   const { s } = ctx;

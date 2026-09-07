@@ -1,16 +1,16 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe } from './lib/store.js';
-import { readRecipeLink } from './lib/share.js';
-import { h, clear, $, icon } from './lib/ui.js';
-import { computeRecipe } from './model/dough.js';
-import { solveSchedule, activeSteps } from './model/protocol.js';
+import { load, subscribe, update, addRecipe } from './lib/store.js?v=e573b96c';
+import { readRecipeLink } from './lib/share.js?v=e573b96c';
+import { h, clear, $, icon } from './lib/ui.js?v=e573b96c';
+import { computeRecipe } from './model/dough.js?v=e573b96c';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=e573b96c';
 
-import renderRecipe from './views/recipe.js';
-import renderProtocol from './views/protocol.js';
-import renderBake from './views/bake.js';
-import renderLog from './views/log.js';
-import renderSetup from './views/setup.js';
+import renderRecipe from './views/recipe.js?v=e573b96c';
+import renderProtocol from './views/protocol.js?v=e573b96c';
+import renderBake from './views/bake.js?v=e573b96c';
+import renderLog from './views/log.js?v=e573b96c';
+import renderSetup from './views/setup.js?v=e573b96c';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
@@ -19,6 +19,12 @@ const TABS = [
   { id: 'log', label: 'Log', icon: 'history_edu', render: renderLog },
   { id: 'setup', label: 'Setup', icon: 'tune', render: renderSetup },
 ];
+
+/**
+ * The build id, read off this module's own stamped URL. Shown in the footer so
+ * "am I looking at the current version" has an answer without guesswork.
+ */
+export const BUILD = new URL(import.meta.url).searchParams.get('v') || 'dev';
 
 let activeTab = location.hash.replace('#', '') || 'recipe';
 if (!TABS.some((t) => t.id === activeTab)) activeTab = 'recipe';
@@ -147,6 +153,9 @@ window.addEventListener('hashchange', () => {
   history.replaceState(null, '', location.pathname);
   activeTab = 'recipe';
 })();
+
+const foot = document.querySelector('.foot p');
+if (foot) foot.textContent = `${foot.textContent} Build ${BUILD}.`;
 
 subscribe(() => render());
 render();

@@ -7,9 +7,9 @@
 //      moment you want the first pizza to hit the deck, which is what makes
 //      "same recipe, different timing" an experiment you can actually run.
 
-import { fmtGrams, fmtTemp, fmtDuration } from './units.js';
-import { stageFlourLabel } from './dough.js';
-import { mixerPhrasing, mixerLabel } from './equipment.js';
+import { fmtGrams, fmtTemp, fmtDuration } from './units.js?v=e573b96c';
+import { stageFlourLabel } from './dough.js?v=e573b96c';
+import { mixerPhrasing, mixerLabel } from './equipment.js?v=e573b96c';
 
 export const DEFAULT_SCHEDULE = {
   bigaMixMin: 10,

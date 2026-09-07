@@ -1,19 +1,19 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js';
-import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js';
-import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js';
-import { scheduleStages } from '../model/protocol.js';
-import { convertYeast } from '../model/dough.js';
-import { overallScore } from '../model/recipes.js';
-import { SOURCES, FLOURS } from '../model/flours.js';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js';
-import { lineChart } from '../lib/charts.js';
-import * as cloud from '../lib/cloud.js';
-import { tempField, tempDeltaField } from './common.js';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=e573b96c';
+import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=e573b96c';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=e573b96c';
+import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=e573b96c';
+import { scheduleStages } from '../model/protocol.js?v=e573b96c';
+import { convertYeast } from '../model/dough.js?v=e573b96c';
+import { overallScore } from '../model/recipes.js?v=e573b96c';
+import { SOURCES, FLOURS } from '../model/flours.js?v=e573b96c';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=e573b96c';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=e573b96c';
+import { lineChart } from '../lib/charts.js?v=e573b96c';
+import * as cloud from '../lib/cloud.js?v=e573b96c';
+import { tempField, tempDeltaField } from './common.js?v=e573b96c';
 
 let cloudUser = null;
 let cloudStatus = '';

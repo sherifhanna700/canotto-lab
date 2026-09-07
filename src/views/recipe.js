@@ -1,17 +1,17 @@
 // Recipe: which dough you are making, and all its numbers in one place.
 
-import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js';
-import { update, addRecipe, deleteRecipe, activateRecipe, saveCurrentToRecipe } from '../lib/store.js';
-import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, stageFlourLabel } from '../model/dough.js';
-import { floursByCountry, hydrationRangeForW } from '../model/flours.js';
-import { scheduleStages } from '../model/protocol.js';
-import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, waterTempFor } from '../model/ferment.js';
-import { suggestPlan, reviewPlan } from '../model/advisor.js';
-import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js';
-import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js';
-import { recipeLink, copyText } from '../lib/share.js';
-import { findMixer, mixerLabel } from '../model/equipment.js';
-import { tempField, tempDeltaField, ratingBadge, stars } from './common.js';
+import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=e573b96c';
+import { update, addRecipe, deleteRecipe, activateRecipe, saveCurrentToRecipe } from '../lib/store.js?v=e573b96c';
+import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, stageFlourLabel } from '../model/dough.js?v=e573b96c';
+import { floursByCountry, hydrationRangeForW } from '../model/flours.js?v=e573b96c';
+import { scheduleStages } from '../model/protocol.js?v=e573b96c';
+import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, waterTempFor } from '../model/ferment.js?v=e573b96c';
+import { suggestPlan, reviewPlan } from '../model/advisor.js?v=e573b96c';
+import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js?v=e573b96c';
+import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=e573b96c';
+import { recipeLink, copyText } from '../lib/share.js?v=e573b96c';
+import { findMixer, mixerLabel } from '../model/equipment.js?v=e573b96c';
+import { tempField, tempDeltaField, ratingBadge, stars } from './common.js?v=e573b96c';
 
 const setRecipe = (patch) => update((s) => Object.assign(s.current.recipe, patch));
 const setSchedule = (patch) => update((s) => Object.assign(s.current.schedule, patch));
