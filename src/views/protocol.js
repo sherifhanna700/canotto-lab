@@ -1,14 +1,14 @@
 // Protocol: the schedule solved backwards from your launch time, and the
 // 19 steps with the measurements you take as you go.
 
-import { h, card, numberField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=073bb50c';
-import { update, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=073bb50c';
-import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=073bb50c';
-import { fermentUnits, ripeness, ripenessVerdict } from '../model/ferment.js?v=073bb50c';
-import { convertYeast } from '../model/dough.js?v=073bb50c';
-import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=073bb50c';
-import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=073bb50c';
-import { tempField } from './common.js?v=073bb50c';
+import { h, card, numberField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=e7cf3413';
+import { update, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=e7cf3413';
+import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=e7cf3413';
+import { fermentUnits, ripeness, ripenessVerdict } from '../model/ferment.js?v=e7cf3413';
+import { convertYeast } from '../model/dough.js?v=e7cf3413';
+import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=e7cf3413';
+import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=e7cf3413';
+import { tempField } from './common.js?v=e7cf3413';
 
 const METRIC_DEFS = {
   ambientTempC: { label: 'Ambient temperature', kind: 'temp', hint: 'Where the dough is sitting right now' },

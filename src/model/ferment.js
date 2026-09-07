@@ -24,8 +24,8 @@ export const DEFAULT_MODEL = {
   heatRolloff: 9,
   // K ties inoculation to ripeness: yeast% x FU is roughly constant.
   // Anchored to the Contemporary Canotto reference bake, which ripens on
-  // 0.10% IDY across 23.4 FU, so K = 2.34. Recalibrate from your own log.
-  k: 2.34,
+  // 0.10% IDY across 24.2 FU, so K = 2.42. Recalibrate from your own log.
+  k: 2.42,
 };
 
 /** Relative fermentation rate at a temperature, 1.0 at the reference temp. */

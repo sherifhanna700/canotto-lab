@@ -64,7 +64,7 @@ carry a biga canotto schedule, plus semola and whole grain as blending component
 
 The fermentation model is a Q10 rate law with a steeper coefficient in the cold range. Its
 constant K is anchored to the house protocol, which ripens on 0.10% instant dry yeast
-across 23.4 FU. Score a few bakes 4 or better and the app will refit K to your own
+across 24.2 FU. Score a few bakes 4 or better and the app will refit K to your own
 results. W values vary by lot; treat every figure as a starting point and let your bake
 log overrule it.
 

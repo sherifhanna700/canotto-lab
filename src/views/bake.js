@@ -1,14 +1,14 @@
 // Bake day: the flame modulation walkthrough, a live timer, and the form that
 // turns this session into a logged bake.
 
-import { h, card, numberField, selectField, textField, stat, pill, toast, icon, sliderField } from '../lib/ui.js?v=073bb50c';
-import { update, snapshotBake, addBake, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=073bb50c';
-import { bakeStages, OVENS, findOven, ovenLabel } from '../model/equipment.js?v=073bb50c';
-import { diagnose, DIAGNOSTICS, CATEGORIES, byCategory } from '../model/diagnostics.js?v=073bb50c';
-import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=073bb50c';
-import { fmtTemp, fmtGrams } from '../model/units.js?v=073bb50c';
-import { tempField, scoreInputs, stars } from './common.js?v=073bb50c';
-import { go } from '../app.js?v=073bb50c';
+import { h, card, numberField, selectField, textField, stat, pill, toast, icon, sliderField } from '../lib/ui.js?v=e7cf3413';
+import { update, snapshotBake, addBake, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=e7cf3413';
+import { bakeStages, OVENS, findOven, ovenLabel } from '../model/equipment.js?v=e7cf3413';
+import { diagnose, DIAGNOSTICS, CATEGORIES, byCategory } from '../model/diagnostics.js?v=e7cf3413';
+import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=e7cf3413';
+import { fmtTemp, fmtGrams } from '../model/units.js?v=e7cf3413';
+import { tempField, scoreInputs, stars } from './common.js?v=e7cf3413';
+import { go } from '../app.js?v=e7cf3413';
 
 let simIndex = 0;
 let timerId = null;

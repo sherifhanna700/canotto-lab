@@ -1,16 +1,16 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe } from './lib/store.js?v=073bb50c';
-import { readRecipeLink } from './lib/share.js?v=073bb50c';
-import { h, clear, $, icon } from './lib/ui.js?v=073bb50c';
-import { computeRecipe } from './model/dough.js?v=073bb50c';
-import { solveSchedule, activeSteps } from './model/protocol.js?v=073bb50c';
+import { load, subscribe, update, addRecipe } from './lib/store.js?v=e7cf3413';
+import { readRecipeLink } from './lib/share.js?v=e7cf3413';
+import { h, clear, $, icon } from './lib/ui.js?v=e7cf3413';
+import { computeRecipe } from './model/dough.js?v=e7cf3413';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=e7cf3413';
 
-import renderRecipe from './views/recipe.js?v=073bb50c';
-import renderProtocol from './views/protocol.js?v=073bb50c';
-import renderBake from './views/bake.js?v=073bb50c';
-import renderLog from './views/log.js?v=073bb50c';
-import renderSetup from './views/setup.js?v=073bb50c';
+import renderRecipe from './views/recipe.js?v=e7cf3413';
+import renderProtocol from './views/protocol.js?v=e7cf3413';
+import renderBake from './views/bake.js?v=e7cf3413';
+import renderLog from './views/log.js?v=e7cf3413';
+import renderSetup from './views/setup.js?v=e7cf3413';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
@@ -42,6 +42,53 @@ export function go(tabId) {
   activeTab = tabId;
   history.replaceState(null, '', `#${tabId}`);
   render();
+  $('#main').focus({ preventScroll: true });
+}
+
+/*
+ * Focus survives a re-render.
+ *
+ * Every keystroke updates the model, which rebuilds the screen. Without this,
+ * the input being typed into is destroyed and replaced, so the first character
+ * lands and the rest go nowhere: typing 68 stored 6. Each field carries a
+ * stable key, and the caret is put back where it was.
+ */
+function captureFocus() {
+  const el = document.activeElement;
+  if (!el || !el.dataset?.key) return null;
+  const snap = { key: el.dataset.key };
+  try {
+    snap.start = el.selectionStart;
+    snap.end = el.selectionEnd;
+  } catch {
+    // Number inputs do not expose a selection in every browser.
+  }
+  return snap;
+}
+
+/** Disambiguate repeated labels, such as the Share field on each flour row. */
+function assignKeys(root) {
+  const seen = new Map();
+  for (const el of root.querySelectorAll('[data-k]')) {
+    const k = el.dataset.k;
+    const n = seen.get(k) || 0;
+    seen.set(k, n + 1);
+    el.dataset.key = `${k}#${n}`;
+  }
+}
+
+function restoreFocus(root, snap) {
+  if (!snap) return;
+  const el = root.querySelector(`[data-key="${CSS.escape(snap.key)}"]`);
+  if (!el) return;
+  el.focus({ preventScroll: true });
+  if (snap.start !== null && snap.start !== undefined) {
+    try {
+      el.setSelectionRange(snap.start, snap.end);
+    } catch {
+      // Not selectable, focus alone is enough.
+    }
+  }
 }
 
 let navBuilt = false;
@@ -102,6 +149,7 @@ function renderProgress(ctx) {
 }
 
 export function render() {
+  const snap = captureFocus();
   const ctx = context();
   renderTabs();
   renderProgress(ctx);
@@ -116,7 +164,8 @@ export function render() {
     console.error(err);
     main.appendChild(h('div', { class: 'card' }, h('div', { class: 'card-body' }, h('p', { class: 'note bad' }, `Something went wrong rendering this screen: ${err.message}`))));
   }
-  main.focus({ preventScroll: true });
+  assignKeys(main);
+  restoreFocus(main, snap);
 }
 
 $('#unit-toggle').addEventListener('click', () => {

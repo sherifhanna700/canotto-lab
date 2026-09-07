@@ -49,6 +49,7 @@ export function numberField({ label, value, min, max, step = 1, suffix, onInput,
     max,
     step,
     id,
+    dataset: { k: String(label) },
     onInput: (e) => onInput(e.target.value === '' ? null : Number(e.target.value)),
   });
   return h(
@@ -61,7 +62,7 @@ export function numberField({ label, value, min, max, step = 1, suffix, onInput,
 }
 
 export function selectField({ label, value, options, onChange, hint, groups }) {
-  const sel = h('select', { onChange: (e) => onChange(e.target.value) });
+  const sel = h('select', { dataset: { k: String(label) }, onChange: (e) => onChange(e.target.value) });
   if (groups) {
     for (const g of groups) {
       const og = h('optgroup', { label: g.label });
@@ -82,19 +83,22 @@ export function sliderField({ label, value, min, max, step = 1, onInput, format 
     max,
     step,
     value,
+    dataset: { k: String(label) },
+    // Dragging only moves the readout. Committing on release means the screen
+    // is not rebuilt under the thumb, which would end the drag.
     onInput: (e) => {
-      const v = Number(e.target.value);
-      out.textContent = format ? format(v) : String(v);
-      onInput(v);
+      out.textContent = format ? format(Number(e.target.value)) : e.target.value;
     },
+    onChange: (e) => onInput(Number(e.target.value)),
   });
   return h('label', { class: 'field slider' }, h('span', { class: 'field-label' }, label, out), input);
 }
 
 export function textField({ label, value, onInput, placeholder, rows }) {
+  const key = { k: String(label) };
   const input = rows
-    ? h('textarea', { rows, placeholder, onInput: (e) => onInput(e.target.value) }, value || '')
-    : h('input', { type: 'text', value: value || '', placeholder, onInput: (e) => onInput(e.target.value) });
+    ? h('textarea', { rows, placeholder, dataset: key, onInput: (e) => onInput(e.target.value) }, value || '')
+    : h('input', { type: 'text', value: value || '', placeholder, dataset: key, onInput: (e) => onInput(e.target.value) });
   return h('label', { class: 'field' }, h('span', { class: 'field-label' }, label), h('span', { class: 'field-input' }, input));
 }
 

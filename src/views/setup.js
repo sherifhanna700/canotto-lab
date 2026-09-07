@@ -1,19 +1,19 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=073bb50c';
-import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=073bb50c';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=073bb50c';
-import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=073bb50c';
-import { scheduleStages } from '../model/protocol.js?v=073bb50c';
-import { convertYeast } from '../model/dough.js?v=073bb50c';
-import { overallScore } from '../model/recipes.js?v=073bb50c';
-import { SOURCES, FLOURS } from '../model/flours.js?v=073bb50c';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=073bb50c';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=073bb50c';
-import { lineChart } from '../lib/charts.js?v=073bb50c';
-import * as cloud from '../lib/cloud.js?v=073bb50c';
-import { tempField, tempDeltaField } from './common.js?v=073bb50c';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=e7cf3413';
+import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=e7cf3413';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=e7cf3413';
+import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=e7cf3413';
+import { scheduleStages } from '../model/protocol.js?v=e7cf3413';
+import { convertYeast } from '../model/dough.js?v=e7cf3413';
+import { overallScore } from '../model/recipes.js?v=e7cf3413';
+import { SOURCES, FLOURS } from '../model/flours.js?v=e7cf3413';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=e7cf3413';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=e7cf3413';
+import { lineChart } from '../lib/charts.js?v=e7cf3413';
+import * as cloud from '../lib/cloud.js?v=e7cf3413';
+import { tempField, tempDeltaField } from './common.js?v=e7cf3413';
 
 let cloudUser = null;
 let cloudStatus = '';
@@ -291,7 +291,7 @@ function sourcesCard() {
       { class: 'foldout' },
       h('summary', {}, 'How the fermentation model works'),
       h('p', { style: { fontSize: '.83rem', margin: '0 0 8px' } }, 'One fermentation unit is one hour at 20 °C. Rate follows a Q10 law, doubling roughly every 10 °C, with a steeper coefficient below 15 °C because a fridge slows dough more than a single Q10 predicts.'),
-      h('p', { style: { fontSize: '.83rem', margin: '0 0 8px' } }, 'Ripeness assumes yeast and time trade off inversely: halve the yeast and you need about twice the fermentation units. The constant tying them together is anchored to the house protocol, which ripens on 0.10% instant dry yeast across 23.4 units.'),
+      h('p', { style: { fontSize: '.83rem', margin: '0 0 8px' } }, 'Ripeness assumes yeast and time trade off inversely: halve the yeast and you need about twice the fermentation units. The constant tying them together is anchored to the house protocol, which ripens on 0.10% instant dry yeast across 24.2 units.'),
       h('p', { style: { fontSize: '.83rem', margin: 0 } }, 'The freeze buffer is deliberately left out of the ripeness reading. Extra yeast added to cover freeze mortality replaces cells that will die, it does not add fermentation.')
     ),
     h('p', { class: 'note neutral' }, 'W values vary by lot and mills revise their specs. Treat every figure as a starting point and let your own bake log overrule it.')

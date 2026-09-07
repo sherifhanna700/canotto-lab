@@ -7,14 +7,20 @@
 //      moment you want the first pizza to hit the deck, which is what makes
 //      "same recipe, different timing" an experiment you can actually run.
 
-import { fmtGrams, fmtTemp, fmtDuration } from './units.js?v=073bb50c';
-import { stageFlourLabel } from './dough.js?v=073bb50c';
-import { mixerPhrasing, mixerLabel } from './equipment.js?v=073bb50c';
+import { fmtGrams, fmtTemp, fmtDuration } from './units.js?v=e7cf3413';
+import { stageFlourLabel } from './dough.js?v=e7cf3413';
+import { mixerPhrasing, mixerLabel } from './equipment.js?v=e7cf3413';
 
+/**
+ * Room temperature defaults to 21.1 °C, which is exactly 70 °F.
+ * Average daytime thermostat settings in US homes are 70.1 °F in winter and
+ * 72.1 °F in summer, so 70 sits at the low end of the normal band, which suits
+ * a kitchen counter: it usually reads a little below the thermostat.
+ */
 export const DEFAULT_SCHEDULE = {
   bigaMixMin: 10,
   bigaRestHours: 3.75,
-  bigaRoomTempC: 20.5,
+  bigaRoomTempC: 21.1,
   bigaColdHours: 17,
   bigaFridgeTempC: 2.8,
   finalMixMin: 30,
@@ -22,11 +28,11 @@ export const DEFAULT_SCHEDULE = {
   benchRest2Min: 20,
   oilRestMin: 30,
   ballingMin: 15,
-  benchTempC: 21,
+  benchTempC: 21.1,
   coldProofHours: 66,
   fridgeTempC: 2.8,
   temperHours: 4,
-  roomTempC: 20,
+  roomTempC: 21.1,
   preheatMin: 45,
   stretchMin: 2,
   bakeSec: 75,
