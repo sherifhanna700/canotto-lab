@@ -85,13 +85,16 @@ h1, h2, h3, h4 { font-family: 'Fraunces', Georgia, serif; letter-spacing: -.015e
 
 /* ------------------------------- chrome -------------------------------- */
 
-.topbar {
+.appbar {
   position: sticky; top: 0; z-index: 20;
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 10px 16px calc(10px + env(safe-area-inset-top, 0px));
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--outline-variant);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 16px;
 }
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .brand-mark { font-size: 1.9rem; color: var(--primary); font-variation-settings: 'FILL' 1; }
@@ -99,14 +102,18 @@ h1, h2, h3, h4 { font-family: 'Fraunces', Georgia, serif; letter-spacing: -.015e
 .brand p { margin: 0; font-size: .75rem; color: var(--on-surface-variant); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw; }
 .topbar-right { display: flex; align-items: center; gap: 8px; }
 
-.progress-chip { display: flex; align-items: center; gap: 8px; font-size: .72rem; font-weight: 600; color: var(--primary); }
+.progress-chip { display: flex; align-items: center; gap: 8px; font-size: .72rem; font-weight: 600; color: var(--primary); white-space: nowrap; }
+/* display:flex would otherwise defeat the hidden attribute. */
+.progress-chip[hidden] { display: none; }
 .progress-track { width: 60px; height: 6px; background: var(--surface-high); border-radius: 99px; overflow: hidden; }
 .progress-fill { display: block; height: 100%; width: 0; background: var(--secondary); border-radius: 99px; transition: width .3s; }
 
 .tabs {
-  position: sticky; top: 57px; z-index: 19;
   display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
-  padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--outline-variant);
+  /* No scroll-behavior here: it swallows the programmatic scroll that keeps
+     the active tab in view during load. Each scrollTo passes its own. */
+  padding: 6px 12px 8px;
+  border-top: 1px solid color-mix(in srgb, var(--outline-variant) 55%, transparent);
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
@@ -134,9 +141,15 @@ main { max-width: 1080px; margin: 0 auto; padding: 16px 14px 40px; display: grid
 .grid-2 { display: grid; gap: 14px; grid-template-columns: 1fr; }
 @media (min-width: 860px) { .grid-2 { grid-template-columns: 1fr 1fr; } .grid-2.wide-left { grid-template-columns: 3fr 2fr; } }
 
-.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
-.row > * { flex: 1 1 150px; }
-.row.tight > * { flex: 0 0 auto; }
+/*
+ * Field rows are a grid, not a flex line. With flex, a field carrying a hint
+ * was taller than its neighbour and bottom alignment pushed the two labels out
+ * of line. A grid gives every field in a row the same top edge.
+ */
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 12px 10px; align-items: start; }
+/* Button and chip rows, and rows that size their own columns, stay flex. */
+.row.tight { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row.tight > * { flex: 0 0 auto; min-width: 0; }
 .spread { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 /* -------------------------------- fields ------------------------------- */
@@ -145,7 +158,7 @@ main { max-width: 1080px; margin: 0 auto; padding: 16px 14px 40px; display: grid
 .field-label { font-weight: 600; color: var(--on-surface-variant); display: flex; justify-content: space-between; gap: 8px; }
 .field-input { display: flex; align-items: center; gap: 6px; }
 .field input, .field select, .field textarea {
-  width: 100%; font-family: inherit; font-size: .9rem; color: var(--on-surface);
+  width: 100%; min-width: 0; font-family: inherit; font-size: .9rem; color: var(--on-surface);
   background: var(--surface-low); border: 1px solid var(--outline-variant);
   border-radius: 11px; padding: 9px 11px; min-width: 0;
 }
@@ -190,7 +203,7 @@ input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; border-radius
 .chip.active { background: var(--primary); color: var(--on-primary); border-color: transparent; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
 
-.pill { display: inline-block; font-size: .68rem; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: var(--surface-high); color: var(--on-surface-variant); }
+.pill { display: inline-block; white-space: nowrap; font-size: .68rem; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: var(--surface-high); color: var(--on-surface-variant); }
 .pill.good { background: var(--good-bg); color: var(--good); }
 .pill.warn { background: var(--warn-bg); color: var(--warn); }
 .pill.bad { background: var(--bad-bg); color: var(--bad); }
@@ -283,7 +296,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .list { display: grid; gap: 9px; }
 .item { border: 1px solid var(--outline-variant); border-radius: 14px; padding: 11px 13px; background: var(--surface-lowest); display: grid; gap: 6px; }
 .item.active { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
-.item-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.item-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 10px; align-items: flex-start; }
+.item-head > *:first-child { flex: 1 1 190px; min-width: 0; }
+.item-head > *:last-child { flex: 0 0 auto; }
 .item-title { font-family: 'Fraunces', serif; font-weight: 700; font-size: .92rem; }
 .item-sub { font-size: .74rem; color: var(--on-surface-variant); }
 .item-actions { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -309,3 +324,22 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 details.foldout { border: 1px solid var(--outline-variant); border-radius: 12px; padding: 10px 12px; background: var(--surface-low); }
 details.foldout summary { cursor: pointer; font-size: .8rem; font-weight: 600; color: var(--on-surface-variant); }
 details.foldout[open] summary { margin-bottom: 8px; }
+
+/* ------------------------------- narrow ------------------------------- */
+
+@media (max-width: 560px) {
+  main { padding: 12px 10px 32px; gap: 12px; }
+  .card-body { padding: 12px 12px 14px; }
+  .card-head { padding: 12px 12px 0; }
+  .row { grid-template-columns: repeat(auto-fit, minmax(136px, 1fr)); }
+  .stats { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); }
+  .brand h1 { font-size: 1.05rem; }
+  .brand p { max-width: 40vw; }
+  /* The bar is decorative; the count is the information. */
+  .progress-track { display: none; }
+  .item-actions .btn { flex: 1 1 auto; }
+  .phase-steps { padding: 8px; }
+  .step { padding: 10px; gap: 9px; }
+  .step-metrics { grid-template-columns: 1fr; }
+  th, td { padding: 7px 9px; }
+}

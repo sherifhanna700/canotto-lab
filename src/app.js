@@ -46,12 +46,51 @@ export function go(tabId) {
   render();
 }
 
+let navBuilt = false;
+
+/**
+ * The nav is built once and only its classes change afterwards. Rebuilding it
+ * every render reset the horizontal scroll, which hid the active tab whenever
+ * it sat off to the right.
+ */
 function renderTabs() {
-  const nav = clear($('#tabs'));
-  for (const t of TABS) {
-    nav.appendChild(
-      h('button', { class: `tab${t.id === activeTab ? ' active' : ''}`, onClick: () => go(t.id) }, icon(t.icon), t.label)
-    );
+  const nav = $('#tabs');
+  const justBuilt = !navBuilt;
+  if (!navBuilt) {
+    for (const t of TABS) {
+      nav.appendChild(h('button', { class: 'tab', dataset: { id: t.id }, onClick: () => go(t.id) }, icon(t.icon), t.label));
+    }
+    navBuilt = true;
+  }
+  for (const btn of nav.children) btn.classList.toggle('active', btn.dataset.id === activeTab);
+  if (justBuilt) {
+    // On the first paint the strip has not been laid out, and the web fonts
+    // land later and change every tab's width. Position it once after layout
+    // and again once the fonts have settled, both without animation.
+    const settle = () => keepActiveTabVisible(nav);
+    requestAnimationFrame(settle);
+    if (document.fonts?.ready) document.fonts.ready.then(settle).catch(() => {});
+  } else {
+    keepActiveTabVisible(nav);
+  }
+}
+
+/**
+ * Scroll the strip only when the active tab is not already fully in view.
+ * scrollLeft is assigned directly rather than going through scrollTo with a
+ * smooth behavior, which silently does nothing in some contexts and left the
+ * active tab off screen.
+ */
+function keepActiveTabVisible(nav) {
+  const active = nav.querySelector('.tab.active');
+  if (!active || !nav.clientWidth) return;
+  const pad = 16;
+  const left = active.offsetLeft - nav.offsetLeft;
+  const right = left + active.offsetWidth;
+  if (left < nav.scrollLeft + pad) {
+    nav.scrollLeft = Math.max(0, left - pad);
+  } else if (right > nav.scrollLeft + nav.clientWidth - pad) {
+    nav.scrollLeft = right - nav.clientWidth + pad;
   }
 }
 

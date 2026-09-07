@@ -25,12 +25,11 @@ function ovenCard(ctx) {
   const oven = findOven(E.ovenId);
 
   return card(
-    ovenLabel(E),
-    'Floor temperature is the number that decides whether the base sets before the rim burns.',
+    'Oven',
+    `${ovenLabel(E)}. Floor temperature decides whether the base sets before the rim burns.`,
     h(
       'div',
-      { class: 'spread' },
-      pill(oven.label, 'neutral'),
+      { class: 'row tight' },
       h('button', { class: 'btn ghost small', onClick: () => go('setup') }, icon('tune'), 'Change equipment')
     ),
     h(

@@ -37,26 +37,26 @@ function equipmentCard(ctx) {
     'Recorded with every bake, so the comparison screen can group by the kit you used.',
 
     h('h3', { style: { fontSize: '.86rem', marginTop: '2px' } }, 'Oven'),
+    selectField({
+      label: 'Type',
+      value: E.ovenId,
+      options: OVENS.map((o) => ({ value: o.id, label: o.label })),
+      hint: oven.notes,
+      onChange: (v) => {
+        const o = findOven(v);
+        update((st) => {
+          st.current.equipment.ovenId = v;
+          st.current.schedule.deckTempC = o.deckC;
+          st.current.schedule.domeTempC = o.domeC;
+          st.current.schedule.bakeSec = o.bakeSec;
+        });
+      },
+    }),
     h(
       'div',
       { class: 'row' },
-      selectField({
-        label: 'Type',
-        value: E.ovenId,
-        options: OVENS.map((o) => ({ value: o.id, label: o.label })),
-        hint: oven.notes,
-        onChange: (v) => {
-          const o = findOven(v);
-          update((st) => {
-            st.current.equipment.ovenId = v;
-            st.current.schedule.deckTempC = o.deckC;
-            st.current.schedule.domeTempC = o.domeC;
-            st.current.schedule.bakeSec = o.bakeSec;
-          });
-        },
-      }),
-      textField({ label: 'Make', value: E.ovenMake, placeholder: 'Gozney, Ooni, Alfa, Effeuno…', onInput: (v) => setEq({ ovenMake: v }) }),
-      textField({ label: 'Model', value: E.ovenModel, placeholder: 'Dome S1, Koda 16, P134H…', onInput: (v) => setEq({ ovenModel: v }) })
+      textField({ label: 'Make', value: E.ovenMake, placeholder: 'Gozney, Ooni, Alfa…', onInput: (v) => setEq({ ovenMake: v }) }),
+      textField({ label: 'Model', value: E.ovenModel, placeholder: 'Dome S1, Koda 16…', onInput: (v) => setEq({ ovenModel: v }) })
     ),
     h(
       'div',
@@ -68,20 +68,20 @@ function equipmentCard(ctx) {
     ),
 
     h('h3', { style: { fontSize: '.86rem', marginTop: '6px' } }, 'Mixer'),
+    selectField({
+      label: 'Type',
+      value: E.mixerId,
+      options: MIXERS.map((m) => ({ value: m.id, label: m.label })),
+      hint: mixer.notes,
+      onChange: (v) => update((st) => {
+        st.current.equipment.mixerId = v;
+        st.current.water = { ...st.current.water, frictionC: findMixer(v).frictionC };
+      }),
+    }),
     h(
       'div',
       { class: 'row' },
-      selectField({
-        label: 'Type',
-        value: E.mixerId,
-        options: MIXERS.map((m) => ({ value: m.id, label: m.label })),
-        hint: mixer.notes,
-        onChange: (v) => update((st) => {
-          st.current.equipment.mixerId = v;
-          st.current.water = { ...st.current.water, frictionC: findMixer(v).frictionC };
-        }),
-      }),
-      textField({ label: 'Make', value: E.mixerMake, placeholder: 'Famag, Sunmix, Häussler…', onInput: (v) => setEq({ mixerMake: v }) }),
+      textField({ label: 'Make', value: E.mixerMake, placeholder: 'Famag, Sunmix…', onInput: (v) => setEq({ mixerMake: v }) }),
       textField({ label: 'Model', value: E.mixerModel, placeholder: 'IM-5S, Sun 6…', onInput: (v) => setEq({ mixerModel: v }) })
     ),
     tempDeltaField({
