@@ -1,16 +1,17 @@
-// The bake log: every run, what it was made of, and what came out.
+// Log: every bake, and what the differences between them add up to.
 
-import { h, card, pill, toast, icon, confirmDialog, selectField, numberField, chip } from '../lib/ui.js';
+import { h, card, pill, chip, selectField, numberField, toast, icon, confirmDialog } from '../lib/ui.js';
 import { update, updateBake, deleteBake, download, exportJSON } from '../lib/store.js';
 import { computeRecipe } from '../model/dough.js';
 import { scheduleStages } from '../model/protocol.js';
 import { fermentUnits } from '../model/ferment.js';
-import { overallScore, SCORE_KEYS, recipeRating } from '../model/recipes.js';
-import { fmtTemp, fmtDuration, toDisplay, round } from '../model/units.js';
+import { overallScore, SCORE_KEYS } from '../model/recipes.js';
+import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js';
+import { scatterChart, barChart, linearFit } from '../lib/charts.js';
+import { fmtTemp, fmtDuration, round } from '../model/units.js';
 import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js';
 import { stars, scoreInputs, tempField } from './common.js';
 import { bakeCSV } from '../lib/csv.js';
-import { go } from '../app.js';
 
 export default function renderLog(ctx) {
   const { s } = ctx;
@@ -21,31 +22,91 @@ export default function renderLog(ctx) {
       card(
         'Bake log',
         'Nothing filed yet.',
-        h('div', { class: 'empty' }, h('span', { class: 'msym' }, 'history_edu'), h('p', {}, 'Run a bake, score it on the Bake screen, and it lands here. Once two bakes differ in one variable, the Compare screen can tell you which way it moved.'))
+        h('div', { class: 'empty' }, h('span', { class: 'msym' }, 'history_edu'), h('p', {}, 'Work the protocol, score the bake, and it lands here. Once two bakes differ in one thing, this screen starts telling you which way it moved.'))
       ),
     ];
   }
 
+  const rows = bakes.filter((b) => overallScore(b.scores) !== null).map((b) => ({ b, d: derive(b, ctx.model) }));
   return [
+    rows.length >= 3 ? comparisonCard(ctx, rows) : null,
     card(
-      'Bake log',
-      `${bakes.length} bake${bakes.length > 1 ? 's' : ''} recorded.`,
+      `${bakes.length} bake${bakes.length > 1 ? 's' : ''}`,
+      'Newest first.',
       h(
         'div',
         { class: 'row tight' },
-        h('button', { class: 'btn ghost small', onClick: () => download('canotto-bakes.csv', bakeCSV(s), 'text/csv') }, icon('download'), 'Export CSV'),
-        h('button', { class: 'btn ghost small', onClick: () => download('canotto-lab.json', exportJSON()) }, icon('download'), 'Export everything')
+        h('button', { class: 'btn ghost small', onClick: () => download('canotto-bakes.csv', bakeCSV(s), 'text/csv') }, icon('download'), 'Export CSV')
       )
     ),
     ...bakes.map((b) => bakeCard(ctx, b)),
-  ];
+  ].filter(Boolean);
 }
+
+/* ------------------------------ comparison ------------------------------ */
+
+function ui(s) {
+  if (!s.ui) s.ui = {};
+  if (!s.ui.compare) s.ui.compare = { x: 'fermentationUnits', y: 'overall' };
+  return s.ui.compare;
+}
+
+function comparisonCard(ctx, rows) {
+  const { s, u } = ctx;
+  const cfg = ui(s);
+  const fx = findFactor(cfg.x);
+  const fy = findOutcome(cfg.y);
+
+  const drivers = FACTORS.map((f) => {
+    const pts = rows
+      .map(({ b, d }) => ({ x: factorValue(f, b, d, u), y: fy.get(b, d) }))
+      .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+    return { factor: f, fit: linearFit(pts), n: pts.length };
+  })
+    .filter((x) => x.fit && x.n >= 3 && Math.abs(x.fit.r) > 0.01)
+    .sort((a, b) => Math.abs(b.fit.r) - Math.abs(a.fit.r))
+    .slice(0, 7);
+
+  const points = rows
+    .map(({ b, d }) => ({ x: factorValue(fx, b, d, u), y: fy.get(b, d), label: b.title }))
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  const fit = linearFit(points);
+
+  return card(
+    'What worked',
+    `Across ${rows.length} scored bakes.`,
+    selectField({
+      label: 'Judging by',
+      value: cfg.y,
+      options: OUTCOMES.map((o) => ({ value: o.key, label: o.label })),
+      onChange: (v) => update((st) => { ui(st).y = v; }),
+    }),
+    drivers.length
+      ? h(
+          'div',
+          {},
+          h('p', { class: 'hint', style: { fontSize: '.74rem' } }, 'How each thing you changed tracks with the score, from −1 to +1.'),
+          barChart({ items: drivers.map((d) => ({ label: d.factor.label, value: round(d.fit.r, 2), color: d.fit.r >= 0 ? 'var(--c2)' : 'var(--c1)' })) }),
+          h('p', { class: 'note neutral' }, `Strongest so far: ${drivers[0].factor.label.toLowerCase()}, where ${drivers[0].fit.r >= 0 ? 'higher' : 'lower'} tends to score better. Correlation is not proof. Change one thing at a time to confirm it.`)
+        )
+      : h('p', { class: 'note neutral' }, 'Not enough variation yet. Bake the same recipe with one thing changed and the pattern will start to show.'),
+    h(
+      'details',
+      { class: 'foldout' },
+      h('summary', {}, 'Plot any two'),
+      selectField({ label: 'Against', value: cfg.x, options: FACTORS.map((f) => ({ value: f.key, label: f.label })), onChange: (v) => update((st) => { ui(st).x = v; }) }),
+      scatterChart({ points, xLabel: factorLabel(fx, u), yLabel: fy.label, height: 280 }),
+      fit ? h('p', { class: 'note neutral' }, `Correlation ${fit.r.toFixed(2)} across ${fit.n} bakes.`) : null
+    )
+  );
+}
+
+/* --------------------------------- bakes -------------------------------- */
 
 function bakeCard(ctx, b) {
   const { u, s } = ctx;
   const c = computeRecipe(b.recipe);
-  const stages = scheduleStages(b.schedule);
-  const fu = fermentUnits(stages, ctx.model);
+  const fu = fermentUnits(scheduleStages(b.schedule), ctx.model);
   const score = overallScore(b.scores);
   const open = s.ui?.openBake === b.id;
   const hits = diagnose(b);
@@ -60,12 +121,10 @@ function bakeCard(ctx, b) {
         'div',
         { class: 'chip-row' },
         pill(`${b.recipe.hydrationPct}% hydration`, 'neutral'),
-        pill(`${b.recipe.method}`, 'neutral'),
         pill(`${fmtDuration(b.schedule.coldProofHours)} at ${fmtTemp(b.schedule.fridgeTempC, u)}`, 'neutral'),
         pill(`${fu.toFixed(1)} FU`, 'neutral'),
         pill(`${b.recipe.baseYeastPct}% ${b.recipe.yeastType.toUpperCase()}`, 'neutral'),
-        Number.isFinite(b.actuals?.ambientTempC) ? pill(`ambient ${fmtTemp(b.actuals.ambientTempC, u)}`, 'neutral') : null,
-        b.planned ? pill('Planned', 'accent') : null
+        Number.isFinite(b.actuals?.ambientTempC) ? pill(`ambient ${fmtTemp(b.actuals.ambientTempC, u)}`, 'neutral') : null
       ),
       h('div', {}, h('span', { class: 'rating' }, score === null ? 'Unscored' : `${score.toFixed(1)} / 5`), ' ', stars(score))
     ),
@@ -74,7 +133,7 @@ function bakeCard(ctx, b) {
     h(
       'div',
       { class: 'item-actions' },
-      h('button', { class: 'btn ghost small', onClick: () => update((st) => { st.ui = { ...st.ui, openBake: open ? null : b.id }; }) }, icon(open ? 'expand_less' : 'expand_more'), open ? 'Close' : 'Edit scores and detail'),
+      h('button', { class: 'btn ghost small', onClick: () => update((st) => { st.ui = { ...st.ui, openBake: open ? null : b.id }; }) }, icon(open ? 'expand_less' : 'expand_more'), open ? 'Close' : 'Edit'),
       h('button', { class: 'btn ghost small', onClick: () => confirmDialog('Delete this bake?', () => { deleteBake(b.id); toast('Deleted'); }, 'Delete') }, icon('delete'), 'Delete')
     ),
     open ? editor(ctx, b) : null
@@ -108,17 +167,13 @@ function editor(ctx, b) {
       'div',
       { class: 'field' },
       h('span', { class: 'field-label' }, 'Faults seen'),
-      h(
-        'div',
-        { class: 'chip-row' },
-        ...DIAGNOSTICS.map((d) =>
-          chip(d.title, (b.issues || []).includes(d.id), () => {
-            const set = new Set(b.issues || []);
-            set.has(d.id) ? set.delete(d.id) : set.add(d.id);
-            updateBake(b.id, { issues: [...set] });
-          })
-        )
-      )
+      h('div', { class: 'chip-row' }, ...DIAGNOSTICS.map((d) =>
+        chip(d.title, (b.issues || []).includes(d.id), () => {
+          const set = new Set(b.issues || []);
+          set.has(d.id) ? set.delete(d.id) : set.add(d.id);
+          updateBake(b.id, { issues: [...set] });
+        })
+      ))
     )
   );
 }

@@ -11,6 +11,9 @@
 //
 // `ferment` is the published maturation window in hours where a source gives
 // one. Where it does not, the W band table is used instead.
+//
+// The list is limited to flours that can actually carry a biga canotto
+// schedule, plus semola and whole grain as blending components.
 
 export const SOURCES = [
   { id: 'pizzaplan', label: 'Pizza flour comparison: W-value and protein', url: 'https://pizzaplan.app/en/flour-brands/' },
@@ -18,7 +21,6 @@ export const SOURCES = [
   { id: 'pizzablab', label: 'Biga preferment guide', url: 'https://www.pizzablab.com/the-encyclopizza/biga-preferment/' },
   { id: 'pizzaheaven-nuvola', label: 'Caputo Nuvola: the best flour for airy crust', url: 'https://thepizzaheaven.com/caputo-nuvola/' },
   { id: 'pizzaheaven-canotto', label: 'Mastering canotto pizza', url: 'https://thepizzaheaven.com/mastering-canotto-pizza/' },
-  { id: 'ka', label: 'King Arthur Baking product pages', url: 'https://shop.kingarthurbaking.com/items/00-pizza-flour' },
 ];
 
 /**
@@ -47,7 +49,6 @@ export const FLOURS = [
   { id: 'caputo-nuvola-super', brand: 'Caputo', name: 'Nuvola Super', country: 'IT', grade: '0', protein: 13.5, w: 320, wRange: [300, 320], ferment: [48, 96], sourced: true, source: 'pizzaplan', notes: 'Stronger Nuvola. Protein published as 13.5% ± 0.5.' },
   { id: 'caputo-saccorosso', brand: 'Caputo', name: 'Saccorosso / Rinforzato', country: 'IT', grade: '00', protein: 13.0, w: 290, wRange: [280, 300], ferment: [24, 72], sourced: true, source: 'pizzaplan', notes: 'Reinforced. Sits just below Cuoco in strength.' },
   { id: 'caputo-manitoba', brand: 'Caputo', name: 'Manitoba Oro', country: 'IT', grade: '0', protein: 14.5, w: 390, wRange: [370, 410], ferment: [48, 96], sourced: false, source: 'pizzaplan', notes: 'Very strong. Use as a blending flour to lift W, rarely on its own.' },
-  { id: 'caputo-classica', brand: 'Caputo', name: 'Classica', country: 'IT', grade: '00', protein: 11.5, w: 250, ferment: [8, 24], sourced: false, notes: 'Softer, short fermentation.' },
   { id: 'caputo-integrale', brand: 'Caputo', name: 'Integrale (whole wheat)', country: 'IT', grade: 'Integrale', protein: 13.0, w: 260, ferment: [8, 24], sourced: false, notes: 'Whole grain. Drinks more water and ferments faster than the W suggests.' },
   { id: 'caputo-semola', brand: 'Caputo', name: 'Semola rimacinata', country: 'IT', grade: 'Semola', protein: 12.5, w: null, sourced: false, notes: 'Durum. Dusting flour, or up to 10% of the blend for bite.' },
   { id: '5stagioni-napoletana', brand: 'Le 5 Stagioni', name: 'Pizza Napoletana', country: 'IT', grade: '00', protein: 12.0, w: 260, wRange: [250, 270], ferment: [24, 48], sourced: true, source: 'pizzaplan', notes: 'Widely used Neapolitan flour.' },
@@ -63,8 +64,6 @@ export const FLOURS = [
 
   // ---- United States ----
   { id: 'ka-bread', brand: 'King Arthur', name: 'Bread Flour', country: 'US', grade: 'Bread', protein: 12.7, w: null, ferment: [12, 48], sourced: true, source: 'pizzaplan', notes: 'No published W. The reliable American default; ferments faster than an Italian 00.' },
-  { id: 'ka-ap', brand: 'King Arthur', name: 'All-Purpose', country: 'US', grade: 'AP', protein: 11.7, w: null, ferment: [8, 24], sourced: false, notes: 'Softer. Shorter schedules.' },
-  { id: 'ka-00-pizza', brand: 'King Arthur', name: "'00' Pizza Flour", country: 'US', grade: '00', protein: 11.5, w: null, ferment: [8, 24], sourced: true, source: 'ka', notes: 'Protein 11.5% per King Arthur. Softer than an Italian 00 of the same designation.' },
   { id: 'ka-sir-lancelot', brand: 'King Arthur', name: 'Sir Lancelot', country: 'US', grade: 'High gluten', protein: 14.2, w: null, ferment: [12, 48], sourced: false, notes: 'High gluten. Blending flour to raise strength.' },
   { id: 'gm-all-trumps', brand: 'General Mills', name: 'All Trumps', country: 'US', grade: 'High gluten', protein: 14.2, w: null, ferment: [12, 48], sourced: false, notes: 'New York standard. Bromated and unbromated versions exist.' },
   { id: 'gm-full-strength', brand: 'General Mills', name: 'Full Strength', country: 'US', grade: 'Bread', protein: 13.5, w: null, ferment: [12, 48], sourced: false, notes: 'Strong bakery flour.' },
@@ -78,18 +77,11 @@ export const FLOURS = [
   { id: 'doves-strong-white', brand: 'Doves Farm', name: 'Strong White Bread', country: 'UK', grade: 'Strong', protein: 13.0, w: null, ferment: [24, 48], sourced: true, source: 'pizzaplan', notes: 'Organic, supermarket availability. No published W.' },
   { id: 'marriages-very-strong', brand: "Marriage's", name: 'Very Strong White', country: 'UK', grade: 'Strong', protein: 14.0, w: null, ferment: [24, 48], sourced: false, notes: 'High protein British flour.' },
   { id: 'shipton-00', brand: 'Shipton Mill', name: 'Italian Type 00', country: 'UK', grade: '00', protein: 12.5, w: null, ferment: [12, 36], sourced: false, notes: 'UK-milled 00.' },
-  { id: 'fr-t55', brand: 'French standard', name: 'T55', country: 'FR', grade: 'T55', protein: 11.0, w: 180, ferment: [2, 12], sourced: false, notes: 'Standard French bread flour. Soft for pizza on its own.' },
-  { id: 'fr-t65', brand: 'French standard', name: 'T65 tradition', country: 'FR', grade: 'T65', protein: 11.5, w: 220, ferment: [4, 16], sourced: false, notes: 'Better flavour, still low strength.' },
   { id: 'fr-gruau', brand: 'French standard', name: 'T45 Gruau', country: 'FR', grade: 'T45', protein: 13.5, w: 300, ferment: [24, 48], sourced: false, notes: 'Strong French flour. A good biga candidate.' },
-  { id: 'de-550', brand: 'German standard', name: 'Type 550', country: 'DE', grade: '550', protein: 11.5, w: 200, ferment: [4, 16], sourced: false, notes: 'Common German bread flour.' },
-  { id: 'de-812', brand: 'German standard', name: 'Type 812', country: 'DE', grade: '812', protein: 12.5, w: null, ferment: [8, 24], sourced: false, notes: 'Higher extraction, more flavour.' },
-  { id: 'at-w700', brand: 'Austrian standard', name: 'W700', country: 'AT', grade: 'W700', protein: 12.0, w: null, ferment: [8, 24], sourced: false, notes: 'Austrian bread flour.' },
-  { id: 'pl-750', brand: 'Polish standard', name: 'Typ 750', country: 'PL', grade: '750', protein: 12.0, w: null, ferment: [8, 24], sourced: false, notes: 'Polish bread flour.' },
   { id: 'es-fuerza', brand: 'Spanish standard', name: 'Harina de fuerza', country: 'ES', grade: 'Fuerza', protein: 13.0, w: 300, ferment: [24, 48], sourced: false, notes: 'Spanish strong flour.' },
-  { id: 'eu-rye', brand: 'Generic EU', name: 'Rye (light)', country: 'EU', grade: 'Rye', protein: 9.0, w: null, ferment: [4, 12], sourced: false, notes: 'Flavour only. Keep under 10% or the gluten suffers.' },
 ];
 
-export const COUNTRY_LABEL = { IT: 'Italy', US: 'United States', UK: 'United Kingdom', FR: 'France', DE: 'Germany', AT: 'Austria', PL: 'Poland', ES: 'Spain', EU: 'Europe' };
+export const COUNTRY_LABEL = { IT: 'Italy', US: 'United States', UK: 'United Kingdom', FR: 'France', ES: 'Spain', EU: 'Europe' };
 
 export function findFlour(id) {
   return FLOURS.find((f) => f.id === id) || null;

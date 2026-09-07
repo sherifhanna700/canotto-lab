@@ -5,7 +5,7 @@ import { computeRecipe, allocateFlours, convertYeast, DEFAULT_RECIPE, effectiveY
 import { blendStats, hydrationRangeForW, estimateW, fuCeilingForW, bandForW, FLOURS } from '../src/model/flours.js';
 import { rateAt, fermentUnits, yeastForFU, ripeness, ripenessVerdict, waterTempFor, calibrateK, DEFAULT_MODEL } from '../src/model/ferment.js';
 import { solveSchedule, scheduleStages, STEPS, activeSteps, DEFAULT_SCHEDULE } from '../src/model/protocol.js';
-import { suggestPlan, suggestMethod, reviewPlan, defaultLeadHours } from '../src/model/advisor.js';
+import { suggestPlan, reviewPlan, defaultLeadHours, strengthBand } from '../src/model/advisor.js';
 import { recipeFromBlend, overallScore, recipeRating, starterRecipes } from '../src/model/recipes.js';
 import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIXERS } from '../src/model/equipment.js';
 import { diagnose } from '../src/model/diagnostics.js';
@@ -96,6 +96,13 @@ test('a blend that does not total 100% is flagged', () => {
 test('W estimation matches the flours that publish both figures', () => {
   near(estimateW(12.5), 270, 15, 'Pizzeria-class flour');
   near(estimateW(13), 300, 15, 'Cuoco-class flour');
+});
+
+test('every shipped recipe is a biga dough', () => {
+  for (const r of starterRecipes()) {
+    assert.equal(r.recipe.method, 'biga', `${r.name} should be biga`);
+    assert.ok(r.recipe.prefermentFlourPct > 0, `${r.name} needs a preferment`);
+  }
 });
 
 test('W bands come from the published guide', () => {
@@ -191,28 +198,33 @@ test('the frozen track drops out of an all-fresh batch', () => {
 
 /* -------------------------------- advisor ------------------------------- */
 
-test('method follows flour strength', () => {
-  assert.equal(suggestMethod(310), 'biga');
-  assert.equal(suggestMethod(265), 'poolish');
-  assert.equal(suggestMethod(180), 'direct');
+test('strength band tracks W', () => {
+  assert.equal(strengthBand(310).key, 'very-strong');
+  assert.equal(strengthBand(240).key, 'weak');
+  assert.equal(strengthBand(380).key, 'extra-strong');
 });
 
 test('the advisor reconstructs the house protocol from the flour alone', () => {
   const flours = [{ id: 'caputo-cuoco', pct: 100 }];
-  const plan = suggestPlan(blendStats(flours), { flours, style: 'canotto', totalHours: 93 });
-  assert.equal(plan.method, 'biga');
+  const plan = suggestPlan(blendStats(flours), { flours, totalHours: 93 });
   near(plan.schedule.coldProofHours, 66, 4, 'cold proof');
   near(plan.schedule.bigaColdHours, 17, 3, 'biga cold hold');
   near(plan.idyPct, 0.1, 0.015, 'inoculation');
   near(plan.hydration.recommended, 70, 3, 'hydration');
 });
 
-test('a weak flour is given a short schedule and more yeast', () => {
-  const flours = [{ id: 'fr-t55', pct: 100 }];
-  const plan = suggestPlan(blendStats(flours), { flours });
-  assert.equal(plan.method, 'direct');
-  assert.ok(plan.totalHours <= 14, 'short maturation');
-  assert.ok(plan.idyPct > 0.3, 'needs a bigger inoculation');
+test('a shorter schedule needs more yeast than a long one', () => {
+  const flours = [{ id: 'caputo-cuoco', pct: 100 }];
+  const short = suggestPlan(blendStats(flours), { flours, totalHours: 24 });
+  const long = suggestPlan(blendStats(flours), { flours, totalHours: 96 });
+  assert.ok(short.idyPct > long.idyPct * 2, 'a 24 hour schedule needs far more yeast than a 96 hour one');
+});
+
+test('the flour library only carries flours a biga canotto can use', () => {
+  for (const f of FLOURS) {
+    const w = f.w ?? estimateW(f.protein);
+    assert.ok(w >= 240 || f.grade === 'Semola' || f.grade === 'Whole' || f.grade === 'Integrale', `${f.id} is too soft to be in this list`);
+  }
 });
 
 test('the lead time defaults to the middle of the published window', () => {
@@ -220,15 +232,15 @@ test('the lead time defaults to the middle of the published window', () => {
 });
 
 test('review flags a schedule that overruns the flour', () => {
-  const blend = blendStats([{ id: 'fr-t55', pct: 100 }]);
-  const notes = reviewPlan({ blend, stages: [{ hours: 120, tempC: 4 }], idyPct: 0.1 }).notes;
+  const blend = blendStats([{ id: 'caputo-pizzeria', pct: 100 }]);
+  const notes = reviewPlan({ blend, stages: [{ hours: 200, tempC: 6 }], idyPct: 0.1 }).notes;
   assert.ok(notes.some((n) => n.tone === 'bad'), 'expected a hard warning');
 });
 
 /* -------------------------------- recipes ------------------------------- */
 
 test('a recipe generated from a blend is complete and bakeable', () => {
-  const r = recipeFromBlend([{ id: 'caputo-nuvola', pct: 100 }], { style: 'canotto' });
+  const r = recipeFromBlend([{ id: 'caputo-nuvola', pct: 100 }]);
   assert.ok(r.id && r.name);
   const c = computeRecipe(r.recipe);
   assert.ok(c.flour > 0 && c.water > 0);

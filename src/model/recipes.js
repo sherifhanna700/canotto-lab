@@ -1,14 +1,14 @@
 // Named recipes.
 //
-// A Recipe is a saved definition: flours, ratios, schedule, target style.
-// A Bake is one run of a recipe, with what actually happened and how it scored.
-// Recipes are instantiable: pick a flour blend, take the suggested defaults,
-// name it, and it becomes yours to edit and to score.
+// A Recipe is a saved definition: flours, ratios and schedule for one biga
+// canotto dough. A Bake is one run of it, with what actually happened and how
+// it scored. Pick a flour, take the suggested defaults, name it, and it
+// becomes yours to edit and to score.
 
 import { DEFAULT_RECIPE } from './dough.js';
 import { DEFAULT_SCHEDULE } from './protocol.js';
 import { blendStats, blendLabel } from './flours.js';
-import { suggestPlan, defaultLeadHours, STYLES } from './advisor.js';
+import { suggestPlan, defaultLeadHours } from './advisor.js';
 
 export const SCORE_KEYS = [
   { key: 'canotto', label: 'Canotto height', hint: '1 flat, 5 massive' },
@@ -36,14 +36,12 @@ export function newId(prefix = 'r') {
  */
 export function recipeFromBlend(flours, opts = {}) {
   const blend = blendStats(flours);
-  const style = opts.style || 'canotto';
   const totalHours = Number.isFinite(opts.totalHours) ? opts.totalHours : defaultLeadHours(blend);
-  const plan = suggestPlan(blend, { ...opts, flours, style, totalHours });
+  const plan = suggestPlan(blend, { ...opts, flours, totalHours });
 
   return {
     id: newId(),
-    name: opts.name || `${blendLabel(flours)} ${STYLES.find((s) => s.id === style)?.label.toLowerCase() || ''}`.trim(),
-    style,
+    name: opts.name || `${blendLabel(flours)}, ${Math.round(totalHours)} hour`,
     origin: opts.origin || 'generated',
     derivedFrom: opts.derivedFrom || null,
     createdAt: new Date().toISOString(),
@@ -62,8 +60,6 @@ export function recipeFromBlend(flours, opts = {}) {
       window: plan.window,
       idyPct: plan.idyPct,
       hydration: plan.hydration,
-      rationale: plan.rationale,
-      method: plan.method,
       w: blend.w,
       sourced: blend.sourced,
     },
@@ -94,7 +90,6 @@ export function houseRecipe() {
   return {
     id: 'house-canotto',
     name: 'Contemporary Canotto (house)',
-    style: 'canotto',
     origin: 'house',
     derivedFrom: null,
     createdAt: new Date().toISOString(),
@@ -105,17 +100,13 @@ export function houseRecipe() {
   };
 }
 
-/** A small shipped set so the app is useful before anything is saved. */
+/** The house protocol plus two variations worth trying against it. */
 export function starterRecipes() {
-  const house = houseRecipe();
   const gen = [
-    { flours: [{ id: 'caputo-nuvola', pct: 100, stage: 'blend' }], style: 'canotto', name: 'Nuvola canotto, 48 hour' },
-    { flours: [{ id: 'caputo-pizzeria', pct: 100, stage: 'blend' }], style: 'napoletana', name: 'Pizzeria Napoletana, 24 hour' },
-    { flours: [{ id: 'ka-bread', pct: 100, stage: 'blend' }], style: 'canotto', name: 'King Arthur bread flour canotto' },
-    { flours: [{ id: 'caputo-cuoco', pct: 85, stage: 'blend' }, { id: 'caputo-semola', pct: 15, stage: 'blend' }], style: 'canotto', name: 'Cuoco and semola, 72 hour' },
-    { flours: [{ id: 'fr-t55', pct: 100, stage: 'blend' }], style: 'tonda', name: 'T55 same-day tonda' },
-  ].map((spec) => ({ ...recipeFromBlend(spec.flours, { style: spec.style, name: spec.name }), origin: 'starter' }));
-  return [house, ...gen];
+    { flours: [{ id: 'caputo-nuvola-super', pct: 100, stage: 'blend' }], name: 'Nuvola Super, 72 hour' },
+    { flours: [{ id: 'caputo-cuoco', pct: 85, stage: 'blend' }, { id: 'caputo-semola', pct: 15, stage: 'blend' }], name: 'Cuoco and semola, 72 hour' },
+  ].map((spec) => ({ ...recipeFromBlend(spec.flours, { name: spec.name }), origin: 'starter' }));
+  return [houseRecipe(), ...gen];
 }
 
 /* ------------------------------- scoring -------------------------------- */

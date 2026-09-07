@@ -6,30 +6,22 @@ import { h, clear, $, icon } from './lib/ui.js';
 import { computeRecipe } from './model/dough.js';
 import { solveSchedule, activeSteps } from './model/protocol.js';
 
-import renderRecipes from './views/recipes.js';
-import renderDough from './views/dough.js';
+import renderRecipe from './views/recipe.js';
 import renderProtocol from './views/protocol.js';
 import renderBake from './views/bake.js';
 import renderLog from './views/log.js';
-import renderCompare from './views/compare.js';
-import renderLab from './views/lab.js';
 import renderSetup from './views/setup.js';
-import renderHelp from './views/help.js';
 
 const TABS = [
-  { id: 'recipes', label: 'Recipes', icon: 'menu_book', render: renderRecipes },
-  { id: 'dough', label: 'Dough', icon: 'calculate', render: renderDough },
+  { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
   { id: 'protocol', label: 'Protocol', icon: 'checklist', render: renderProtocol },
   { id: 'bake', label: 'Bake', icon: 'local_fire_department', render: renderBake },
   { id: 'log', label: 'Log', icon: 'history_edu', render: renderLog },
-  { id: 'compare', label: 'Compare', icon: 'insights', render: renderCompare },
-  { id: 'lab', label: 'Lab', icon: 'science', render: renderLab },
   { id: 'setup', label: 'Setup', icon: 'tune', render: renderSetup },
-  { id: 'help', label: 'Reference', icon: 'help', render: renderHelp },
 ];
 
-let activeTab = location.hash.replace('#', '') || 'recipes';
-if (!TABS.some((t) => t.id === activeTab)) activeTab = 'recipes';
+let activeTab = location.hash.replace('#', '') || 'recipe';
+if (!TABS.some((t) => t.id === activeTab)) activeTab = 'recipe';
 
 /** Everything a view needs, recomputed on each render. */
 export function context() {
@@ -153,7 +145,7 @@ window.addEventListener('hashchange', () => {
     plan: null,
   });
   history.replaceState(null, '', location.pathname);
-  activeTab = 'recipes';
+  activeTab = 'recipe';
 })();
 
 subscribe(() => render());

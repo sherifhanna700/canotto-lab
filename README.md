@@ -1,6 +1,6 @@
 # Canotto Lab
 
-Plan, run and compare contemporary canotto pizza doughs.
+A tracker for biga-based contemporary canotto pizza.
 
 It started as a single static page holding one protocol. This is the same protocol with
 every hardcoded number turned into a variable, plus the thing a static page cannot do:
@@ -8,19 +8,15 @@ a record of what you actually baked, so you can tell which permutation was bette
 
 **Live app:** https://sherifhanna700.github.io/canotto-lab/
 
-## What it does
+## Five screens
 
-**Recipes.** Pick a flour or blend a few, pick a style, and the app proposes a complete
-recipe: method, hydration, phase structure, times and inoculation. Save it under a name,
-duplicate it, tweak it, share it as a link. Every recipe carries the average score of the
-bakes filed against it.
+**Recipe.** The dough you are making, all in one place. Pick a flour or blend a few and
+the app proposes hydration, phase times and inoculation from that flour's published
+strength and maturation window. Create, duplicate, edit and delete your own recipes, and
+share one as a link. Every recipe carries the average score of the bakes filed against it.
 
-**Dough.** Baker's percentages against total flour, split across the preferment and the
-final mix. Flour blends are supported, and each flour can be sent to the biga, held back
-for the refresh, or split evenly.
-
-**Fermentation.** Every phase reduces to *fermentation units*, one FU being an hour at
-20 °C. That is what makes two different schedules comparable: 66 hours at 37 °F and
+Fermentation is the heart of it. Every phase reduces to *fermentation units*, one FU being
+an hour at 20 °C. That is what makes two schedules comparable: 66 hours at 37 °F and
 18 hours at 65 °F are not the same amount of fermentation, and the app says so. The cold
 ferment temperature is a first-class knob, because for most people it is fixed by the
 fridge they own and everything else has to bend around it.
@@ -32,29 +28,29 @@ checklist and the calculator can never disagree.
 
 **Bake.** Heat modulation scaled to your bake time and your oven, a timer, and the
 conditions on the day including ambient temperature, which is what actually varies for an
-outdoor oven. Ovens and mixers are chosen by type and recorded by make and model, and the
-mixer sets the friction allowance in the water temperature calculation. Step text adapts:
-mixing by hand does not read as "speed 1", and an electric oven does not talk about
-flames.
+outdoor oven. Score the bake out of five on rim height, honeycomb, blistering, flavour and
+base, and the app names the likely faults from the numbers you recorded.
 
-**Log and Compare.** Score each bake out of five on rim height, honeycomb, blistering,
-flavour and base. The Compare screen ranks every variable by how it correlates with the
-score, plots any factor against any outcome, and leaderboards your recipes.
+**Log.** Every bake, and what the differences between them add up to. Once three bakes are
+scored, it ranks each variable by how it correlates with the score and will plot any
+factor against any outcome.
 
-**Lab.** Pick one or two variables and the values to try. The app generates the grid as
-planned bakes, so the experiment is designed before the dough is mixed.
+**Setup.** Oven and mixer by type and by make and model, the temperatures your kitchen
+actually has, units, and saving. The mixer sets the friction allowance, and the step text
+adapts: mixing by hand does not read as "speed 1", and an electric oven is not told to
+turn a flame down.
 
 ## Where the numbers come from
 
 Flour strength and maturation windows are published figures where a source exists, and
 estimated from protein where none does. The app marks which is which rather than
-presenting a guess as a measurement.
+presenting a guess as a measurement. The library only carries flours that can actually
+carry a biga canotto schedule, plus semola and whole grain as blending components.
 
 - [Pizza flour comparison: W-value and protein](https://pizzaplan.app/en/flour-brands/)
 - [Pizza flour guide: W-value, protein and the right mix](https://www.housegardenhobby.com/pizza-flour-guide/)
 - [Biga preferment guide](https://www.pizzablab.com/the-encyclopizza/biga-preferment/)
 - [Caputo Nuvola](https://thepizzaheaven.com/caputo-nuvola/) and [mastering canotto pizza](https://thepizzaheaven.com/mastering-canotto-pizza/)
-- [King Arthur Baking product pages](https://shop.kingarthurbaking.com/items/00-pizza-flour)
 
 The fermentation model is a Q10 rate law with a steeper coefficient in the cold range. Its
 constant K is anchored to the house protocol, which ripens on 0.10% instant dry yeast
@@ -85,7 +81,7 @@ The repository carries no project keys. To enable sync:
    create a **Firestore** database.
 2. Add your GitHub Pages domain under Authentication → Settings → Authorized domains.
 3. Deploy the rules in `firestore.rules`, which scope every document to its owner.
-4. Open **Help & data** in the app and paste the web config. It is kept in the browser.
+4. Open **Setup** in the app and paste the web config. It is kept in the browser.
 
 Alternatively copy `firebase-config.example.js` to `firebase-config.js`, fill it in, and
 add `<script src="firebase-config.js"></script>` to `index.html` before the module script.
@@ -111,10 +107,10 @@ src/model/            pure logic, no DOM
   dough.js            baker's percentage engine
   flours.js           flour library, blend maths, W bands
   ferment.js          the fermentation model
-  advisor.js          flour to recipe proposals
+  advisor.js          flour to schedule proposals
   protocol.js         the 19 steps and the schedule solver
   recipes.js          named recipes and scoring
-  metrics.js          the variables Compare and Lab work on
+  metrics.js          the variables the Log compares on
   equipment.js        ovens, mixers, and heat modulation stages
   diagnostics.js      troubleshooting, with auto-detection
 src/lib/              storage, charts, DOM helpers, sharing, cloud

@@ -4,7 +4,7 @@
 import { h, card, numberField, selectField, textField, stat, pill, toast, icon, sliderField } from '../lib/ui.js';
 import { update, snapshotBake, addBake, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js';
 import { bakeStages, OVENS, findOven, ovenLabel } from '../model/equipment.js';
-import { diagnose } from '../model/diagnostics.js';
+import { diagnose, DIAGNOSTICS, CATEGORIES, byCategory } from '../model/diagnostics.js';
 import { overallScore, SCORE_KEYS } from '../model/recipes.js';
 import { fmtTemp, fmtGrams } from '../model/units.js';
 import { tempField, scoreInputs, stars } from './common.js';
@@ -15,7 +15,7 @@ let timerId = null;
 let elapsed = 0;
 
 export default function renderBake(ctx) {
-  return [ovenCard(ctx), simCard(ctx), conditionsCard(ctx), resultCard(ctx)];
+  return [ovenCard(ctx), simCard(ctx), conditionsCard(ctx), resultCard(ctx), troubleshootingCard(ctx)];
 }
 
 /* ---------------------------------- oven -------------------------------- */
@@ -197,6 +197,34 @@ function resultCard(ctx) {
       { class: 'row tight' },
       h('button', { class: 'btn', onClick: () => fileBake(ctx, hits) }, icon('save'), 'File this bake in the log'),
       h('button', { class: 'btn ghost', onClick: () => go('log') }, icon('history_edu'), 'Open the log')
+    )
+  );
+}
+
+/* ----------------------------- troubleshooting -------------------------- */
+
+function troubleshootingCard(ctx) {
+  const { s } = ctx;
+  const cat = s.ui?.diagCat || 'ALL';
+  return card(
+    'When it goes wrong',
+    'Cause and fix for the faults this style throws up.',
+    h(
+      'details',
+      { class: 'foldout' },
+      h('summary', {}, `Browse all ${DIAGNOSTICS.length} faults`),
+      h('div', { class: 'chip-row', style: { marginBottom: '8px' } }, ...CATEGORIES.map((cc) =>
+        h('button', { class: `chip${cc.id === cat ? ' active' : ''}`, onClick: () => update((st) => { st.ui = { ...st.ui, diagCat: cc.id }; }) }, cc.label)
+      )),
+      h('div', { class: 'list' }, ...byCategory(cat).map((d) =>
+        h(
+          'div',
+          { class: 'item' },
+          h('div', { class: 'item-title' }, d.title),
+          h('p', { style: { margin: 0, fontSize: '.8rem' } }, h('strong', {}, 'Cause. '), d.cause),
+          h('p', { style: { margin: 0, fontSize: '.8rem' } }, h('strong', {}, 'Fix. '), d.fix)
+        )
+      ))
     )
   );
 }

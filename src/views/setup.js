@@ -8,6 +8,7 @@ import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/fermen
 import { scheduleStages } from '../model/protocol.js';
 import { convertYeast } from '../model/dough.js';
 import { overallScore } from '../model/recipes.js';
+import { SOURCES, FLOURS } from '../model/flours.js';
 import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js';
 import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js';
 import { lineChart } from '../lib/charts.js';
@@ -21,7 +22,7 @@ cloud.onUser((u) => {
 });
 
 export default function renderSetup(ctx) {
-  return [equipmentCard(ctx), kitchenCard(ctx), savingCard(ctx), cloudCard(ctx), calibrationCard(ctx)];
+  return [equipmentCard(ctx), kitchenCard(ctx), savingCard(ctx), cloudCard(ctx), calibrationCard(ctx), sourcesCard()];
 }
 
 /* ------------------------------- equipment ------------------------------ */
@@ -274,5 +275,25 @@ function calibrationCard(ctx) {
         )
       : h('p', { class: 'note neutral' }, 'Score a few bakes 4 or better and the model can be fitted to your own results instead of the shipped default.'),
     h('button', { class: 'btn ghost small', onClick: () => { update((st) => { st.settings.model = { ...DEFAULT_MODEL }; }); toast('Model reset'); } }, icon('restart_alt'), 'Reset to defaults')
+  );
+}
+
+/* -------------------------------- sources ------------------------------- */
+
+function sourcesCard() {
+  const sourced = FLOURS.filter((f) => f.sourced).length;
+  return card(
+    'Where the numbers come from',
+    `${sourced} of ${FLOURS.length} flours carry published strength or maturation figures. The rest are estimated from protein, and the app says so wherever it uses one.`,
+    h('ul', { class: 'src-list' }, ...SOURCES.map((x) => h('li', {}, h('a', { href: x.url, target: '_blank', rel: 'noopener' }, x.label)))),
+    h(
+      'details',
+      { class: 'foldout' },
+      h('summary', {}, 'How the fermentation model works'),
+      h('p', { style: { fontSize: '.83rem', margin: '0 0 8px' } }, 'One fermentation unit is one hour at 20 °C. Rate follows a Q10 law, doubling roughly every 10 °C, with a steeper coefficient below 15 °C because a fridge slows dough more than a single Q10 predicts.'),
+      h('p', { style: { fontSize: '.83rem', margin: '0 0 8px' } }, 'Ripeness assumes yeast and time trade off inversely: halve the yeast and you need about twice the fermentation units. The constant tying them together is anchored to the house protocol, which ripens on 0.10% instant dry yeast across 23.4 units.'),
+      h('p', { style: { fontSize: '.83rem', margin: 0 } }, 'The freeze buffer is deliberately left out of the ripeness reading. Extra yeast added to cover freeze mortality replaces cells that will die, it does not add fermentation.')
+    ),
+    h('p', { class: 'note neutral' }, 'W values vary by lot and mills revise their specs. Treat every figure as a starting point and let your own bake log overrule it.')
   );
 }
