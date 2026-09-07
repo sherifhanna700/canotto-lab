@@ -1,5 +1,14 @@
 /* Warm Tuscan palette, carried over from the original protocol page. */
 :root {
+  /*
+   * Declaring this is not cosmetic. Without it, Chrome on Android is entitled
+   * to run its own Force Dark pass over the page, darkening it by filtering at
+   * the compositing level. That pass is a known source of stale, faintly
+   * visible content whenever the page repaints, which is what was showing on
+   * tab switches and on expanding a section. Declaring support turns it off,
+   * and native controls and scrollbars follow the theme as a bonus.
+   */
+  color-scheme: light;
   --primary: #A33E18;
   --on-primary: #FFFFFF;
   --primary-container: #FFDBD0;
@@ -38,6 +47,7 @@
  * choice before first paint, so there is no flash of the wrong theme.
  */
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --primary: #FFB59D;
   --on-primary: #5C1900;
   --primary-container: #7D2C09;

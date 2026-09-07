@@ -5,19 +5,19 @@
 // Edits save straight onto the selected recipe, so there is no save step and
 // the name in the list is always the name in the field.
 
-import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=457ebcf0';
-import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download } from '../lib/store.js?v=457ebcf0';
-import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=457ebcf0';
-import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=457ebcf0';
-import { scheduleStages, solveSchedule } from '../model/protocol.js?v=457ebcf0';
-import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, waterTempFor } from '../model/ferment.js?v=457ebcf0';
-import { suggestPlan, reviewPlan, defaultLeadHours } from '../model/advisor.js?v=457ebcf0';
-import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js?v=457ebcf0';
-import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=457ebcf0';
-import { recipeLink, copyText } from '../lib/share.js?v=457ebcf0';
-import { findMixer, mixerLabel } from '../model/equipment.js?v=457ebcf0';
-import { tempField, tempDeltaField, ratingBadge, stars } from './common.js?v=457ebcf0';
-import { go } from '../app.js?v=457ebcf0';
+import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=dba3fb54';
+import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download } from '../lib/store.js?v=dba3fb54';
+import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=dba3fb54';
+import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=dba3fb54';
+import { scheduleStages, solveSchedule } from '../model/protocol.js?v=dba3fb54';
+import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, waterTempFor } from '../model/ferment.js?v=dba3fb54';
+import { suggestPlan, reviewPlan, defaultLeadHours } from '../model/advisor.js?v=dba3fb54';
+import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js?v=dba3fb54';
+import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=dba3fb54';
+import { recipeLink, copyText } from '../lib/share.js?v=dba3fb54';
+import { findMixer, mixerLabel } from '../model/equipment.js?v=dba3fb54';
+import { tempField, tempDeltaField, ratingBadge, stars } from './common.js?v=dba3fb54';
+import { go } from '../app.js?v=dba3fb54';
 
 const setRecipe = (patch) => editCurrent((c) => Object.assign(c.recipe, patch));
 const setSchedule = (patch) => editCurrent((c) => Object.assign(c.schedule, patch));
@@ -285,11 +285,33 @@ function inputsCard(ctx) {
   });
   const window = blend.ferment || [12, 96];
 
-  // Tolerances are what a baker would notice, not what a float comparison
-  // finds. Half a point of hydration or half an hour of proof is noise.
+  /*
+   * Two different questions, and conflating them was a bug.
+   *
+   * "Would recompute change anything" decides whether the button is live, and
+   * it has to be exact. Changing the fridge by a degree moves the suggested
+   * yeast by about 3%, which a fixed tolerance of 0.005 against a value near
+   * 0.1 swallowed entirely, so the button sat dead while the inputs moved.
+   *
+   * "Is the difference worth naming" decides what the note says, and that one
+   * wants a human tolerance so the shipped recipe is not accused of differing
+   * on six things that round to the same numbers.
+   */
+  const wouldWrite = {
+    hydrationPct: [r.hydrationPct, plan.hydration.recommended],
+    baseYeastPct: [r.baseYeastPct, round(plan.idyPct, 3)],
+    bigaRestHours: [S.bigaRestHours, plan.schedule.bigaRestHours],
+    bigaColdHours: [S.bigaColdHours, plan.schedule.bigaColdHours],
+    coldProofHours: [S.coldProofHours, plan.schedule.coldProofHours],
+    temperHours: [S.temperHours, plan.schedule.temperHours],
+  };
+  const changes = Object.values(wouldWrite).filter(([now, next]) => Math.abs(Number(now) - Number(next)) > 1e-9);
+
+  // Yeast is compared proportionally: 0.003 is noise on 3% but not on 0.1%.
+  const yeastTolerance = Math.max(0.001, plan.idyPct * 0.02);
   const differences = [
     differs(r.hydrationPct, plan.hydration.recommended, 0.5) ? 'hydration' : null,
-    differs(r.baseYeastPct, plan.idyPct, 0.005) ? 'yeast' : null,
+    differs(r.baseYeastPct, plan.idyPct, yeastTolerance) ? 'yeast' : null,
     differs(S.coldProofHours, plan.schedule.coldProofHours, 0.5) ? 'cold proof' : null,
     differs(S.bigaColdHours, plan.schedule.bigaColdHours, 0.5) ? 'biga cold hold' : null,
     differs(S.bigaRestHours, plan.schedule.bigaRestHours, 0.5) ? 'biga rest' : null,
@@ -357,17 +379,15 @@ function inputsCard(ctx) {
       { class: 'stats' },
       stat('Strength', blend.w ? `W ${blend.w}` : '—', blend.estimated ? 'estimated from protein' : 'published'),
       stat('Hydration', `${plan.hydration.recommended}%`, compare(r.hydrationPct, plan.hydration.recommended, 0.5, (v) => `${v}%`, `${plan.hydration.low} to ${plan.hydration.high}%`)),
-      stat('Yeast', `${plan.idyPct.toFixed(3)}%`, compare(r.baseYeastPct, plan.idyPct, 0.005, (v) => `${v}%`, 'instant dry')),
+      stat('Yeast', `${plan.idyPct.toFixed(3)}%`, compare(r.baseYeastPct, plan.idyPct, yeastTolerance, (v) => `${v}%`, 'instant dry')),
       stat('Cold proof', fmtDuration(plan.schedule.coldProofHours), compare(S.coldProofHours, plan.schedule.coldProofHours, 0.5, fmtDuration, `at ${fmtTemp(S.fridgeTempC, u)}`))
     ),
     h('p', { class: 'note neutral' }, `${plan.band.label}. ${plan.band.blurb}${blend.estimated ? ' W is estimated from protein, not published.' : ''}`),
-    h('p', { class: 'note neutral' }, differences.length
-      ? `The recipe currently differs on ${listOf(differences)}. Recompute to take the suggestions, or leave it as it is.`
-      : 'The recipe already matches these suggestions.'),
+    h('p', { class: 'note neutral' }, noteFor(changes, differences)),
     h(
       'div',
       { class: 'row tight' },
-      h('button', { class: 'btn', disabled: !differences.length, onClick: () => { editCurrent((cc) => { Object.assign(cc.recipe, plan.recipePatch); Object.assign(cc.schedule, plan.schedule); }); toast('Recomputed. The protocol follows these numbers.'); } }, icon('auto_awesome'), 'Recompute from these inputs'),
+      h('button', { class: 'btn', disabled: !changes.length, onClick: () => { editCurrent((cc) => { Object.assign(cc.recipe, plan.recipePatch); Object.assign(cc.schedule, plan.schedule); }); toast('Recomputed. The protocol follows these numbers.'); } }, icon('auto_awesome'), 'Recompute from these inputs'),
       h('button', { class: 'btn ghost', onClick: () => go('protocol') }, icon('checklist'), 'See the protocol')
     )
   );
@@ -381,6 +401,12 @@ function differs(current, suggested, tolerance) {
 /** Sub-line for a suggested value: what the recipe holds now, if it differs. */
 function compare(current, suggested, tolerance, format, fallback) {
   return differs(current, suggested, tolerance) ? `now ${format(current)}` : fallback;
+}
+
+function noteFor(changes, differences) {
+  if (!changes.length) return 'The recipe already matches these suggestions.';
+  if (!differences.length) return 'Recomputing would fine-tune the timings and the inoculation. The differences are small.';
+  return `The recipe currently differs on ${listOf(differences)}. Recompute to take the suggestions, or leave it as it is.`;
 }
 
 function listOf(items) {

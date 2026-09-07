@@ -248,6 +248,17 @@ test('the advisor reconstructs the house protocol from the flour alone', () => {
   near(plan.hydration.recommended, 70, 3, 'hydration');
 });
 
+test('a change of one degree in the fridge moves the suggested inoculation', () => {
+  const flours = [{ id: 'caputo-cuoco', pct: 100 }];
+  const at = (c) => suggestPlan(blendStats(flours), { flours, totalHours: 93, fridgeTempC: c }).idyPct;
+  const cold = at(2.8);
+  const warmer = at(2.8 + 5 / 9); // one degree Fahrenheit
+  assert.ok(warmer < cold, 'a warmer fridge needs less yeast');
+  // The Recompute button compares at three decimal places, so the difference
+  // has to survive that rounding or the button sits dead while inputs move.
+  assert.notEqual(Math.round(cold * 1000), Math.round(warmer * 1000), 'one degree must be visible at the precision the app stores');
+});
+
 test('a shorter schedule needs more yeast than a long one', () => {
   const flours = [{ id: 'caputo-cuoco', pct: 100 }];
   const short = suggestPlan(blendStats(flours), { flours, totalHours: 24 });
