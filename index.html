@@ -10,7 +10,20 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=e7cf3413">
+  <script>
+    // Resolve the theme before the first paint so there is no flash of the
+    // wrong one. Kept in its own key so this can run without loading the app.
+    (function () {
+      try {
+        var pref = localStorage.getItem('canotto-lab/theme') || 'system';
+        var dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      } catch (e) {
+        document.documentElement.dataset.theme = 'light';
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="assets/style.css?v=18086ea6">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -29,6 +42,7 @@
         <span id="progress-text">0 / 19</span>
         <span class="progress-track"><span class="progress-fill" id="progress-fill"></span></span>
       </div>
+      <button class="btn ghost icon-btn" id="theme-toggle" title="Appearance" aria-label="Change appearance"><span class="msym">brightness_auto</span></button>
       <button class="btn ghost icon-btn" id="unit-toggle" title="Switch temperature units" aria-label="Switch temperature units">°F</button>
     </div>
   </header>
@@ -42,6 +56,6 @@
     <p>Canotto Lab stores everything in this browser. Nothing leaves the device unless you export it.</p>
   </footer>
 
-  <script type="module" src="src/app.js?v=e7cf3413"></script>
+  <script type="module" src="src/app.js?v=18086ea6"></script>
 </body>
 </html>

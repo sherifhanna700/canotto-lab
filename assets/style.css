@@ -32,32 +32,35 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --primary: #FFB59D;
-    --on-primary: #5C1900;
-    --primary-container: #7D2C09;
-    --on-primary-container: #FFDBD0;
-    --secondary: #C0CCAD;
-    --secondary-container: #404A33;
-    --on-secondary-container: #DCE8C8;
+/*
+ * Dark is applied by attribute, not by media query, so the in-app toggle can
+ * override the operating system. An inline script in the head resolves the
+ * choice before first paint, so there is no flash of the wrong theme.
+ */
+:root[data-theme="dark"] {
+  --primary: #FFB59D;
+  --on-primary: #5C1900;
+  --primary-container: #7D2C09;
+  --on-primary-container: #FFDBD0;
+  --secondary: #C0CCAD;
+  --secondary-container: #404A33;
+  --on-secondary-container: #DCE8C8;
 
-    --surface: #191111;
-    --surface-lowest: #201817;
-    --surface-low: #241B1A;
-    --surface-high: #2E2422;
-    --on-surface: #F0DEDA;
-    --on-surface-variant: #D7C2BB;
-    --outline: #A08C86;
-    --outline-variant: #4A3B37;
+  --surface: #191111;
+  --surface-lowest: #201817;
+  --surface-low: #241B1A;
+  --surface-high: #2E2422;
+  --on-surface: #F0DEDA;
+  --on-surface-variant: #D7C2BB;
+  --outline: #A08C86;
+  --outline-variant: #4A3B37;
 
-    --good: #A7D69A; --good-bg: #24331F;
-    --warn: #E8C07A; --warn-bg: #382C15;
-    --bad: #FFB4AB; --bad-bg: #3A1512;
+  --good: #A7D69A; --good-bg: #24331F;
+  --warn: #E8C07A; --warn-bg: #382C15;
+  --bad: #FFB4AB; --bad-bg: #3A1512;
 
-    --c1: #FFB59D; --c2: #C0CCAD; --c3: #E8C07A; --c4: #9BC6E4; --c5: #D6B0D9; --c6: #D3B78A;
-    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.25);
-  }
+  --c1: #FFB59D; --c2: #C0CCAD; --c3: #E8C07A; --c4: #9BC6E4; --c5: #D6B0D9; --c6: #D3B78A;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.25);
 }
 
 * { box-sizing: border-box; }

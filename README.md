@@ -46,7 +46,8 @@ scored, it ranks each variable by how it correlates with the score and will plot
 factor against any outcome.
 
 **Setup.** Oven and mixer by type and by make and model, the temperatures your kitchen
-actually has, units, and saving. The mixer sets the friction allowance, and the step text
+actually has, units, appearance, and saving. Appearance follows your device by default
+and can be forced light or dark, from Setup or the button in the header. The mixer sets the friction allowance, and the step text
 adapts: mixing by hand does not read as "speed 1", and an electric oven is not told to
 turn a flame down.
 
@@ -129,7 +130,7 @@ src/model/            pure logic, no DOM
   metrics.js          the variables the Log compares on
   equipment.js        ovens, mixers, and heat modulation stages
   diagnostics.js      troubleshooting, with auto-detection
-src/lib/              storage, charts, DOM helpers, sharing, cloud
+src/lib/              storage, charts, DOM helpers, sharing, theme, cloud
 src/views/            one module per screen
 tools/stamp.mjs       cache busting
 tests/run.mjs         model tests

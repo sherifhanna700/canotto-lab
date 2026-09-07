@@ -1,16 +1,17 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe } from './lib/store.js?v=e7cf3413';
-import { readRecipeLink } from './lib/share.js?v=e7cf3413';
-import { h, clear, $, icon } from './lib/ui.js?v=e7cf3413';
-import { computeRecipe } from './model/dough.js?v=e7cf3413';
-import { solveSchedule, activeSteps } from './model/protocol.js?v=e7cf3413';
+import { load, subscribe, update, addRecipe } from './lib/store.js?v=18086ea6';
+import { readRecipeLink } from './lib/share.js?v=18086ea6';
+import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=18086ea6';
+import { h, clear, $, icon } from './lib/ui.js?v=18086ea6';
+import { computeRecipe } from './model/dough.js?v=18086ea6';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=18086ea6';
 
-import renderRecipe from './views/recipe.js?v=e7cf3413';
-import renderProtocol from './views/protocol.js?v=e7cf3413';
-import renderBake from './views/bake.js?v=e7cf3413';
-import renderLog from './views/log.js?v=e7cf3413';
-import renderSetup from './views/setup.js?v=e7cf3413';
+import renderRecipe from './views/recipe.js?v=18086ea6';
+import renderProtocol from './views/protocol.js?v=18086ea6';
+import renderBake from './views/bake.js?v=18086ea6';
+import renderLog from './views/log.js?v=18086ea6';
+import renderSetup from './views/setup.js?v=18086ea6';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
@@ -155,6 +156,7 @@ export function render() {
   renderProgress(ctx);
   $('#brand-sub').textContent = ctx.s.current.title || 'Contemporary Canotto';
   $('#unit-toggle').textContent = `°${ctx.u}`;
+  paintThemeButton();
 
   const main = clear($('#main'));
   const tab = TABS.find((t) => t.id === activeTab);
@@ -167,6 +169,25 @@ export function render() {
   assignKeys(main);
   restoreFocus(main, snap);
 }
+
+function paintThemeButton() {
+  const pref = readTheme();
+  const t = THEMES.find((x) => x.id === pref) || THEMES[0];
+  const btn = $('#theme-toggle');
+  btn.replaceChildren(icon(t.icon));
+  btn.title = `Appearance: ${t.label.toLowerCase()}`;
+  btn.setAttribute('aria-label', `Appearance: ${t.label}. Tap to change.`);
+}
+
+$('#theme-toggle').addEventListener('click', () => {
+  setTheme(nextTheme());
+  paintThemeButton();
+  render();
+});
+
+watchSystem(() => render());
+applyTheme();
+paintThemeButton();
 
 $('#unit-toggle').addEventListener('click', () => {
   update((s) => {

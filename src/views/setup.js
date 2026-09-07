@@ -1,19 +1,20 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=e7cf3413';
-import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=e7cf3413';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=e7cf3413';
-import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=e7cf3413';
-import { scheduleStages } from '../model/protocol.js?v=e7cf3413';
-import { convertYeast } from '../model/dough.js?v=e7cf3413';
-import { overallScore } from '../model/recipes.js?v=e7cf3413';
-import { SOURCES, FLOURS } from '../model/flours.js?v=e7cf3413';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=e7cf3413';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=e7cf3413';
-import { lineChart } from '../lib/charts.js?v=e7cf3413';
-import * as cloud from '../lib/cloud.js?v=e7cf3413';
-import { tempField, tempDeltaField } from './common.js?v=e7cf3413';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=18086ea6';
+import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=18086ea6';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=18086ea6';
+import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=18086ea6';
+import { scheduleStages } from '../model/protocol.js?v=18086ea6';
+import { convertYeast } from '../model/dough.js?v=18086ea6';
+import { overallScore } from '../model/recipes.js?v=18086ea6';
+import { SOURCES, FLOURS } from '../model/flours.js?v=18086ea6';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=18086ea6';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=18086ea6';
+import { lineChart } from '../lib/charts.js?v=18086ea6';
+import * as cloud from '../lib/cloud.js?v=18086ea6';
+import { tempField, tempDeltaField } from './common.js?v=18086ea6';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=18086ea6';
 
 let cloudUser = null;
 let cloudStatus = '';
@@ -120,6 +121,12 @@ function kitchenCard(ctx) {
         { class: 'field' },
         h('span', { class: 'field-label' }, 'Temperature units'),
         h('span', { class: 'field-input' }, h('div', { class: 'chip-row' }, chip('°F', u === 'F', () => update((st) => { st.settings.unit = 'F'; })), chip('°C', u === 'C', () => update((st) => { st.settings.unit = 'C'; }))))
+      ),
+      h(
+        'label',
+        { class: 'field' },
+        h('span', { class: 'field-label' }, 'Appearance'),
+        h('span', { class: 'field-input' }, h('div', { class: 'chip-row' }, ...THEMES.map((t) => chip(t.label, readTheme() === t.id, () => { setTheme(t.id); update(() => {}); }))))
       ),
       tempField({ label: 'Cold ferment temperature', valueC: S.fridgeTempC, unit: u, step: 1, hint: 'Whatever your fridge actually holds', onChange: (v) => update((st) => { st.current.schedule.fridgeTempC = v; st.current.schedule.bigaFridgeTempC = v; }) }),
       tempField({ label: 'Room temperature', valueC: S.roomTempC, unit: u, step: 1, onChange: (v) => update((st) => { st.current.schedule.roomTempC = v; st.current.schedule.bigaRoomTempC = v; }) }),

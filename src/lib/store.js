@@ -4,11 +4,11 @@
 // app touches storage directly, so swapping in a cloud backend later means
 // reimplementing `load` and `save`, not rewriting the views.
 
-import { DEFAULT_RECIPE } from '../model/dough.js?v=e7cf3413';
-import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=e7cf3413';
-import { DEFAULT_MODEL } from '../model/ferment.js?v=e7cf3413';
-import { starterRecipes, houseRecipe } from '../model/recipes.js?v=e7cf3413';
-import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=e7cf3413';
+import { DEFAULT_RECIPE } from '../model/dough.js?v=18086ea6';
+import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=18086ea6';
+import { DEFAULT_MODEL } from '../model/ferment.js?v=18086ea6';
+import { starterRecipes, houseRecipe } from '../model/recipes.js?v=18086ea6';
+import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=18086ea6';
 
 const KEY = 'canotto-lab/v1';
 const LEGACY = { steps: 'canotto_master_steps', frozen: 'canotto_frozen_count', metrics: 'canotto_step_metrics' };
@@ -78,6 +78,12 @@ export function load() {
   }
   const base = defaultState();
   cache = parsed ? mergeState(base, parsed) : migrateLegacy(base);
+
+  const fixed = repairValues(cache.current);
+  if (fixed.length) {
+    console.warn('Canotto Lab: repaired impossible values in the current session:', fixed.join(', '));
+    save();
+  }
   return cache;
 }
 
@@ -104,6 +110,72 @@ function mergeState(base, saved) {
 }
 
 /**
+ * Ranges a real kitchen can hold. Anything outside these was not typed on
+ * purpose.
+ *
+ * An earlier bug rebuilt the screen on every keystroke, which threw away every
+ * character after the first, so typing 68 stored 6. That is fixed, but the
+ * impossible values it wrote are still sitting in people's saved data, and
+ * defaults only apply to a fresh install. These are repaired on load.
+ */
+const PLAUSIBLE_SCHEDULE = {
+  fridgeTempC: [-4, 15],
+  bigaFridgeTempC: [-4, 15],
+  roomTempC: [8, 38],
+  bigaRoomTempC: [8, 38],
+  benchTempC: [8, 38],
+  ddtC: [12, 34],
+  deckTempC: [120, 600],
+  domeTempC: [120, 700],
+  bigaRestHours: [0, 36],
+  bigaColdHours: [0, 72],
+  coldProofHours: [0.5, 240],
+  temperHours: [0, 16],
+  preheatMin: [5, 300],
+  bakeSec: [10, 1200],
+  freezeFlashMin: [10, 600],
+  thawFridgeHours: [0, 120],
+  frozenTemperHours: [0, 24],
+};
+
+const PLAUSIBLE_RECIPE = {
+  hydrationPct: [40, 100],
+  saltPct: [0, 8],
+  oilPct: [0, 12],
+  sugarPct: [0, 15],
+  maltPct: [0, 5],
+  baseYeastPct: [0, 5],
+  freezeBufferPct: [0, 1],
+  prefermentFlourPct: [0, 100],
+  prefermentHydrationPct: [20, 130],
+  balls: [1, 200],
+  ballWeight: [50, 2000],
+  wastePct: [0, 50],
+};
+
+function repairInto(obj, ranges, defaults) {
+  const fixed = [];
+  if (!obj) return fixed;
+  for (const [key, [lo, hi]] of Object.entries(ranges)) {
+    const v = Number(obj[key]);
+    if (!Number.isFinite(v) || v < lo || v > hi) {
+      fixed.push(`${key}=${obj[key]}`);
+      obj[key] = defaults[key];
+    }
+  }
+  return fixed;
+}
+
+/** Repair a saved recipe or session in place, and say what was corrected. */
+export function repairValues(holder) {
+  const fixed = [
+    ...repairInto(holder.schedule, PLAUSIBLE_SCHEDULE, DEFAULT_SCHEDULE),
+    ...repairInto(holder.recipe, PLAUSIBLE_RECIPE, DEFAULT_RECIPE),
+  ];
+  return fixed;
+}
+
+/**
  * Only the house protocol ships as a preset. Earlier builds shipped several,
  * and they survive in saved data, so they are cleared out here. A starter the
  * baker actually used is kept and becomes theirs rather than being deleted.
@@ -116,7 +188,12 @@ function reconcileRecipes(saved, base) {
   const usedIds = new Set((saved.bakes || []).map((b) => b.recipeId).filter(Boolean));
   const kept = list
     .filter((r) => r && r.id && (r.origin !== 'starter' || usedIds.has(r.id)))
-    .map((r) => normaliseRecipe(r.origin === 'starter' ? { ...r, origin: 'user' } : r));
+    .map((r) => {
+      const n = normaliseRecipe(r.origin === 'starter' ? { ...r, origin: 'user' } : r);
+      const fixed = repairValues(n);
+      if (fixed.length) console.warn(`Canotto Lab: repaired impossible values in "${n.name}":`, fixed.join(', '));
+      return n;
+    });
 
   if (!kept.some((r) => r.origin === 'house')) kept.push(house);
   return kept;
