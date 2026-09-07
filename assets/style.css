@@ -66,6 +66,17 @@
 * { box-sizing: border-box; }
 
 body {
+  /*
+   * Always at least a viewport tall, plus a pixel.
+   *
+   * Screens differ hugely in height. When a tall one is replaced by a short
+   * one the document can stop being scrollable, and Android Chrome responds by
+   * animating its address bar back in. That resizes the viewport and forces a
+   * re-raster, and the browser composites the outgoing frame while it happens,
+   * which is the previous screen showing through for about a second. Keeping
+   * the document permanently scrollable removes the trigger.
+   */
+  min-height: calc(100vh + 1px);
   margin: 0;
   font-family: 'Lora', Georgia, serif;
   background: var(--surface);
@@ -174,8 +185,10 @@ main { max-width: 1080px; margin: 0 auto; padding: 16px 14px 40px; display: grid
 
 /* -------------------------------- fields ------------------------------- */
 
-.field { display: grid; gap: 4px; font-size: .78rem; min-width: 0; }
-.field-label { font-weight: 600; color: var(--on-surface-variant); display: flex; justify-content: space-between; gap: 8px; }
+.field { display: grid; grid-template-rows: auto 1fr auto; gap: 4px; font-size: .78rem; min-width: 0; }
+/* Reserve two lines so a label that wraps does not push its own input below
+   the inputs beside it. */
+.field-label { font-weight: 600; color: var(--on-surface-variant); display: flex; justify-content: space-between; gap: 8px; align-items: start; min-height: 2.5em; }
 .field-input { display: flex; align-items: center; gap: 6px; }
 .field input, .field select, .field textarea {
   width: 100%; min-width: 0; font-family: inherit; font-size: .9rem; color: var(--on-surface);

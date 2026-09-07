@@ -1,17 +1,17 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe } from './lib/store.js?v=edc1a2f1';
-import { readRecipeLink } from './lib/share.js?v=edc1a2f1';
-import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=edc1a2f1';
-import { h, $, icon } from './lib/ui.js?v=edc1a2f1';
-import { computeRecipe } from './model/dough.js?v=edc1a2f1';
-import { solveSchedule, activeSteps } from './model/protocol.js?v=edc1a2f1';
+import { load, subscribe, update, addRecipe } from './lib/store.js?v=457ebcf0';
+import { readRecipeLink } from './lib/share.js?v=457ebcf0';
+import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=457ebcf0';
+import { h, $, icon } from './lib/ui.js?v=457ebcf0';
+import { computeRecipe } from './model/dough.js?v=457ebcf0';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=457ebcf0';
 
-import renderRecipe from './views/recipe.js?v=edc1a2f1';
-import renderProtocol from './views/protocol.js?v=edc1a2f1';
-import renderBake from './views/bake.js?v=edc1a2f1';
-import renderLog from './views/log.js?v=edc1a2f1';
-import renderSetup from './views/setup.js?v=edc1a2f1';
+import renderRecipe from './views/recipe.js?v=457ebcf0';
+import renderProtocol from './views/protocol.js?v=457ebcf0';
+import renderBake from './views/bake.js?v=457ebcf0';
+import renderLog from './views/log.js?v=457ebcf0';
+import renderSetup from './views/setup.js?v=457ebcf0';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
@@ -58,7 +58,10 @@ export function go(tabId) {
    * old tiles left to show. Reading offsetHeight forces the new layout before
    * it is shown again, so this is not visible as a flash.
    */
-  window.scrollTo(0, 0);
+  // Only scroll if there is somewhere to scroll from. A pointless scroll to
+  // top is itself enough to make Android animate its address bar back in.
+  if (window.scrollY > 0) window.scrollTo(0, 0);
+
   const main = $('#main');
   main.style.display = 'none';
   render();

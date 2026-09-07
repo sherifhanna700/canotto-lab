@@ -1,20 +1,20 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=edc1a2f1';
-import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=edc1a2f1';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=edc1a2f1';
-import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=edc1a2f1';
-import { scheduleStages } from '../model/protocol.js?v=edc1a2f1';
-import { convertYeast } from '../model/dough.js?v=edc1a2f1';
-import { overallScore } from '../model/recipes.js?v=edc1a2f1';
-import { SOURCES, FLOURS } from '../model/flours.js?v=edc1a2f1';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=edc1a2f1';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=edc1a2f1';
-import { lineChart } from '../lib/charts.js?v=edc1a2f1';
-import * as cloud from '../lib/cloud.js?v=edc1a2f1';
-import { tempField, tempDeltaField } from './common.js?v=edc1a2f1';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=edc1a2f1';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=457ebcf0';
+import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=457ebcf0';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=457ebcf0';
+import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=457ebcf0';
+import { scheduleStages } from '../model/protocol.js?v=457ebcf0';
+import { convertYeast } from '../model/dough.js?v=457ebcf0';
+import { overallScore } from '../model/recipes.js?v=457ebcf0';
+import { SOURCES, FLOURS } from '../model/flours.js?v=457ebcf0';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=457ebcf0';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=457ebcf0';
+import { lineChart } from '../lib/charts.js?v=457ebcf0';
+import * as cloud from '../lib/cloud.js?v=457ebcf0';
+import { tempField, tempDeltaField } from './common.js?v=457ebcf0';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=457ebcf0';
 
 let cloudUser = null;
 let cloudStatus = '';
@@ -63,10 +63,10 @@ function equipmentCard(ctx) {
     h(
       'div',
       { class: 'row' },
-      tempField({ label: 'Usual floor temperature', valueC: s.current.schedule.deckTempC, unit: u, step: 5, onChange: (v) => update((st) => { st.current.schedule.deckTempC = v; }) }),
-      tempField({ label: 'Usual dome temperature', valueC: s.current.schedule.domeTempC, unit: u, step: 5, onChange: (v) => update((st) => { st.current.schedule.domeTempC = v; }) }),
-      numberField({ label: 'Usual bake time', value: s.current.schedule.bakeSec, min: 20, max: 600, step: 5, suffix: 'sec', onInput: (v) => update((st) => { st.current.schedule.bakeSec = v ?? 75; }) }),
-      numberField({ label: 'Preheat soak', value: s.current.schedule.preheatMin, min: 10, max: 180, step: 5, suffix: 'min', onInput: (v) => update((st) => { st.current.schedule.preheatMin = v ?? 45; }) })
+      tempField({ label: 'Floor', valueC: s.current.schedule.deckTempC, unit: u, step: 5, onChange: (v) => update((st) => { st.current.schedule.deckTempC = v; }) }),
+      tempField({ label: 'Dome', valueC: s.current.schedule.domeTempC, unit: u, step: 5, onChange: (v) => update((st) => { st.current.schedule.domeTempC = v; }) }),
+      numberField({ label: 'Bake time', value: s.current.schedule.bakeSec, min: 20, max: 600, step: 5, suffix: 'sec', onInput: (v) => update((st) => { st.current.schedule.bakeSec = v ?? 75; }) }),
+      numberField({ label: 'Preheat', value: s.current.schedule.preheatMin, min: 10, max: 180, step: 5, suffix: 'min', onInput: (v) => update((st) => { st.current.schedule.preheatMin = v ?? 45; }) })
     ),
 
     h('h3', { style: { fontSize: '.86rem', marginTop: '6px' } }, 'Mixer'),
