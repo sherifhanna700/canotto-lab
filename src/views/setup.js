@@ -1,20 +1,20 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=18086ea6';
-import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=18086ea6';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=18086ea6';
-import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=18086ea6';
-import { scheduleStages } from '../model/protocol.js?v=18086ea6';
-import { convertYeast } from '../model/dough.js?v=18086ea6';
-import { overallScore } from '../model/recipes.js?v=18086ea6';
-import { SOURCES, FLOURS } from '../model/flours.js?v=18086ea6';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=18086ea6';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=18086ea6';
-import { lineChart } from '../lib/charts.js?v=18086ea6';
-import * as cloud from '../lib/cloud.js?v=18086ea6';
-import { tempField, tempDeltaField } from './common.js?v=18086ea6';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=18086ea6';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=b05e27a1';
+import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=b05e27a1';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=b05e27a1';
+import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=b05e27a1';
+import { scheduleStages } from '../model/protocol.js?v=b05e27a1';
+import { convertYeast } from '../model/dough.js?v=b05e27a1';
+import { overallScore } from '../model/recipes.js?v=b05e27a1';
+import { SOURCES, FLOURS } from '../model/flours.js?v=b05e27a1';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=b05e27a1';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=b05e27a1';
+import { lineChart } from '../lib/charts.js?v=b05e27a1';
+import * as cloud from '../lib/cloud.js?v=b05e27a1';
+import { tempField, tempDeltaField } from './common.js?v=b05e27a1';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=b05e27a1';
 
 let cloudUser = null;
 let cloudStatus = '';

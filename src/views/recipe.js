@@ -5,19 +5,19 @@
 // Edits save straight onto the selected recipe, so there is no save step and
 // the name in the list is always the name in the field.
 
-import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=18086ea6';
-import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download } from '../lib/store.js?v=18086ea6';
-import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=18086ea6';
-import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=18086ea6';
-import { scheduleStages, solveSchedule } from '../model/protocol.js?v=18086ea6';
-import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, waterTempFor } from '../model/ferment.js?v=18086ea6';
-import { suggestPlan, reviewPlan, defaultLeadHours } from '../model/advisor.js?v=18086ea6';
-import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js?v=18086ea6';
-import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=18086ea6';
-import { recipeLink, copyText } from '../lib/share.js?v=18086ea6';
-import { findMixer, mixerLabel } from '../model/equipment.js?v=18086ea6';
-import { tempField, tempDeltaField, ratingBadge, stars } from './common.js?v=18086ea6';
-import { go } from '../app.js?v=18086ea6';
+import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=b05e27a1';
+import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download } from '../lib/store.js?v=b05e27a1';
+import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=b05e27a1';
+import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=b05e27a1';
+import { scheduleStages, solveSchedule } from '../model/protocol.js?v=b05e27a1';
+import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, waterTempFor } from '../model/ferment.js?v=b05e27a1';
+import { suggestPlan, reviewPlan, defaultLeadHours } from '../model/advisor.js?v=b05e27a1';
+import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js?v=b05e27a1';
+import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=b05e27a1';
+import { recipeLink, copyText } from '../lib/share.js?v=b05e27a1';
+import { findMixer, mixerLabel } from '../model/equipment.js?v=b05e27a1';
+import { tempField, tempDeltaField, ratingBadge, stars } from './common.js?v=b05e27a1';
+import { go } from '../app.js?v=b05e27a1';
 
 const setRecipe = (patch) => editCurrent((c) => Object.assign(c.recipe, patch));
 const setSchedule = (patch) => editCurrent((c) => Object.assign(c.schedule, patch));
@@ -285,6 +285,17 @@ function inputsCard(ctx) {
   });
   const window = blend.ferment || [12, 96];
 
+  // Tolerances are what a baker would notice, not what a float comparison
+  // finds. Half a point of hydration or half an hour of proof is noise.
+  const differences = [
+    differs(r.hydrationPct, plan.hydration.recommended, 0.5) ? 'hydration' : null,
+    differs(r.baseYeastPct, plan.idyPct, 0.005) ? 'yeast' : null,
+    differs(S.coldProofHours, plan.schedule.coldProofHours, 0.5) ? 'cold proof' : null,
+    differs(S.bigaColdHours, plan.schedule.bigaColdHours, 0.5) ? 'biga cold hold' : null,
+    differs(S.bigaRestHours, plan.schedule.bigaRestHours, 0.5) ? 'biga rest' : null,
+    differs(S.temperHours, plan.schedule.temperHours, 0.5) ? 'temper' : null,
+  ].filter(Boolean);
+
   const flourRows = r.flours.map((entry, i) =>
     h(
       'div',
@@ -339,22 +350,42 @@ function inputsCard(ctx) {
       onInput: (v) => update((st) => { st.current.leadHours = v; }),
     }),
     h('p', { class: 'hint', style: { fontSize: '.72rem', marginTop: '-6px' } }, blend.fermentSourced ? `Published window for this flour is ${window[0]} to ${window[1]} hours.` : `No published window, so the ${blend.band?.label || 'W band'} guide applies: ${window[0]} to ${window[1]} hours.`),
+    h('h3', { style: { fontSize: '.86rem', marginTop: '4px' } }, 'Suggested'),
+
     h(
       'div',
       { class: 'stats' },
       stat('Strength', blend.w ? `W ${blend.w}` : '—', blend.estimated ? 'estimated from protein' : 'published'),
-      stat('Would give hydration', `${plan.hydration.recommended}%`, `${plan.hydration.low} to ${plan.hydration.high}%`),
-      stat('Would give yeast', `${plan.idyPct.toFixed(3)}%`, 'instant dry'),
-      stat('Would give cold proof', fmtDuration(plan.schedule.coldProofHours), `at ${fmtTemp(S.fridgeTempC, u)}`)
+      stat('Hydration', `${plan.hydration.recommended}%`, compare(r.hydrationPct, plan.hydration.recommended, 0.5, (v) => `${v}%`, `${plan.hydration.low} to ${plan.hydration.high}%`)),
+      stat('Yeast', `${plan.idyPct.toFixed(3)}%`, compare(r.baseYeastPct, plan.idyPct, 0.005, (v) => `${v}%`, 'instant dry')),
+      stat('Cold proof', fmtDuration(plan.schedule.coldProofHours), compare(S.coldProofHours, plan.schedule.coldProofHours, 0.5, fmtDuration, `at ${fmtTemp(S.fridgeTempC, u)}`))
     ),
     h('p', { class: 'note neutral' }, `${plan.band.label}. ${plan.band.blurb}${blend.estimated ? ' W is estimated from protein, not published.' : ''}`),
+    h('p', { class: 'note neutral' }, differences.length
+      ? `The recipe currently differs on ${listOf(differences)}. Recompute to take the suggestions, or leave it as it is.`
+      : 'The recipe already matches these suggestions.'),
     h(
       'div',
       { class: 'row tight' },
-      h('button', { class: 'btn', onClick: () => { editCurrent((cc) => { Object.assign(cc.recipe, plan.recipePatch); Object.assign(cc.schedule, plan.schedule); }); toast('Recomputed. The protocol follows these numbers.'); } }, icon('auto_awesome'), 'Recompute from these inputs'),
+      h('button', { class: 'btn', disabled: !differences.length, onClick: () => { editCurrent((cc) => { Object.assign(cc.recipe, plan.recipePatch); Object.assign(cc.schedule, plan.schedule); }); toast('Recomputed. The protocol follows these numbers.'); } }, icon('auto_awesome'), 'Recompute from these inputs'),
       h('button', { class: 'btn ghost', onClick: () => go('protocol') }, icon('checklist'), 'See the protocol')
     )
   );
+}
+
+/** Only count a gap the baker would actually notice. */
+function differs(current, suggested, tolerance) {
+  return Math.abs(Number(current) - Number(suggested)) > tolerance;
+}
+
+/** Sub-line for a suggested value: what the recipe holds now, if it differs. */
+function compare(current, suggested, tolerance, format, fallback) {
+  return differs(current, suggested, tolerance) ? `now ${format(current)}` : fallback;
+}
+
+function listOf(items) {
+  if (items.length === 1) return items[0];
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 }
 
 /* -------------------------------- dough --------------------------------- */
@@ -504,8 +535,8 @@ function weighCard(ctx) {
             h('td', {}, row.label),
             h('td', { class: 'num' }, `${round(row.pct, 3)}%`),
             h('td', { class: 'num' }, fmtGrams(row.grams)),
-            pref.active ? h('td', { class: 'num' }, fmtGrams(stagePart(c, row.key, 'pref'))) : null,
-            pref.active ? h('td', { class: 'num' }, fmtGrams(stagePart(c, row.key, 'final'))) : null
+            pref.active ? h('td', { class: 'num' }, fmtGrams(row.biga)) : null,
+            pref.active ? h('td', { class: 'num' }, fmtGrams(row.final)) : null
           )
         ))
       )
@@ -514,18 +545,17 @@ function weighCard(ctx) {
       ? h(
           'div',
           { class: 'stats' },
-          stat('Biga', fmtGrams(pref.mass), `${pref.flourPct}% of flour at ${pref.hydrationPct}%`),
-          stat('Bassinage', fmtGrams(c.finalMix.bassinage), `${c.finalMix.doses} doses of ${fmtGrams(c.finalMix.doseSize)}`),
-          stat('Salt wash', fmtGrams(c.finalMix.saltWash), 'held back for the salt')
+          stat('Biga', fmtGrams(c.weigh.bigaMass), `${pref.flourPct}% of flour at ${pref.hydrationPct}%`),
+          stat('Bassinage', fmtGrams(c.weigh.water.bassinage), doseLabel(c)),
+          stat('Salt wash', fmtGrams(c.weigh.water.saltWash), 'held back for the salt')
         )
       : null
   );
 }
 
-function stagePart(c, key, which) {
-  const pref = c.preferment;
-  if (key === 'flour') return which === 'pref' ? pref.flour : c.finalMix.flour;
-  if (key === 'water') return which === 'pref' ? pref.water : c.finalMix.water;
-  if (key === 'yeast') return which === 'pref' ? pref.yeast : c.finalMix.yeast;
-  return which === 'pref' ? 0 : c[key];
+/** Doses are whole grams that add up, so say so exactly. */
+function doseLabel(c) {
+  const doses = c.weigh.water.doses;
+  const equal = doses.every((d) => d === doses[0]);
+  return equal ? `${doses.length} doses of ${doses[0]} g` : `doses of ${doses.join(', ')} g`;
 }

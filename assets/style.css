@@ -90,10 +90,15 @@ h1, h2, h3, h4 { font-family: 'Fraunces', Georgia, serif; letter-spacing: -.015e
 
 .appbar {
   position: sticky; top: 0; z-index: 20;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  background: var(--surface);
+  /* Translucency only where the blur behind it is actually supported;
+     a half-painted backdrop is what makes stale content show through. */
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--outline-variant);
   padding-top: env(safe-area-inset-top, 0px);
+}
+@supports (backdrop-filter: blur(1px)) {
+  .appbar { background: color-mix(in srgb, var(--surface) 94%, transparent); }
 }
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -129,7 +134,9 @@ h1, h2, h3, h4 { font-family: 'Fraunces', Georgia, serif; letter-spacing: -.015e
 .tab.active { background: var(--primary-container); color: var(--on-primary-container); }
 .tab .msym { font-size: 1.05rem; }
 
-main { max-width: 1080px; margin: 0 auto; padding: 16px 14px 40px; display: grid; gap: 16px; }
+/* An opaque ground under the cards. Without it, a page that shrinks can leave
+   the previous screen's tiles visible underneath until the next repaint. */
+main { max-width: 1080px; margin: 0 auto; padding: 16px 14px 40px; display: grid; gap: 16px; background: var(--surface); }
 .foot { max-width: 1080px; margin: 0 auto; padding: 0 16px 32px; }
 .foot p { font-size: .74rem; color: var(--on-surface-variant); }
 

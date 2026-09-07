@@ -1,17 +1,17 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe } from './lib/store.js?v=18086ea6';
-import { readRecipeLink } from './lib/share.js?v=18086ea6';
-import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=18086ea6';
-import { h, clear, $, icon } from './lib/ui.js?v=18086ea6';
-import { computeRecipe } from './model/dough.js?v=18086ea6';
-import { solveSchedule, activeSteps } from './model/protocol.js?v=18086ea6';
+import { load, subscribe, update, addRecipe } from './lib/store.js?v=b05e27a1';
+import { readRecipeLink } from './lib/share.js?v=b05e27a1';
+import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=b05e27a1';
+import { h, clear, $, icon } from './lib/ui.js?v=b05e27a1';
+import { computeRecipe } from './model/dough.js?v=b05e27a1';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=b05e27a1';
 
-import renderRecipe from './views/recipe.js?v=18086ea6';
-import renderProtocol from './views/protocol.js?v=18086ea6';
-import renderBake from './views/bake.js?v=18086ea6';
-import renderLog from './views/log.js?v=18086ea6';
-import renderSetup from './views/setup.js?v=18086ea6';
+import renderRecipe from './views/recipe.js?v=b05e27a1';
+import renderProtocol from './views/protocol.js?v=b05e27a1';
+import renderBake from './views/bake.js?v=b05e27a1';
+import renderLog from './views/log.js?v=b05e27a1';
+import renderSetup from './views/setup.js?v=b05e27a1';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
@@ -43,6 +43,10 @@ export function go(tabId) {
   activeTab = tabId;
   history.replaceState(null, '', `#${tabId}`);
   render();
+  // Start a new screen at the top. This also forces a full repaint, which is
+  // what stops the previous screen ghosting through while the browser is still
+  // holding rasterised tiles for a page that just changed height.
+  window.scrollTo(0, 0);
   $('#main').focus({ preventScroll: true });
 }
 

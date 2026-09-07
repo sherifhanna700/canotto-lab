@@ -2,7 +2,8 @@
 // bake log snapshots) reads the object this returns, so the numbers in the
 // checklist and the numbers in the calculator can never drift apart.
 
-import { blendStats, blendLabel, flourName, fuCeilingForW, hydrationRangeForW } from './flours.js?v=18086ea6';
+import { blendStats, blendLabel, flourName, fuCeilingForW, hydrationRangeForW } from './flours.js?v=b05e27a1';
+import { reconcile, splitDoses } from './units.js?v=b05e27a1';
 
 /** Relative potency, referenced to instant dry yeast. */
 export const YEAST_FACTOR = { idy: 1, ady: 1.25, fresh: 3 };
@@ -155,8 +156,36 @@ export function computeRecipe(input) {
     warnings.push(`At W ${blend.w} this blend is being pushed past its usual ceiling of about ${hydRange.high}% hydration.`);
   }
 
+  // Weighable figures: every part is rounded so it sums to its whole, because
+  // a table whose columns do not add up is not something you can follow at a
+  // scale.
+  const [flourBiga, flourFinal] = reconcile(flour, [prefFlour, Math.max(0, finalFlour)]);
+  const [waterBiga, waterFinal] = reconcile(water, [prefWater, Math.max(0, finalWater)]);
+  const [washG, bassinageG] = reconcile(waterFinal, [Math.max(0, saltWash), Math.max(0, bassinage)]);
+  const [yeastBiga, yeastFinal] = reconcile(yeast, [prefYeast, Math.max(0, finalYeast)], 1);
+  const doses = splitDoses(bassinageG, r.bassinageDoses);
+
+  const weigh = {
+    flour: { total: flourBiga + flourFinal, biga: flourBiga, final: flourFinal },
+    water: {
+      total: waterBiga + waterFinal,
+      biga: waterBiga,
+      final: waterFinal,
+      bassinage: bassinageG,
+      saltWash: washG,
+      doses,
+    },
+    salt: round1(salt),
+    oil: round1(oil),
+    sugar: round1(sugar),
+    malt: round1(malt),
+    yeast: { total: round1(yeastBiga + yeastFinal), biga: yeastBiga, final: yeastFinal },
+    bigaMass: flourBiga + waterBiga + yeastBiga,
+  };
+
   return {
     recipe: r,
+    weigh,
     blend,
     flourLabel: blendLabel(flours),
     flourRows: allocateFlours(flours, flour, prefFlour),
@@ -197,6 +226,10 @@ export function computeRecipe(input) {
   };
 }
 
+function round1(n) {
+  return Math.round(n * 10) / 10;
+}
+
 /** Human label for the flours that actually go into one stage. */
 export function stageFlourLabel(c, stage) {
   const rows = (c.flourRows || []).filter((r) => r[stage] > 0.5);
@@ -211,17 +244,21 @@ export function convertYeast(pct, from, to) {
   return (pct * YEAST_FACTOR[to]) / YEAST_FACTOR[from];
 }
 
-/** Rows for the ingredient table: label, grams, baker's %. */
+/**
+ * Rows for the ingredient table, in weighable grams.
+ * `biga` and `final` always add up to `grams`.
+ */
 export function ingredientRows(c) {
   const r = c.recipe;
+  const w = c.weigh;
   const rows = [
-    { key: 'flour', label: `Flour (${c.flourLabel})`, grams: c.flour, pct: 100 },
-    { key: 'water', label: 'Water (total)', grams: c.water, pct: r.hydrationPct },
-    { key: 'salt', label: 'Fine sea salt', grams: c.salt, pct: r.saltPct },
+    { key: 'flour', label: `Flour (${c.flourLabel})`, grams: w.flour.total, biga: w.flour.biga, final: w.flour.final, pct: 100 },
+    { key: 'water', label: 'Water (total)', grams: w.water.total, biga: w.water.biga, final: w.water.final, pct: r.hydrationPct },
+    { key: 'salt', label: 'Fine sea salt', grams: w.salt, biga: 0, final: w.salt, pct: r.saltPct },
   ];
-  if (c.oil > 0) rows.push({ key: 'oil', label: 'Olive oil', grams: c.oil, pct: r.oilPct });
-  if (c.sugar > 0) rows.push({ key: 'sugar', label: 'Sugar', grams: c.sugar, pct: r.sugarPct });
-  if (c.malt > 0) rows.push({ key: 'malt', label: 'Diastatic malt', grams: c.malt, pct: r.maltPct });
-  rows.push({ key: 'yeast', label: `${c.yeastLabel} yeast`, grams: c.yeast, pct: c.yeastPct });
+  if (w.oil > 0) rows.push({ key: 'oil', label: 'Olive oil', grams: w.oil, biga: 0, final: w.oil, pct: r.oilPct });
+  if (w.sugar > 0) rows.push({ key: 'sugar', label: 'Sugar', grams: w.sugar, biga: 0, final: w.sugar, pct: r.sugarPct });
+  if (w.malt > 0) rows.push({ key: 'malt', label: 'Diastatic malt', grams: w.malt, biga: 0, final: w.malt, pct: r.maltPct });
+  rows.push({ key: 'yeast', label: `${c.yeastLabel} yeast`, grams: w.yeast.total, biga: w.yeast.biga, final: w.yeast.final, pct: c.yeastPct });
   return rows;
 }

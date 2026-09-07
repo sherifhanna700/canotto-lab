@@ -7,9 +7,9 @@
 //      moment you want the first pizza to hit the deck, which is what makes
 //      "same recipe, different timing" an experiment you can actually run.
 
-import { fmtGrams, fmtTemp, fmtDuration } from './units.js?v=18086ea6';
-import { stageFlourLabel } from './dough.js?v=18086ea6';
-import { mixerPhrasing, mixerLabel } from './equipment.js?v=18086ea6';
+import { fmtGrams, fmtTemp, fmtDuration } from './units.js?v=b05e27a1';
+import { stageFlourLabel } from './dough.js?v=b05e27a1';
+import { mixerPhrasing, mixerLabel } from './equipment.js?v=b05e27a1';
 
 /**
  * Room temperature defaults to 21.1 °C, which is exactly 70 °F.
@@ -131,7 +131,7 @@ export const STEPS = [
     title: () => 'Dissolve yeast and load the bowl',
     badge: () => '3 min',
     body: ({ c, S, u, E }) =>
-      `Dissolve ${b(fmtGrams(c.preferment.yeast))} ${c.yeastLabel.toLowerCase()} yeast in ${b(fmtGrams(c.preferment.water))} of cool water at ${b(fmtTemp(S.bigaWaterTempTarget ?? 15, u))}. Pour it over ${b(fmtGrams(c.preferment.flour))} of ${stageFlourLabel(c, 'biga')} in the ${mixerPhrasing(E).bowl}. ` +
+      `Dissolve ${b(fmtGrams(c.weigh.yeast.biga))} ${c.yeastLabel.toLowerCase()} yeast in ${b(fmtGrams(c.weigh.water.biga))} of cool water at ${b(fmtTemp(S.bigaWaterTempTarget ?? 15, u))}. Pour it over ${b(fmtGrams(c.weigh.flour.biga))} of ${stageFlourLabel(c, 'biga')} in the ${mixerPhrasing(E).bowl}. ` +
       (c.recipe.frozenBalls > 0
         ? `Inoculation is buffered to ${b(`${c.yeastPct.toFixed(3)}%`)} to cover yeast mortality in the ${c.recipe.frozenBalls} balls headed for the freezer.`
         : `Standard ${b(`${c.yeastPct.toFixed(3)}%`)} inoculation, no freeze buffer needed for an all-fresh batch.`),
@@ -166,24 +166,28 @@ export const STEPS = [
     body: ({ c, E }) => {
       const held = (c.flourRows || []).filter((r) => r.final > 0.5);
       const extra = held.length
-        ? ` Add the held-back flour now: ${held.map((r) => `${b(fmtGrams(r.final))} ${r.label}`).join(', ')}.`
+        ? ` Add the held-back flour now: ${held.map((r) => `${b(fmtGrams(Math.round(r.final)))} ${r.label}`).join(', ')}.`
         : '';
       return `Tear the chilled biga into 8 to 10 cold chunks straight into the ${mixerPhrasing(E).bowl}. Run it dry ${mixerPhrasing(E).lowSpeed} for ${b('60 seconds with no water')} to break the chunks down.${extra}`;
     },
   },
   {
     id: 'p2-2', phase: 2, n: 2,
-    title: ({ c }) => `Staged bassinage, ${fmtGrams(c.finalMix.bassinage)} ice water`,
-    badge: ({ c }) => `${c.finalMix.doses} doses`,
-    body: ({ c, E }) =>
-      `Move up a speed. Drizzle ${b(fmtGrams(c.finalMix.bassinage))} of ice-cold water down the bowl wall in ${b(`${c.finalMix.doses} additions`)} of about ${fmtGrams(c.finalMix.doseSize)} each. Let the dough absorb each dose and re-grip the spiral before the next one goes in.`,
+    title: ({ c }) => `Staged bassinage, ${fmtGrams(c.weigh.water.bassinage)} ice water`,
+    badge: ({ c }) => `${c.weigh.water.doses.length} doses`,
+    body: ({ c }) => {
+      const doses = c.weigh.water.doses;
+      const equal = doses.every((x) => x === doses[0]);
+      const how = equal ? `${b(`${doses.length} additions`)} of ${doses[0]} g each` : `additions of ${b(doses.join(', '))} g`;
+      return `Move up a speed. Drizzle ${b(fmtGrams(c.weigh.water.bassinage))} of ice-cold water down the bowl wall in ${how}. Let the dough absorb each dose and re-grip the spiral before the next one goes in.`;
+    },
   },
   {
     id: 'p2-3', phase: 2, n: 3,
-    title: ({ c }) => `Salt (${fmtGrams(c.salt)}) and the final wash-in`,
+    title: ({ c }) => `Salt (${fmtGrams(c.weigh.salt)}) and the final wash-in`,
     badge: () => '2 min',
     body: ({ c, E }) =>
-      `When ${mixerPhrasing(E).clears}, sprinkle in ${b(fmtGrams(c.salt))} of fine sea salt. Immediately drizzle the remaining ${b(fmtGrams(c.finalMix.saltWash))} of ice water over the salt to wash it into the interface.`,
+      `When ${mixerPhrasing(E).clears}, sprinkle in ${b(fmtGrams(c.weigh.salt))} of fine sea salt. Immediately drizzle the remaining ${b(fmtGrams(c.weigh.water.saltWash))} of ice water over the salt to wash it into the interface.`,
   },
   {
     id: 'p2-4', phase: 2, n: 4,
@@ -211,7 +215,7 @@ export const STEPS = [
     title: () => "Apply the Capuano oil veil (un velo d'olio)",
     badge: ({ S }) => `${S.oilRestMin} min rest`,
     body: ({ c, S }) =>
-      `Turn the bulk onto the counter into a smooth dome. Drizzle ${b(fmtGrams(c.oil))} of extra virgin olive oil across the top and smooth it into a micro-thin, glossy film. Invert the tub over the dough and rest ${b(`${S.oilRestMin} minutes`)} undisturbed. ${b('Do not laminate.')}`,
+      `Turn the bulk onto the counter into a smooth dome. Drizzle ${b(fmtGrams(c.weigh.oil))} of extra virgin olive oil across the top and smooth it into a micro-thin, glossy film. Invert the tub over the dough and rest ${b(`${S.oilRestMin} minutes`)} undisturbed. ${b('Do not laminate.')}`,
   },
   {
     id: 'p3-4', phase: 3, n: 4,

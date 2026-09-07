@@ -11,7 +11,7 @@ import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIX
 import { diagnose } from '../src/model/diagnostics.js';
 import { mergeCollections } from '../src/lib/cloud.js';
 import { normaliseRecipe } from '../src/lib/store.js';
-import { cToF, fToC, deltaToDisplay, deltaFromDisplay } from '../src/model/units.js';
+import { cToF, fToC, deltaToDisplay, deltaFromDisplay, reconcile, splitDoses } from '../src/model/units.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -30,6 +30,40 @@ const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg}: ${a}
 test('total dough matches balls times ball weight', () => {
   const c = computeRecipe({ balls: 8, ballWeight: 275, wastePct: 0 });
   assert.equal(c.totalDough, 2200);
+});
+
+test('displayed parts always add up to the displayed whole', () => {
+  const c = computeRecipe({});
+  const w = c.weigh;
+  assert.equal(w.flour.biga + w.flour.final, w.flour.total, 'flour columns');
+  assert.equal(w.water.biga + w.water.final, w.water.total, 'water columns');
+  assert.equal(w.water.bassinage + w.water.saltWash, w.water.final, 'bassinage plus salt wash is the final mix water');
+  assert.equal(w.water.doses.reduce((a, b) => a + b, 0), w.water.bassinage, 'the doses are the bassinage');
+  assert.equal(w.flour.biga + w.water.biga + w.yeast.biga, w.bigaMass, 'the biga total is its own parts');
+});
+
+test('that holds across a wide range of recipes, not just the default', () => {
+  for (const hyd of [58, 65, 70, 75, 82]) {
+    for (const balls of [1, 4, 8, 23]) {
+      for (const pf of [40, 70, 100]) {
+        for (const doses of [1, 3, 5]) {
+          const w = computeRecipe({ hydrationPct: hyd, balls, prefermentFlourPct: pf, bassinageDoses: doses }).weigh;
+          const where = `hyd ${hyd}, balls ${balls}, biga flour ${pf}%, ${doses} doses`;
+          assert.equal(w.flour.biga + w.flour.final, w.flour.total, `flour: ${where}`);
+          assert.equal(w.water.biga + w.water.final, w.water.total, `water: ${where}`);
+          assert.equal(w.water.bassinage + w.water.saltWash, w.water.final, `final water: ${where}`);
+          assert.equal(w.water.doses.reduce((a, b) => a + b, 0), w.water.bassinage, `doses: ${where}`);
+        }
+      }
+    }
+  }
+});
+
+test('reconcile distributes rounding instead of dropping it', () => {
+  assert.deepEqual(reconcile(316.4, [118.65, 197.75]), [119, 197]);
+  assert.deepEqual(splitDoses(100, 3), [34, 33, 33]);
+  assert.equal(splitDoses(197, 3).reduce((a, b) => a + b, 0), 197);
+  assert.deepEqual(reconcile(0, [0, 0]), [0, 0], 'an empty split does not divide by zero');
 });
 
 test('ingredient masses sum back to the total dough', () => {
