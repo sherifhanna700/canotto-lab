@@ -3,13 +3,13 @@
 // Compare and Lab both work off this list, so adding a field here makes it
 // available as an axis, a grouping and a correlation candidate everywhere.
 
-import { computeRecipe } from './dough.js?v=fe835e90';
-import { scheduleStages } from './protocol.js?v=fe835e90';
-import { fermentUnits, ripeness } from './ferment.js?v=fe835e90';
-import { convertYeast } from './dough.js?v=fe835e90';
-import { overallScore, SCORE_KEYS } from './recipes.js?v=fe835e90';
-import { toDisplay } from './units.js?v=fe835e90';
-import { ovenLabel, mixerLabel } from './equipment.js?v=fe835e90';
+import { computeRecipe } from './dough.js?v=edc1a2f1';
+import { scheduleStages } from './protocol.js?v=edc1a2f1';
+import { fermentUnits, ripeness } from './ferment.js?v=edc1a2f1';
+import { convertYeast } from './dough.js?v=edc1a2f1';
+import { overallScore, SCORE_KEYS } from './recipes.js?v=edc1a2f1';
+import { toDisplay } from './units.js?v=edc1a2f1';
+import { ovenLabel, mixerLabel } from './equipment.js?v=edc1a2f1';
 
 /** Inputs: things you chose. */
 export const FACTORS = [

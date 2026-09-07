@@ -1,17 +1,17 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe } from './lib/store.js?v=fe835e90';
-import { readRecipeLink } from './lib/share.js?v=fe835e90';
-import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=fe835e90';
-import { h, $, icon } from './lib/ui.js?v=fe835e90';
-import { computeRecipe } from './model/dough.js?v=fe835e90';
-import { solveSchedule, activeSteps } from './model/protocol.js?v=fe835e90';
+import { load, subscribe, update, addRecipe } from './lib/store.js?v=edc1a2f1';
+import { readRecipeLink } from './lib/share.js?v=edc1a2f1';
+import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=edc1a2f1';
+import { h, $, icon } from './lib/ui.js?v=edc1a2f1';
+import { computeRecipe } from './model/dough.js?v=edc1a2f1';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=edc1a2f1';
 
-import renderRecipe from './views/recipe.js?v=fe835e90';
-import renderProtocol from './views/protocol.js?v=fe835e90';
-import renderBake from './views/bake.js?v=fe835e90';
-import renderLog from './views/log.js?v=fe835e90';
-import renderSetup from './views/setup.js?v=fe835e90';
+import renderRecipe from './views/recipe.js?v=edc1a2f1';
+import renderProtocol from './views/protocol.js?v=edc1a2f1';
+import renderBake from './views/bake.js?v=edc1a2f1';
+import renderLog from './views/log.js?v=edc1a2f1';
+import renderSetup from './views/setup.js?v=edc1a2f1';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
@@ -42,12 +42,30 @@ export function context() {
 export function go(tabId) {
   activeTab = tabId;
   history.replaceState(null, '', `#${tabId}`);
-  render();
-  // Start a new screen at the top. This also forces a full repaint, which is
-  // what stops the previous screen ghosting through while the browser is still
-  // holding rasterised tiles for a page that just changed height.
+
+  /*
+   * Screens differ enormously in height, and swapping a tall one for a short
+   * one is where the previous screen was ghosting through. Two things cause
+   * that, and both are handled here.
+   *
+   * Scrolling to the top happens BEFORE the swap. Replacing the content first
+   * collapses the page under a scroll position that no longer exists, so the
+   * browser has to clamp the scroll, relayout and re-raster in one go, which
+   * is exactly when it serves stale tiles.
+   *
+   * The container is then detached from the layout for the duration of the
+   * swap. Hiding it discards its compositing layers outright, so there are no
+   * old tiles left to show. Reading offsetHeight forces the new layout before
+   * it is shown again, so this is not visible as a flash.
+   */
   window.scrollTo(0, 0);
-  $('#main').focus({ preventScroll: true });
+  const main = $('#main');
+  main.style.display = 'none';
+  render();
+  void main.offsetHeight;
+  main.style.display = '';
+
+  main.focus({ preventScroll: true });
 }
 
 /*
