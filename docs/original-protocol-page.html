@@ -1,0 +1,2718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Contemporary Canotto Master Protocol</title>
+
+    <!-- Google Fonts: Fraunces (Artisanal Countryside Display) & Lora (Warm Italian Text) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,400;1,9..144,600&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* Google Material 3 Design Tokens - Warm Tuscan Countryside Palette */
+        :root {
+            --md-sys-color-primary: #A33E18;
+            --md-sys-color-on-primary: #FFFFFF;
+            --md-sys-color-primary-container: #FFDBD0;
+            --md-sys-color-on-primary-container: #3B0900;
+
+            --md-sys-color-secondary: #58634A;
+            --md-sys-color-on-secondary: #FFFFFF;
+            --md-sys-color-secondary-container: #DCE8C8;
+            --md-sys-color-on-secondary-container: #161E0C;
+
+            --md-sys-color-tertiary: #835400;
+            --md-sys-color-surface: #FDF8F7;
+            --md-sys-color-surface-dim: #DED8D6;
+            --md-sys-color-surface-container-lowest: #FFFFFF;
+            --md-sys-color-surface-container-low: #F8F2F0;
+            --md-sys-color-surface-container: #F2ECFA;
+            --md-sys-color-surface-container-high: #EDE6E4;
+            --md-sys-color-surface-container-highest: #E7E0DE;
+
+            --md-sys-color-on-surface: #201A19;
+            --md-sys-color-on-surface-variant: #52433E;
+            --md-sys-color-outline: #85736E;
+            --md-sys-color-outline-variant: #D7C2BB;
+
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-top: env(safe-area-inset-top, 0px);
+        }
+
+        body {
+            font-family: 'Lora', Georgia, 'Times New Roman', serif;
+            background-color: var(--md-sys-color-surface);
+            color: var(--md-sys-color-on-surface);
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        /* Artisanal Display Typography */
+        h1, h2, h3, h4, .brand-title, .step-title-text, .font-serif-display {
+            font-family: 'Fraunces', Georgia, serif;
+            font-optical-sizing: auto;
+            letter-spacing: -0.015em;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+            line-height: 1;
+            user-select: none;
+        }
+        .symbol-filled {
+            font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+        }
+
+        /* M3 Surface Container & Card Elevation */
+        .m3-card {
+            background-color: var(--md-sys-color-surface-container-lowest);
+            border: 1px solid var(--md-sys-color-outline-variant);
+            border-radius: 20px;
+            transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+        }
+        .m3-card:hover {
+            border-color: var(--md-sys-color-outline);
+        }
+
+        /* Step Card Complete State */
+        .step-completed {
+            background-color: #F1F6EC !important;
+            border-color: #B5D2A5 !important;
+        }
+        .step-completed .step-title-text {
+            text-decoration: line-through;
+            color: var(--md-sys-color-secondary) !important;
+        }
+        .step-completed .m3-checkbox {
+            background-color: var(--md-sys-color-secondary) !important;
+            border-color: var(--md-sys-color-secondary) !important;
+            color: #FFFFFF !important;
+        }
+
+        /* M3 Navigation Active Pill */
+        .m3-nav-item.active .m3-pill {
+            background-color: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+            font-weight: 700;
+        }
+        .m3-nav-item.active .m3-nav-icon {
+            font-variation-settings: 'FILL' 1, 'wght' 600;
+            color: var(--md-sys-color-primary);
+        }
+        .m3-nav-item.active .m3-nav-label {
+            color: var(--md-sys-color-primary);
+            font-weight: 700;
+        }
+
+        /* Custom Range Slider */
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 6px;
+            border-radius: 9999px;
+            background: #D7C2BB;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--md-sys-color-primary);
+            cursor: pointer;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:active {
+            transform: scale(1.25);
+        }
+
+        /* Chart container */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 240px;
+            max-height: 280px;
+        }
+
+        /* Proportional Ardore Deck & Pizza Styles */
+        .ardore-deck-grid {
+            background-color: #C8B89E; /* Biscotto di Casapulla natural clay tone */
+            background-image: 
+                linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .pizza-disc {
+            transition: transform 0.65s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.3s ease;
+            transform-origin: center center;
+        }
+        .compass-indicator {
+            box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col pb-24 md:pb-8 selection:bg-[#FFDBD0] selection:text-[#3B0900]">
+
+    <!-- Top App Bar with Quick Actions & Share -->
+    <header class="bg-[#F8F2F0] border-b border-[#D7C2BB] sticky top-0 z-40 shadow-xs transition-all">
+        <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-2">
+            <!-- App Identity -->
+            <div class="flex items-center space-x-2.5">
+                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#FFDBD0] text-[#A33E18] flex items-center justify-center font-bold text-lg shadow-xs">
+                    <span class="material-symbols-outlined symbol-filled text-xl sm:text-2xl">local_pizza</span>
+                </div>
+                <div>
+                    <h1 class="text-sm sm:text-base md:text-lg font-bold tracking-tight text-[#201A19] leading-tight flex items-center gap-1.5">
+                        <span>Canotto Protocol</span>
+                        <span class="hidden sm:inline-block text-[10px] font-bold uppercase tracking-wider bg-[#FFDBD0] text-[#3B0900] px-2 py-0.5 rounded-full">100% Biga</span>
+                    </h1>
+                    <p class="text-[11px] text-[#52433E] hidden xs:block font-medium">Caputo Cuoco · Ardore Deck · Capuano Oil Veil</p>
+                </div>
+            </div>
+
+            <!-- Progress Badge & Action Buttons -->
+            <div class="flex items-center space-x-2">
+                <!-- Global Progress Counter -->
+                <div class="flex items-center bg-[#EDE6E4] px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border border-[#D7C2BB] text-xs space-x-2">
+                    <div class="flex flex-col">
+                        <span class="text-[9px] uppercase font-bold text-[#52433E] leading-none">Done</span>
+                        <span id="global-progress-badge" class="font-bold text-[#A33E18] text-xs leading-tight">0 / 19</span>
+                    </div>
+                    <div class="w-14 sm:w-20 bg-[#D7C2BB] h-1.5 sm:h-2 rounded-full overflow-hidden">
+                        <div id="global-progress-bar" class="bg-[#58634A] h-full w-0 transition-all duration-300 rounded-full"></div>
+                    </div>
+                </div>
+
+                <!-- Reset Progress Button -->
+                <button onclick="promptResetProgress()" title="Reset checked steps" class="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-[#EDE6E4] hover:bg-[#E7E0DE] active:scale-95 text-[#52433E] flex items-center justify-center border border-[#D7C2BB] transition-all" aria-label="Reset Progress">
+                    <span class="material-symbols-outlined text-base sm:text-lg">restart_alt</span>
+                </button>
+
+                <!-- Primary Share & Export Button -->
+                <button onclick="openShareModal()" class="flex items-center gap-1.5 h-8 sm:h-9 px-3 rounded-full bg-[#A33E18] hover:bg-[#893313] active:scale-95 text-white text-xs font-semibold shadow-xs transition-all" aria-label="Share and Export">
+                    <span class="material-symbols-outlined text-base">share</span>
+                    <span class="hidden xs:inline">Share</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Tablet & Desktop Navigation Strip -->
+        <nav class="hidden md:flex max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-[#D7C2BB]/50 space-x-1 overflow-x-auto no-scrollbar">
+            <button onclick="switchTab('protocol')" id="tab-desktop-protocol" class="desktop-nav-tab py-3 px-4 text-sm font-medium flex items-center gap-2 border-b-2 border-[#A33E18] text-[#A33E18] font-bold transition-colors">
+                <span class="material-symbols-outlined text-lg">calendar_clock</span>
+                <span>Master Protocol & Schedule</span>
+            </button>
+            <button onclick="switchTab('calculator')" id="tab-desktop-calculator" class="desktop-nav-tab py-3 px-4 text-sm font-medium flex items-center gap-2 border-b-2 border-transparent text-[#52433E] hover:text-[#A33E18] transition-colors">
+                <span class="material-symbols-outlined text-lg">calculate</span>
+                <span>Batch Calculator</span>
+            </button>
+            <button onclick="switchTab('ardore')" id="tab-desktop-ardore" class="desktop-nav-tab py-3 px-4 text-sm font-medium flex items-center gap-2 border-b-2 border-transparent text-[#52433E] hover:text-[#A33E18] transition-colors">
+                <span class="material-symbols-outlined text-lg">local_fire_department</span>
+                <span>Ardore Flame Simulator</span>
+            </button>
+            <button onclick="switchTab('diagnostics')" id="tab-desktop-diagnostics" class="desktop-nav-tab py-3 px-4 text-sm font-medium flex items-center gap-2 border-b-2 border-transparent text-[#52433E] hover:text-[#A33E18] transition-colors">
+                <span class="material-symbols-outlined text-lg">troubleshoot</span>
+                <span>Diagnostics</span>
+            </button>
+            <button onclick="switchTab('log')" id="tab-desktop-log" class="desktop-nav-tab py-3 px-4 text-sm font-medium flex items-center gap-2 border-b-2 border-transparent text-[#52433E] hover:text-[#A33E18] transition-colors">
+                <span class="material-symbols-outlined text-lg">description</span>
+                <span>Digital Bake Log</span>
+            </button>
+        </nav>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5 flex-grow w-full">
+
+        <!-- SECTION 1: MASTER PROTOCOL & REAL-TIME SCHEDULE -->
+        <section id="sec-protocol" class="space-y-4 sm:space-y-5">
+
+            <!-- Control Bar Card -->
+            <div class="m3-card p-3.5 sm:p-5 space-y-3.5">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                        <h2 class="text-base sm:text-lg md:text-xl font-bold text-[#201A19] flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[#A33E18]">calendar_month</span>
+                            <span>Workflow & Live Bake Schedule</span>
+                        </h2>
+                        <p class="text-xs text-[#52433E]">
+                            Tap any step card to mark it complete. Times adapt automatically to your bake day and launch hour.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Controls Grid -->
+                <div class="bg-[#F8F2F0] p-3 rounded-2xl border border-[#D7C2BB] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 items-start">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-[#52433E] mb-1">Target Bake Day (Any Day)</label>
+                        <select id="sched-day" onchange="updateUnifiedSchedule()" class="w-full text-xs sm:text-sm bg-white border border-[#D7C2BB] rounded-xl p-2 font-semibold text-[#A33E18] focus:outline-none focus:ring-2 focus:ring-[#A33E18]">
+                            <option value="1">Monday Bake</option>
+                            <option value="2">Tuesday Bake</option>
+                            <option value="3">Wednesday Bake</option>
+                            <option value="4">Thursday Bake</option>
+                            <option value="5" selected>Friday Bake</option>
+                            <option value="6">Saturday Bake</option>
+                            <option value="0">Sunday Bake</option>
+                        </select>
+                        <span id="sched-day-summary" class="block text-[10px] text-[#52433E] font-medium mt-1">Mix: Tuesday · Bake: Friday</span>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-[#52433E]">Target Launch Time</label>
+                            <span id="sched-launch-display" class="text-[10px] font-bold text-[#A33E18] bg-white px-1.5 py-0.2 rounded border border-[#D7C2BB]">5:00 PM</span>
+                        </div>
+                        <input type="time" id="sched-time" value="17:00" onchange="updateUnifiedSchedule()" oninput="updateUnifiedSchedule()" class="w-full text-xs sm:text-sm bg-white border border-[#D7C2BB] rounded-xl p-2 font-semibold text-[#A33E18] focus:outline-none focus:ring-2 focus:ring-[#A33E18]">
+                        <!-- Quick Presets -->
+                        <div class="flex items-center gap-1 mt-1 text-[9px] flex-wrap">
+                            <span class="text-[#52433E] font-bold">Quick:</span>
+                            <button type="button" onclick="setBakeTimePreset('12:00')" class="px-1.5 py-0.5 rounded bg-white hover:bg-[#EDE6E4] border border-[#D7C2BB] font-semibold text-[#52433E]">12 PM Lunch</button>
+                            <button type="button" onclick="setBakeTimePreset('17:00')" class="px-1.5 py-0.5 rounded bg-white hover:bg-[#EDE6E4] border border-[#D7C2BB] font-semibold text-[#52433E]">5 PM</button>
+                            <button type="button" onclick="setBakeTimePreset('18:30')" class="px-1.5 py-0.5 rounded bg-white hover:bg-[#EDE6E4] border border-[#D7C2BB] font-semibold text-[#52433E]">6:30 PM</button>
+                            <button type="button" onclick="setBakeTimePreset('20:00')" class="px-1.5 py-0.5 rounded bg-white hover:bg-[#EDE6E4] border border-[#D7C2BB] font-semibold text-[#52433E]">8 PM</button>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-[#52433E]">Frozen Dough Balls</label>
+                            <span id="sched-ball-ratio-badge" class="text-[10px] font-bold text-[#A33E18] bg-[#FFDBD0] px-2 py-0.5 rounded-full">4 Frz / 4 Fresh</span>
+                        </div>
+                        <div class="bg-white border border-[#D7C2BB] rounded-xl px-2 py-1 flex items-center gap-2">
+                            <span class="text-xs">❄️</span>
+                            <input type="range" id="sched-frozen-slider" min="0" max="8" value="4" step="1" class="w-full" oninput="setFrozenBalls(parseInt(this.value))">
+                            <span id="sched-frozen-num" class="text-xs font-bold text-[#58634A] w-5 text-center">4</span>
+                        </div>
+                        <span id="sched-proof-summary" class="block text-[10px] text-[#58634A] font-bold mt-1">Cold Proof: 66 hrs in 37 °F fridge</span>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-[#52433E] mb-1">Filter View</label>
+                        <select id="phase-filter-select" onchange="filterPhaseView(this.value)" class="w-full text-xs sm:text-sm bg-white border border-[#D7C2BB] rounded-xl p-2 font-semibold text-[#201A19] focus:outline-none focus:ring-2 focus:ring-[#A33E18]">
+                            <option value="ALL">Show All 5 Phases</option>
+                            <option value="p1">Phase 1: 100% Biga</option>
+                            <option value="p2">Phase 2: Final Mix</option>
+                            <option value="p3">Phase 3: Bench & Oil Veil</option>
+                            <option value="p4">Phase 4: Segregation</option>
+                            <option value="p5">Phase 5: Bake Day</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PHASE 1: BIGA -->
+            <div id="container-phase-1" class="phase-group m3-card overflow-hidden">
+                <div class="bg-[#F8F2F0] px-4 py-3 border-b border-[#D7C2BB] flex flex-wrap justify-between items-center gap-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="material-symbols-outlined text-[#A33E18]">grain</span>
+                        <div>
+                            <h3 class="font-bold text-xs sm:text-sm text-[#201A19]">Phase 1: 100% Biga Preferment</h3>
+                            <p class="text-[10px] sm:text-[11px] text-[#52433E]">Ragged cluster hydration & dual-stage temperature hold</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span id="badge-p1-time" class="text-xs font-bold text-[#A33E18] bg-white px-2.5 py-0.5 rounded-full border border-[#D7C2BB]">Mon 8:00 PM</span>
+                        <span id="badge-p1-count" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#EDE6E4] text-[#52433E]">0/4 Done</span>
+                    </div>
+                </div>
+
+                <div class="p-3 sm:p-4 space-y-2">
+                    <!-- Step 1.1 -->
+                    <div id="card-p1-1" onclick="toggleStep('p1-1')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p1-1" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">1. Dissolve IDY & Load Bowl</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p1-1" class="font-bold text-[#A33E18]">Mon 8:00 PM</span>
+                                    <span class="bg-[#EDE6E4] text-[#52433E] px-2 py-0.5 rounded-full font-medium">3 mins</span>
+                                </div>
+                            </div>
+                            <p id="desc-p1-1" class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Dissolve <strong>1.6 g IDY</strong> in <strong>574 g cool water</strong> (58–60 °F). Pour over <strong>1275 g Caputo Cuoco</strong> in spiral mixer. The extra yeast buffers freeze mortality.
+                            </p>
+                            <!-- Step 1.1 Inline Metric -->
+                            <div class="mt-2.5 p-2 bg-white/90 border border-[#D7C2BB] rounded-xl flex flex-wrap items-center justify-between gap-2" onclick="event.stopPropagation()">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-sm text-[#A33E18]">device_thermostat</span>
+                                    <label class="text-[11px] font-bold text-[#201A19]">Biga Water Temp:</label>
+                                    <span class="text-[10px] text-[#52433E]">(Target: 58–60 °F)</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <input type="number" id="inline-biga-wtemp" value="59" step="0.5" oninput="syncInlineMetric('log-biga-wtemp', this.value)" class="w-20 p-1 text-xs text-center font-bold bg-[#F8F2F0] border border-[#D7C2BB] rounded-lg text-[#A33E18] focus:ring-1 focus:ring-[#A33E18] focus:outline-none">
+                                    <span class="text-xs font-semibold text-[#52433E]">°F</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 1.2 -->
+                    <div id="card-p1-2" onclick="toggleStep('p1-2')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p1-2" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">2. Coarse Cluster Mix (Speed 1, 90–120s Max)</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p1-2" class="font-bold text-[#A33E18]">Mon 8:05 PM</span>
+                                    <span class="bg-[#FFDBD0] text-[#3B0900] px-2 py-0.5 rounded-full font-bold">CRITICAL</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Mix on <strong>Speed 1 for 90 to 120s maximum</strong>. Stop as soon as loose flour is absorbed. Biga must look like damp walnut-sized rubble—<strong>never ball up</strong>.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 1.3 -->
+                    <div id="card-p1-3" onclick="toggleStep('p1-3')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p1-3" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">3. Ambient Yeast Awakening Rest</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p1-3" class="font-bold text-[#A33E18]">Mon 8:10 PM – 12:00 AM</span>
+                                    <span class="bg-[#EDE6E4] text-[#52433E] px-2 py-0.5 rounded-full font-medium">3.5–4 hrs</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Transfer loosely to an oiled tub. Do not pack down. Rest at room temp (68–70 °F) for 3.5 to 4 hours until clusters swell ~30% and emit sweet, yeasty aromas.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 1.4 -->
+                    <div id="card-p1-4" onclick="toggleStep('p1-4')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p1-4" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">4. Cold Ferment in 37 °F Fridge</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p1-4" class="font-bold text-[#A33E18]">Tue 12:00 AM – 5:00 PM</span>
+                                    <span class="bg-[#EDE6E4] text-[#52433E] px-2 py-0.5 rounded-full font-medium">~17 hrs</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Place tub into 37 °F fridge. Cold preserves Cuoco's strong gluten matrix while allowing deep enzymatic sugar generation without excess acetic acid.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PHASE 2: FINAL MIX -->
+            <div id="container-phase-2" class="phase-group m3-card overflow-hidden">
+                <div class="bg-[#F8F2F0] px-4 py-3 border-b border-[#D7C2BB] flex flex-wrap justify-between items-center gap-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="material-symbols-outlined text-[#A33E18]">cyclone</span>
+                        <div>
+                            <h3 class="font-bold text-xs sm:text-sm text-[#201A19]">Phase 2: Final Mix & Staged Bassinage</h3>
+                            <p class="text-[10px] sm:text-[11px] text-[#52433E]">Ice water dosing, salt wash-in, and strict FDT hard stop</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span id="badge-p2-time" class="text-xs font-bold text-[#A33E18] bg-white px-2.5 py-0.5 rounded-full border border-[#D7C2BB]">Tue 5:00 PM</span>
+                        <span id="badge-p2-count" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#EDE6E4] text-[#52433E]">0/4 Done</span>
+                    </div>
+                </div>
+
+                <div class="p-3 sm:p-4 space-y-2">
+                    <!-- Step 2.1 -->
+                    <div id="card-p2-1" onclick="toggleStep('p2-1')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p2-1" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">1. Tear Biga & Run Dry</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p2-1" class="font-bold text-[#A33E18]">Tue 5:00 PM</span>
+                                    <span class="bg-[#EDE6E4] text-[#52433E] px-2 py-0.5 rounded-full font-medium">60s</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Tear chilled biga into 8–10 cold chunks directly into spiral mixer bowl. Run dry on Speed 1 for 60s with NO water to break up the chunks.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 2.2 -->
+                    <div id="card-p2-2" onclick="toggleStep('p2-2')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p2-2" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">2. Staged Bassinage (200 g Ice Water)</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p2-2" class="font-bold text-[#A33E18]">Tue 5:03 PM</span>
+                                    <span class="bg-[#EDE6E4] text-[#52433E] px-2 py-0.5 rounded-full font-medium">3 doses</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Switch to Speed 2. Drizzle ~200 g ice-cold water down the bowl wall in 3 slow additions. Allow the dough to absorb each dose and re-grip the spiral before adding the next.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 2.3 -->
+                    <div id="card-p2-3" onclick="toggleStep('p2-3')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p2-3" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">3. Salt (36 g) & Final Wash-In (119 g Ice Water)</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p2-3" class="font-bold text-[#A33E18]">Tue 5:08 PM</span>
+                                    <span class="bg-[#EDE6E4] text-[#52433E] px-2 py-0.5 rounded-full font-medium">2 mins</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                When dough clears the bowl, sprinkle <strong>36 g fine sea salt</strong>. Immediately drizzle remaining <strong>119 g ice water</strong> over the salt to wash it into the interface.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 2.4 -->
+                    <div id="card-p2-4" onclick="toggleStep('p2-4')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p2-4" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">4. High-Speed Windowpane & FDT Hard Stop</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p2-4" class="font-bold text-[#A33E18]">Tue 5:12 PM</span>
+                                    <span class="bg-[#FFDAD6] text-[#BA1A1A] px-2 py-0.5 rounded-full font-bold">STOP: 77 °F</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Mix on Speed 4–5 for 3–5 minutes until smooth and windowpaning. <strong>Target FDT: 73–75 °F</strong>. If the dough reaches <strong>77 °F (25 °C)</strong>, STOP mixing immediately to protect enzymes.
+                            </p>
+                            <!-- Step 2.4 Inline Metric -->
+                            <div class="mt-2.5 p-2 bg-white/90 border border-[#D7C2BB] rounded-xl flex flex-wrap items-center justify-between gap-2" onclick="event.stopPropagation()">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-sm text-[#A33E18]">thermostat</span>
+                                    <label class="text-[11px] font-bold text-[#201A19]">Recorded FDT:</label>
+                                    <span class="text-[10px] text-[#52433E]">(Target: 73–75 °F | Max: 77 °F)</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input type="number" id="inline-fdt" value="74" step="0.5" oninput="syncInlineFdt(this.value)" class="w-20 p-1 text-xs text-center font-bold bg-[#F8F2F0] border border-[#D7C2BB] rounded-lg text-[#A33E18] focus:ring-1 focus:ring-[#A33E18] focus:outline-none">
+                                    <span class="text-xs font-semibold text-[#52433E]">°F</span>
+                                    <span id="inline-fdt-status" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#DCE8C8] text-[#161E0C]">OPTIMAL</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PHASE 3: BENCH & OIL VEIL -->
+            <div id="container-phase-3" class="phase-group m3-card overflow-hidden">
+                <div class="bg-[#F8F2F0] px-4 py-3 border-b border-[#D7C2BB] flex flex-wrap justify-between items-center gap-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="material-symbols-outlined text-[#A33E18]">opacity</span>
+                        <div>
+                            <h3 class="font-bold text-xs sm:text-sm text-[#201A19]">Phase 3: Bench Handling & The Capuano Oil Veil</h3>
+                            <p class="text-[10px] sm:text-[11px] text-[#52433E]">Coil folds, topical olive oil barrier (*un velo d'olio*), and dry-seam balling</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span id="badge-p3-time" class="text-xs font-bold text-[#A33E18] bg-white px-2.5 py-0.5 rounded-full border border-[#D7C2BB]">Tue 5:30 PM</span>
+                        <span id="badge-p3-count" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#EDE6E4] text-[#52433E]">0/4 Done</span>
+                    </div>
+                </div>
+
+                <div class="p-3 sm:p-4 space-y-2">
+                    <!-- Step 3.1 -->
+                    <div id="card-p3-1" onclick="toggleStep('p3-1')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p3-1" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">1. Rest 20m & Coil Fold #1</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p3-1" class="font-bold text-[#A33E18]">Tue 5:30 PM</span>
+                                    <span class="bg-[#EDE6E4] text-[#52433E] px-2 py-0.5 rounded-full font-medium">20 mins</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Rest bulk dough 20 mins. With wet hands, lift from center, let ends curl underneath, rotate 90°, and repeat once.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 3.2 -->
+                    <div id="card-p3-2" onclick="toggleStep('p3-2')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p3-2" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">2. Rest 20m & Coil Fold #2</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p3-2" class="font-bold text-[#A33E18]">Tue 5:50 PM</span>
+                                    <span class="bg-[#EDE6E4] text-[#52433E] px-2 py-0.5 rounded-full font-medium">20 mins</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Perform second coil fold. Dough should stand tall with visible surface tension.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 3.3 -->
+                    <div id="card-p3-3" onclick="toggleStep('p3-3')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p3-3" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">3. Apply Capuano Oil Veil (*Un Velo d'Olio*)</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p3-3" class="font-bold text-[#A33E18]">Tue 6:15 PM</span>
+                                    <span class="bg-[#DCE8C8] text-[#161E0C] px-2 py-0.5 rounded-full font-bold">CAPUANO</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Turn bulk dough onto counter into a smooth dome. Drizzle <strong>10–12 g EVOO</strong> across the top and smooth into a micro-thin, glossy lipid film. Invert the tub over the dough and rest undisturbed for <strong>30 minutes</strong> to let Cuoco relax. (Do not laminate).
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 3.4 -->
+                    <div id="card-p3-4" onclick="toggleStep('p3-4')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p3-4" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span id="title-p3-4" class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">4. Ball on Dry Counter (8 × 275 g)</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p3-4" class="font-bold text-[#A33E18]">Tue 6:45 PM</span>
+                                    <span id="badge-p3-4" class="bg-[#EDE6E4] text-[#52433E] px-2 py-0.5 rounded-full font-medium">8 × 275 g</span>
+                                </div>
+                            </div>
+                            <p id="desc-p3-4" class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Cut into 8 × 275 g portions. <strong>Keep bottom counter DRY.</strong> Drag-and-cup each ball so friction pulls the oiled skin taut while the un-oiled bottom seam seals completely airtight.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PHASE 4: SEGREGATION & FREEZING -->
+            <div id="container-phase-4" class="phase-group m3-card overflow-hidden">
+                <div class="bg-[#F8F2F0] px-4 py-3 border-b border-[#D7C2BB] flex flex-wrap justify-between items-center gap-2">
+                    <div class="flex items-center space-x-2">
+                        <span id="icon-phase-4" class="material-symbols-outlined text-[#A33E18]">ac_unit</span>
+                        <div>
+                            <h3 id="title-phase-4" class="font-bold text-xs sm:text-sm text-[#201A19]">Phase 4: Segregation, Cold Proof & Flash Freeze</h3>
+                            <p id="sub-phase-4" class="text-[10px] sm:text-[11px] text-[#52433E]">66h fridge proof for fresh batch; 2h raw flash-freeze for frozen batch</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span id="badge-p4-time" class="text-xs font-bold text-[#A33E18] bg-white px-2.5 py-0.5 rounded-full border border-[#D7C2BB]">Tue 7:00 PM</span>
+                        <span id="badge-p4-count" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#EDE6E4] text-[#52433E]">0/3 Done</span>
+                    </div>
+                </div>
+
+                <div class="p-3 sm:p-4 space-y-2">
+                    <!-- Step 4.1 -->
+                    <div id="card-p4-1" onclick="toggleStep('p4-1')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p4-1" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span id="title-p4-1" class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">1. Fresh Batch: 4 Balls into 37 °F Fridge</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p4-1" class="font-bold text-[#A33E18]">Tue 7:00 PM – Fri 1:00 PM</span>
+                                    <span class="bg-[#EDE6E4] text-[#52433E] px-2 py-0.5 rounded-full font-medium">~66 hrs</span>
+                                </div>
+                            </div>
+                            <p id="desc-p4-1" class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Place 4 balls in an airtight proofing box spaced 3" apart. The micro-thin oil veil preserves moisture without crusting. Hold undisturbed in 37 °F fridge for 66 hours.
+                            </p>
+                            <!-- Step 4.1 Inline Metric -->
+                            <div class="mt-2.5 p-2 bg-white/90 border border-[#D7C2BB] rounded-xl grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs" onclick="event.stopPropagation()">
+                                <div class="flex items-center justify-between gap-1.5 bg-[#F8F2F0] px-2.5 py-1 rounded-lg border border-[#D7C2BB]/60">
+                                    <span class="text-[10px] font-bold text-[#52433E]">Fridge Temp:</span>
+                                    <div class="flex items-center gap-1">
+                                        <input type="number" id="inline-fridge-temp" value="37" step="1" oninput="syncFridgeTemp(this.value)" class="w-14 p-0.5 text-center font-bold bg-white border border-[#D7C2BB] rounded text-[#201A19]">
+                                        <span class="text-[10px] font-medium text-[#52433E]">°F</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between gap-1.5 bg-[#F8F2F0] px-2.5 py-1 rounded-lg border border-[#D7C2BB]/60">
+                                    <span class="text-[10px] font-bold text-[#52433E]">Cold Hold Time:</span>
+                                    <div class="flex items-center gap-1">
+                                        <input type="number" id="inline-proof-hrs" value="66" step="1" oninput="syncInlineMetric('log-proof-hrs', this.value)" class="w-14 p-0.5 text-center font-bold bg-white border border-[#D7C2BB] rounded text-[#A33E18]">
+                                        <span class="text-[10px] font-medium text-[#52433E]">hrs</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4.2 -->
+                    <div id="card-p4-2" onclick="toggleStep('p4-2')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p4-2" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span id="title-p4-2" class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">2. Frozen Batch: Raw Flash-Freeze (90–120m)</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p4-2" class="font-bold text-[#A33E18]">Tue 7:00 PM – 9:00 PM</span>
+                                    <span id="badge-p4-2" class="bg-[#EDE6E4] text-[#52433E] px-2 py-0.5 rounded-full font-medium">2 hrs</span>
+                                </div>
+                            </div>
+                            <p id="desc-p4-2" class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Place remaining 4 balls on parchment-lined sheet pan in freezer <strong>uncovered for 90–120 mins</strong> until crust-frozen. Wrap individually in plastic wrap (Capuano oil prevents sticking), bag, and deep freeze.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 4.3 -->
+                    <div id="card-p4-3" onclick="toggleStep('p4-3')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p4-3" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span id="title-p4-3" class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">3. Frozen Protocol (2–4 Weeks Later)</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p4-3" class="font-bold text-[#58634A]">Wed 10 AM → Fri 5 PM</span>
+                                    <span id="badge-p4-3" class="bg-[#DCE8C8] text-[#161E0C] px-2 py-0.5 rounded-full font-medium">48h Thaw + 5.5h Temper</span>
+                                </div>
+                            </div>
+                            <p id="desc-p4-3" class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Move rock-hard balls to 37 °F fridge 55 hrs prior to bake for 48h slow defrost. Pull to room temp 5.5 hours before launch (Target core temp: 64–66 °F).
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PHASE 5: BAKE DAY -->
+            <div id="container-phase-5" class="phase-group m3-card overflow-hidden">
+                <div class="bg-[#F8F2F0] px-4 py-3 border-b border-[#D7C2BB] flex flex-wrap justify-between items-center gap-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="material-symbols-outlined text-[#A33E18]">local_fire_department</span>
+                        <div>
+                            <h3 class="font-bold text-xs sm:text-sm text-[#201A19]">Phase 5: Bake Day & Ardore Flame Modulation</h3>
+                            <p class="text-[10px] sm:text-[11px] text-[#52433E]">Core temp temper, gas migration finger press, and 75-second bake</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span id="badge-p5-time" class="text-xs font-bold text-[#A33E18] bg-white px-2.5 py-0.5 rounded-full border border-[#D7C2BB]">Fri 1:00 PM</span>
+                        <span id="badge-p5-count" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#EDE6E4] text-[#52433E]">0/4 Done</span>
+                    </div>
+                </div>
+
+                <div class="p-3 sm:p-4 space-y-2">
+                    <!-- Step 5.1 -->
+                    <div id="card-p5-1" onclick="toggleStep('p5-1')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p5-1" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">1. Temper Balls at Room Temperature</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p5-1" class="font-bold text-[#A33E18]">Fri 1:00 PM</span>
+                                    <span class="bg-[#EDE6E4] text-[#52433E] px-2 py-0.5 rounded-full font-medium">3.5–4 hrs</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Pull box from 37 °F fridge 4 hours before launch. Keep box covered. <strong>Target internal core temp: 63–66 °F</strong>. A poked ball must spring back slowly.
+                            </p>
+                            <!-- Step 5.1 Inline Metric -->
+                            <div class="mt-2.5 p-2 bg-white/90 border border-[#D7C2BB] rounded-xl flex flex-wrap items-center justify-between gap-2" onclick="event.stopPropagation()">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-sm text-[#58634A]">thermostat_auto</span>
+                                    <label class="text-[11px] font-bold text-[#201A19]">Measured Ball Core Temp:</label>
+                                    <span class="text-[10px] text-[#52433E]">(Target: 63–66 °F)</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input type="number" id="inline-core-temp" value="64" step="0.5" oninput="syncInlineCoreTemp(this.value)" class="w-20 p-1 text-xs text-center font-bold bg-[#F8F2F0] border border-[#D7C2BB] rounded-lg text-[#58634A] focus:ring-1 focus:ring-[#58634A] focus:outline-none">
+                                    <span class="text-xs font-semibold text-[#52433E]">°F</span>
+                                    <span id="inline-core-status" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#DCE8C8] text-[#161E0C]">READY TO STRETCH</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 5.2 -->
+                    <div id="card-p5-2" onclick="toggleStep('p5-2')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p5-2" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">2. Fire Ardore Oven & Soak Biscotto</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p5-2" class="font-bold text-[#A33E18]">Fri 4:15 PM</span>
+                                    <span class="bg-[#FFDBD0] text-[#3B0900] px-2 py-0.5 rounded-full font-bold">45 min soak</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Preheat Ardore on HIGH. <strong>Target floor: 830–860 °F (445–460 °C)</strong> in center of biscotto. Dome target: 900–930 °F.
+                            </p>
+                            <!-- Step 5.2 Inline Metrics -->
+                            <div class="mt-2.5 p-2 bg-white/90 border border-[#D7C2BB] rounded-xl grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs" onclick="event.stopPropagation()">
+                                <div class="flex items-center justify-between gap-1.5 bg-[#F8F2F0] px-2.5 py-1 rounded-lg border border-[#D7C2BB]/60">
+                                    <span class="text-[10px] font-bold text-[#201A19]">Biscotto Center Deck:</span>
+                                    <div class="flex items-center gap-1">
+                                        <input type="number" id="inline-deck-temp" value="845" step="5" oninput="syncDeckTemp(this.value)" class="w-16 p-0.5 text-center font-bold bg-white border border-[#D7C2BB] rounded text-[#A33E18]">
+                                        <span class="text-[10px] font-medium text-[#52433E]">°F</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between gap-1.5 bg-[#F8F2F0] px-2.5 py-1 rounded-lg border border-[#D7C2BB]/60">
+                                    <span class="text-[10px] font-bold text-[#201A19]">Dome Ceiling Temp:</span>
+                                    <div class="flex items-center gap-1">
+                                        <input type="number" id="inline-dome-temp" value="915" step="5" oninput="syncDomeTemp(this.value)" class="w-16 p-0.5 text-center font-bold bg-white border border-[#D7C2BB] rounded text-[#A33E18]">
+                                        <span class="text-[10px] font-medium text-[#52433E]">°F</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 5.3 -->
+                    <div id="card-p5-3" onclick="toggleStep('p5-3')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p5-3" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">3. Gas Migration Finger Press & Knuckle Stretch</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p5-3" class="font-bold text-[#A33E18]">Fri 5:00 PM</span>
+                                    <span class="bg-[#EDE6E4] text-[#52433E] px-2 py-0.5 rounded-full font-medium">1 min</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                Dredge bottom/sides in semola rimacinata. Press using flat pads of 3 middle fingers from center out. <strong>Do not touch the outer 2–2.5 cm rim!</strong> Push trapped gas into border. Knuckle stretch center to ~11–12 inches.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 5.4 -->
+                    <div id="card-p5-4" onclick="toggleStep('p5-4')" class="cursor-pointer transition-all duration-150 bg-[#FDF8F7] hover:bg-[#F8F2F0] active:scale-[0.99] p-3 sm:p-3.5 rounded-2xl border border-[#D7C2BB] flex items-start gap-3">
+                        <div class="mt-0.5 flex-shrink-0">
+                            <div id="check-p5-4" class="m3-checkbox w-6 h-6 rounded-lg border-2 border-[#85736E] bg-white flex items-center justify-center text-white text-sm font-bold transition-all"></div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span class="step-title-text text-xs sm:text-sm font-bold text-[#201A19]">4. Ardore Flame Modulation Bake (60–75s)</span>
+                                <div class="flex items-center space-x-1.5 text-[10px] sm:text-[11px]">
+                                    <span id="time-p5-4" class="font-bold text-[#A33E18]">Fri 5:02 PM</span>
+                                    <span class="bg-[#FFDAD6] text-[#BA1A1A] px-2 py-0.5 rounded-full font-bold">60–75 sec</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-[#52433E] mt-1 leading-relaxed">
+                                <strong>Pre-launch:</strong> Dial down to Medium-Low 30s before launch. Land on center-right deck. Leave untouched 20s. Rotate 180° and crank flame to HIGH. Make continuous 1/4 turns every 10–15s for blistering.
+                            </p>
+
+                            <!-- Step 5.4 Inline Bake Log Recording -->
+                            <div class="mt-2.5 p-2.5 bg-white/95 border border-[#D7C2BB] rounded-xl space-y-2 text-xs" onclick="event.stopPropagation()">
+                                <div class="flex items-center justify-between border-b border-[#D7C2BB]/50 pb-1.5">
+                                    <span class="font-bold text-[11px] text-[#A33E18] flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-sm">timer</span>
+                                        <span>Record Bake Results for this Ball:</span>
+                                    </span>
+                                    <span class="text-[10px] text-[#52433E]">Auto-syncs with Bake Log tab</span>
+                                </div>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                    <div class="bg-[#F8F2F0] p-1.5 rounded-lg border border-[#D7C2BB]/50">
+                                        <label class="block text-[9px] uppercase font-bold text-[#52433E]">Bake Duration</label>
+                                        <div class="flex items-center gap-1 mt-0.5">
+                                            <input type="number" id="inline-bake-sec" value="72" step="1" oninput="syncBakeTime(this.value)" class="w-12 p-0.5 text-center font-bold bg-white border border-[#D7C2BB] rounded text-[#A33E18]">
+                                            <span class="text-[10px] text-[#52433E]">sec</span>
+                                        </div>
+                                    </div>
+                                    <div class="bg-[#F8F2F0] p-1.5 rounded-lg border border-[#D7C2BB]/50">
+                                        <label class="block text-[9px] uppercase font-bold text-[#52433E]">Canotto Height</label>
+                                        <select id="inline-score-height" onchange="syncScore('score-height', this.value)" class="w-full p-0.5 mt-0.5 text-[11px] font-bold bg-white border border-[#D7C2BB] rounded text-[#201A19]">
+                                            <option value="5" selected>5 - Massive</option>
+                                            <option value="4">4 - High</option>
+                                            <option value="3">3 - Moderate</option>
+                                            <option value="2">2 - Low</option>
+                                            <option value="1">1 - Flat</option>
+                                        </select>
+                                    </div>
+                                    <div class="bg-[#F8F2F0] p-1.5 rounded-lg border border-[#D7C2BB]/50">
+                                        <label class="block text-[9px] uppercase font-bold text-[#52433E]">Honeycomb Web</label>
+                                        <select id="inline-score-crumb" onchange="syncScore('score-crumb', this.value)" class="w-full p-0.5 mt-0.5 text-[11px] font-bold bg-white border border-[#D7C2BB] rounded text-[#201A19]">
+                                            <option value="5">5 - Pure Web</option>
+                                            <option value="4" selected>4 - Open Honeycomb</option>
+                                            <option value="3">3 - Semi-dense</option>
+                                            <option value="2">2 - Bready</option>
+                                            <option value="1">1 - Gummy</option>
+                                        </select>
+                                    </div>
+                                    <div class="bg-[#F8F2F0] p-1.5 rounded-lg border border-[#D7C2BB]/50">
+                                        <label class="block text-[9px] uppercase font-bold text-[#52433E]">Blistering</label>
+                                        <select id="inline-score-blister" onchange="syncScore('score-blister', this.value)" class="w-full p-0.5 mt-0.5 text-[11px] font-bold bg-white border border-[#D7C2BB] rounded text-[#201A19]">
+                                            <option value="5" selected>5 - Micro Leopard</option>
+                                            <option value="4">4 - Good Spotting</option>
+                                            <option value="3">3 - Light</option>
+                                            <option value="2">2 - Pale</option>
+                                            <option value="1">1 - Scorched</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="pt-1">
+                                    <input type="text" id="inline-bake-notes" placeholder="Tasting notes (e.g. crisp shatter, sweet crumb, San Marzano acidity)..." oninput="syncBakeNotes(this.value)" class="w-full p-1.5 text-[11px] bg-[#F8F2F0] border border-[#D7C2BB] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#A33E18]">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <section id="sec-calculator" class="space-y-4 sm:space-y-5 hidden">
+            <div class="m3-card p-4 sm:p-6">
+                <h2 class="text-base sm:text-xl font-bold text-[#201A19] mb-1 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#A33E18]">calculate</span>
+                    <span>Interactive Baker's Percentage & Batch Calculator</span>
+                </h2>
+                <p class="text-xs sm:text-sm text-[#52433E] mb-5">
+                    Adjust dough ball quantity or target weights to immediately scale flour, biga water, and bassinage additions.
+                </p>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                    <!-- Controls Column -->
+                    <div class="lg:col-span-5 space-y-4 bg-[#F8F2F0] p-4 sm:p-5 rounded-2xl border border-[#D7C2BB]">
+                        <h3 class="font-bold text-xs uppercase tracking-wider text-[#52433E]">Batch Parameters</h3>
+                        <div>
+                            <label class="block text-xs font-bold text-[#201A19] mb-2 flex justify-between">
+                                <span>Number of Dough Balls</span>
+                                <span id="out-ball-count" class="text-[#A33E18] font-black">8 balls</span>
+                            </label>
+                            <input type="range" id="inp-balls" min="1" max="24" value="8" step="1" class="w-full" oninput="onTotalBallsInput(this.value)">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-[#201A19] mb-2 flex justify-between">
+                                <span>Frozen Dough Balls</span>
+                                <span id="out-frozen-count" class="text-[#58634A] font-black">4 frozen (4 fresh)</span>
+                            </label>
+                            <input type="range" id="inp-frozen-balls" min="0" max="8" value="4" step="1" class="w-full" oninput="setFrozenBalls(parseInt(this.value))">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-[#201A19] mb-2 flex justify-between">
+                                <span>Target Weight per Ball</span>
+                                <span id="out-ball-weight" class="text-[#A33E18] font-black">275 g</span>
+                            </label>
+                            <input type="range" id="inp-weight" min="200" max="350" value="275" step="5" class="w-full" oninput="updateCalculator()">
+                        </div>
+
+                        <div class="pt-2 border-t border-[#D7C2BB] grid grid-cols-3 gap-2 text-center">
+                            <div class="bg-white p-2 rounded-xl border border-[#D7C2BB]">
+                                <span class="block text-[9px] text-[#52433E] font-medium uppercase">Total Dough</span>
+                                <span id="out-total-dough" class="text-xs sm:text-sm font-bold text-[#201A19]">2200 g</span>
+                            </div>
+                            <div class="bg-white p-2 rounded-xl border border-[#D7C2BB]">
+                                <span class="block text-[9px] text-[#52433E] font-medium uppercase">Flour Mass</span>
+                                <span id="out-flour-mass" class="text-xs sm:text-sm font-bold text-[#58634A]">1272 g</span>
+                            </div>
+                            <div class="bg-white p-2 rounded-xl border border-[#D7C2BB]">
+                                <span class="block text-[9px] text-[#52433E] font-medium uppercase">Allocation</span>
+                                <span id="out-allocation" class="text-xs sm:text-sm font-bold text-[#A33E18]">4 Frsh / 4 Frz</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Table Column -->
+                    <div class="lg:col-span-7 space-y-3">
+                        <div class="overflow-x-auto rounded-xl border border-[#D7C2BB]">
+                            <table class="w-full text-left text-xs text-[#201A19]">
+                                <thead>
+                                    <tr class="bg-[#F8F2F0] text-[#52433E] uppercase text-[10px] tracking-wider border-b border-[#D7C2BB]">
+                                        <th class="p-2.5">Ingredient</th>
+                                        <th class="p-2.5">Stage</th>
+                                        <th class="p-2.5">Baker's %</th>
+                                        <th class="p-2.5 text-right">Scaled Weight</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-[#D7C2BB]/50 bg-white">
+                                    <tr class="font-semibold bg-[#FFDBD0]/20">
+                                        <td class="p-2.5">Caputo Cuoco (Tipo 00)</td>
+                                        <td class="p-2.5"><span class="px-2 py-0.5 bg-[#FFDBD0] text-[#3B0900] rounded-full text-[9px] font-bold">Biga</span></td>
+                                        <td class="p-2.5">100.0%</td>
+                                        <td id="calc-flour" class="p-2.5 text-right font-black text-[#A33E18]">1272.0 g</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-2.5">Water (Biga - ~58–60 °F)</td>
+                                        <td class="p-2.5"><span class="px-2 py-0.5 bg-[#FFDBD0] text-[#3B0900] rounded-full text-[9px] font-bold">Biga</span></td>
+                                        <td class="p-2.5">45.0%</td>
+                                        <td id="calc-biga-water" class="p-2.5 text-right font-medium">572.4 g</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-2.5">
+                                            <div class="font-medium">Instant Dry Yeast (IDY)</div>
+                                            <div id="calc-idy-role" class="text-[10px] text-[#52433E]">Buffered for freeze mortality</div>
+                                        </td>
+                                        <td class="p-2.5"><span class="px-2 py-0.5 bg-[#FFDBD0] text-[#3B0900] rounded-full text-[9px] font-bold">Biga</span></td>
+                                        <td id="calc-idy-pct" class="p-2.5">0.13%</td>
+                                        <td id="calc-idy" class="p-2.5 text-right font-medium">1.6 g</td>
+                                    </tr>
+                                    <tr class="bg-blue-50/40">
+                                        <td class="p-2.5 font-medium">Water 2 (Ice-cold Bassinage)</td>
+                                        <td class="p-2.5"><span class="px-2 py-0.5 bg-blue-100 text-blue-900 rounded-full text-[9px] font-bold">Mix</span></td>
+                                        <td class="p-2.5">25.0%</td>
+                                        <td id="calc-mix-water" class="p-2.5 text-right font-semibold text-blue-900">318.0 g</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-2.5">Fine Sea Salt</td>
+                                        <td class="p-2.5"><span class="px-2 py-0.5 bg-blue-100 text-blue-900 rounded-full text-[9px] font-bold">Mix</span></td>
+                                        <td class="p-2.5">2.8%</td>
+                                        <td id="calc-salt" class="p-2.5 text-right font-medium">35.6 g</td>
+                                    </tr>
+                                    <tr class="bg-[#DCE8C8]/30">
+                                        <td class="p-2.5">EVOO (Capuano Topical Veil)</td>
+                                        <td class="p-2.5"><span class="px-2 py-0.5 bg-[#DCE8C8] text-[#161E0C] rounded-full text-[9px] font-bold">Bench</span></td>
+                                        <td class="p-2.5">~0.9%</td>
+                                        <td id="calc-oil" class="p-2.5 text-right text-[#58634A] font-bold">11.4 g</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hydration Breakdown Chart -->
+                <div class="mt-6 pt-5 border-t border-[#D7C2BB] grid grid-cols-1 md:grid-cols-2 gap-5 items-center">
+                    <div>
+                        <h4 class="font-bold text-xs sm:text-sm text-[#201A19] mb-1">Hydration Allocation</h4>
+                        <p class="text-xs text-[#52433E] leading-relaxed">
+                            A 100% Biga allocates <strong>45% water</strong> to the pre-ferment to form coarse clusters without premature gluten shearing. The remaining <strong>25% ice-cold water</strong> is introduced via phased <em>bassinage</em> during the final mix to absorb mechanical friction.
+                        </p>
+                    </div>
+                    <div>
+                        <div class="chart-container">
+                            <canvas id="hydrationChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="sec-ardore" class="space-y-4 sm:space-y-5 hidden">
+            <div class="m3-card p-4 sm:p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <div>
+                        <h2 class="text-base sm:text-xl font-bold text-[#201A19] flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[#A33E18]">local_fire_department</span>
+                            <span>Pizza Party Ardore: True-Scale Chamber & Bake Simulator</span>
+                        </h2>
+                        <p class="text-xs sm:text-sm text-[#52433E]">
+                            Deck rendered at exact proportions: <strong>40 cm × 40 cm Biscotto di Casapulla</strong> with a <strong>30 cm Pizza (75% scale)</strong>. Watch the pizza rotate and monitor its <strong>North (▲ N)</strong> orientation relative to the left lateral flame.
+                        </p>
+                    </div>
+                    <!-- Live Simulation Controls -->
+                    <div class="flex items-center gap-2">
+                        <button id="btn-play-sim" onclick="toggleSimPlay()" class="h-9 px-3.5 rounded-full bg-[#A33E18] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm hover:bg-[#893313] transition-all">
+                            <span id="play-sim-icon" class="material-symbols-outlined text-base">play_arrow</span>
+                            <span id="play-sim-text">Play Bake (75s)</span>
+                        </button>
+                        <button onclick="resetSim()" class="h-9 w-9 rounded-full bg-[#EDE6E4] text-[#52433E] flex items-center justify-center border border-[#D7C2BB] hover:bg-[#E7E0DE] transition-all" title="Reset to Launch">
+                            <span class="material-symbols-outlined text-base">replay</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+                    <!-- Proportional Chamber Diagram -->
+                    <div class="lg:col-span-6 bg-[#201A19] p-4 sm:p-5 rounded-3xl border-2 border-[#52433E] text-white shadow-xl flex flex-col items-center">
+                        <div class="w-full flex justify-between items-center text-[10px] tracking-wider uppercase font-mono text-[#D7C2BB] mb-2 px-1">
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span> WEST: Lateral Burner</span>
+                            <span class="font-bold text-amber-300">NORTH (Back Wall)</span>
+                            <span>EAST: Heat Reflection</span>
+                        </div>
+
+                        <!-- 40cm x 40cm Chamber Deck Representation (with left burner) -->
+                        <div class="relative w-full max-w-[320px] aspect-[1.25/1] bg-[#161211] rounded-2xl border-4 border-[#3B2D27] p-2.5 flex items-center shadow-inner overflow-hidden">
+                            <!-- Left Lateral Burner Bar & Flame Corridor (15% chamber width) -->
+                            <div class="h-full w-[18%] bg-gradient-to-r from-[#2F211D] to-[#1F1714] rounded-l-lg border-r-2 border-dashed border-amber-600/70 flex flex-col items-center justify-center relative p-1 shadow-lg">
+                                <div class="absolute top-1 text-[8px] font-black text-amber-500 uppercase tracking-tighter">Gas Burner</div>
+                                <div id="burner-flame-render" class="flex flex-col items-center gap-1 transition-all duration-300">
+                                    <span class="text-xl sm:text-2xl filter drop-shadow-[0_0_8px_rgba(245,158,11,0.8)]">🔥</span>
+                                    <span class="text-lg sm:text-xl filter drop-shadow-[0_0_6px_rgba(239,68,68,0.7)] animate-pulse">🔥</span>
+                                    <span class="text-xl sm:text-2xl filter drop-shadow-[0_0_8px_rgba(245,158,11,0.8)]">🔥</span>
+                                </div>
+                                <span id="burner-heat-label" class="text-[7px] font-bold text-amber-300 mt-1 uppercase text-center leading-tight">Med-Low Pre-Launch</span>
+                            </div>
+
+                            <!-- 40cm x 40cm Square Biscotto di Casapulla Deck (remaining 82% width) -->
+                            <div class="relative h-full flex-grow ardore-deck-grid rounded-r-lg border border-[#A69378] p-1.5 flex items-center justify-center overflow-hidden">
+                                <!-- Deck dimension labels -->
+                                <span class="absolute top-1 right-2 text-[8px] font-mono text-[#52433E]/80 font-bold">40 cm Biscotto</span>
+                                <span class="absolute bottom-1 right-2 text-[8px] font-mono text-[#52433E]/80 font-bold">40 cm Deck</span>
+
+                                <!-- Sweet spot dashed zone -->
+                                <div class="absolute right-1 top-2 bottom-2 w-[78%] border border-dashed border-[#A33E18]/60 rounded-xl pointer-events-none flex items-start justify-end p-1">
+                                    <span class="text-[7px] font-black uppercase text-[#A33E18]/70 bg-white/60 px-1 rounded">Sweet Spot</span>
+                                </div>
+
+                                <!-- 30cm Proportional Pizza (exactly 75% of 40cm deck height & width) -->
+                                <div id="sim-proportional-pizza" class="pizza-disc relative w-[75%] aspect-square rounded-full flex items-center justify-center shadow-2xl select-none" style="transform: rotate(0deg); background: radial-gradient(circle, #CF4520 0%, #D85C27 45%, #E9A15C 75%, #D78838 90%, #A65719 100%);">
+                                    <!-- Canotto Cornicione Rim Graphic -->
+                                    <div class="absolute inset-1 rounded-full border-[7px] sm:border-[9px] border-[#DDA15E]/90 pointer-events-none shadow-inner"></div>
+                                    
+                                    <!-- Basil & Mozzarella Accents -->
+                                    <div class="absolute w-3 h-2 bg-emerald-600 rounded-full transform -rotate-45 top-5 left-7 shadow-xs"></div>
+                                    <div class="absolute w-2.5 h-2.5 bg-emerald-700 rounded-full transform rotate-12 bottom-5 right-7 shadow-xs"></div>
+                                    <div class="absolute w-3.5 h-3.5 bg-white/90 rounded-full top-7 right-6 shadow-xs"></div>
+                                    <div class="absolute w-4 h-3 bg-white/90 rounded-full bottom-6 left-6 shadow-xs"></div>
+                                    <div class="absolute w-3 h-3 bg-white/80 rounded-full center shadow-xs"></div>
+
+                                    <!-- NORTH ORIENTATION COMPASS MARKER -->
+                                    <div id="pizza-north-pip" class="compass-indicator absolute -top-2 left-1/2 -translate-x-1/2 bg-red-600 text-white font-mono font-black text-[9px] px-1.5 py-0.5 rounded-full border border-white flex items-center gap-0.5 z-20 shadow-md">
+                                        <span>▲</span>
+                                        <span>N</span>
+                                    </div>
+
+                                    <!-- Center Scale & Rotation Badge -->
+                                    <div class="bg-black/75 backdrop-blur-xs text-white px-2 py-0.5 rounded-full text-[9px] font-bold flex flex-col items-center leading-tight pointer-events-none">
+                                        <span>30 cm</span>
+                                        <span id="pizza-rot-angle" class="text-amber-300 text-[8px] font-mono font-black">0°</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Directional Compass Reference Strip -->
+                        <div class="w-full flex justify-between items-center text-[10px] font-mono text-[#D7C2BB] mt-2 px-1 border-t border-[#3B2D27] pt-2">
+                            <span>Front Mouth (SOUTH)</span>
+                            <span id="facing-status-tag" class="text-[11px] font-bold text-amber-300 bg-[#3B2D27] px-2.5 py-0.5 rounded-full">North facing: BACK WALL</span>
+                        </div>
+                    </div>
+
+                    <!-- Simulator Scrub, Degrees & Action Guide -->
+                    <div class="lg:col-span-6 space-y-3.5">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="text-xs font-bold text-[#52433E] uppercase tracking-wider block">Bake Scrub Timeline</span>
+                                <span id="bake-time-display" class="text-base sm:text-lg font-black text-[#A33E18]">00:00 — Initial Launch</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[10px] font-bold uppercase text-[#52433E] block">Bake Progress</span>
+                                <span id="bake-seconds-counter" class="text-sm sm:text-base font-mono font-black text-[#201A19]">0 / 75 sec</span>
+                            </div>
+                        </div>
+
+                        <!-- Range Slider with Step Snap Points -->
+                        <div class="space-y-1">
+                            <input type="range" id="bake-step-slider" min="0" max="4" value="0" step="1" class="w-full" oninput="onArdoreSliderScrub(this.value)">
+                            <div class="flex justify-between text-[9px] font-bold text-[#85736E] px-1">
+                                <span>0s: Launch</span>
+                                <span>20s: Set</span>
+                                <span>25s: 180° Turn</span>
+                                <span>45s: 1/4 Turn</span>
+                                <span>75s: Done</span>
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Action & Rotation Card -->
+                        <div class="bg-[#F8F2F0] p-4 rounded-2xl border border-[#D7C2BB] space-y-2.5 shadow-xs">
+                            <div class="flex flex-wrap justify-between items-center text-xs gap-1">
+                                <span class="font-bold text-[#52433E]">Pizza Rotation:</span>
+                                <span id="sim-degrees-badge" class="font-mono font-black text-[#A33E18] bg-white px-2.5 py-0.5 rounded-full border border-[#D7C2BB]">0° (Original Orientation)</span>
+                            </div>
+                            <div class="flex flex-wrap justify-between items-center text-xs gap-1">
+                                <span class="font-bold text-[#52433E]">Burner Flame:</span>
+                                <span id="sim-flame-setting" class="font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full">MEDIUM-LOW (Pre-Launch Throttle)</span>
+                            </div>
+                            <div class="flex flex-wrap justify-between items-center text-xs gap-1">
+                                <span class="font-bold text-[#52433E]">Peel Maneuver:</span>
+                                <span id="sim-action" class="font-bold text-[#201A19]">Land pizza on center-right deck. Leave untouched.</span>
+                            </div>
+                            <div class="pt-2 border-t border-[#D7C2BB] text-xs text-[#52433E] leading-relaxed">
+                                <p id="sim-explanation">
+                                    Pre-launch drop to Medium-Low prevents scorching the left edge of the ballooning canotto rim before the base sets. Biscotto heat flashes hydration into steam.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="sec-diagnostics" class="space-y-4 sm:space-y-5 hidden">
+            <div class="m3-card p-4 sm:p-6">
+                <h2 class="text-base sm:text-xl font-bold text-[#201A19] mb-1 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#A33E18]">troubleshoot</span>
+                    <span>Diagnostic & Troubleshooting Engine</span>
+                </h2>
+                <p class="text-xs sm:text-sm text-[#52433E] mb-5">
+                    Search or filter dough, proofing, or baking defects to reveal targeted technical corrections.
+                </p>
+
+                <!-- Search & Filters -->
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 mb-5">
+                    <div class="relative flex-grow sm:max-w-xs">
+                        <span class="material-symbols-outlined absolute left-3 top-2.5 text-[#52433E] text-lg">search</span>
+                        <input type="text" id="diag-search" oninput="filterDiagnostics()" placeholder="Search defects (e.g. rim, scorch)..." class="text-xs sm:text-sm bg-[#F8F2F0] border border-[#D7C2BB] rounded-full pl-9 pr-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-[#A33E18]">
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 text-xs">
+                        <button onclick="setDiagFilter('ALL', this)" class="diag-chip px-3 py-1.5 bg-[#A33E18] text-white rounded-full font-medium transition-all">All</button>
+                        <button onclick="setDiagFilter('RIM', this)" class="diag-chip px-3 py-1.5 bg-[#EDE6E4] text-[#52433E] rounded-full font-medium hover:bg-[#E7E0DE] transition-all">Rim Expansion</button>
+                        <button onclick="setDiagFilter('BAKE', this)" class="diag-chip px-3 py-1.5 bg-[#EDE6E4] text-[#52433E] rounded-full font-medium hover:bg-[#E7E0DE] transition-all">Bake & Scorch</button>
+                        <button onclick="setDiagFilter('HANDLING', this)" class="diag-chip px-3 py-1.5 bg-[#EDE6E4] text-[#52433E] rounded-full font-medium hover:bg-[#E7E0DE] transition-all">Handling</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5" id="diag-card-container">
+                    <!-- Diagnostic cards populated by JavaScript -->
+                </div>
+            </div>
+        </section>
+
+        <section id="sec-log" class="space-y-4 sm:space-y-5 hidden">
+            <div class="m3-card p-4 sm:p-6">
+                <h2 class="text-base sm:text-xl font-bold text-[#201A19] mb-1 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#A33E18]">description</span>
+                    <span>Digital Bake Log & Crumb Evaluator</span>
+                </h2>
+                <p class="text-xs sm:text-sm text-[#52433E] mb-5">
+                    Record process metrics and evaluate your canotto crumb structure for continuous iteration.
+                </p>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                    <div class="lg:col-span-6 space-y-3.5 bg-[#F8F2F0] p-4 rounded-2xl border border-[#D7C2BB]">
+                        <h3 class="font-bold text-xs uppercase text-[#52433E]">Session Temperatures & Hold Time</h3>
+                        <div class="grid grid-cols-2 gap-2.5 text-xs">
+                            <div>
+                                <label class="block font-medium text-[#52433E]">Biga Water Temp (°F)</label>
+                                <input type="number" id="log-biga-wtemp" value="59" oninput="updateBakeLogChart()" class="w-full mt-1 p-2 bg-white border border-[#D7C2BB] rounded-xl font-bold">
+                            </div>
+                            <div>
+                                <label class="block font-medium text-[#52433E]">Finished Dough Temp (°F)</label>
+                                <input type="number" id="log-fdt" value="74" oninput="updateBakeLogChart()" class="w-full mt-1 p-2 bg-white border border-[#D7C2BB] rounded-xl font-bold text-[#A33E18]">
+                            </div>
+                            <div>
+                                <label class="block font-medium text-[#52433E]">Cold Proof Duration (hrs)</label>
+                                <input type="number" id="log-proof-hrs" value="66" oninput="updateBakeLogChart()" class="w-full mt-1 p-2 bg-white border border-[#D7C2BB] rounded-xl font-bold">
+                            </div>
+                            <div>
+                                <label class="block font-medium text-[#52433E]">Core Temp at Stretch (°F)</label>
+                                <input type="number" id="log-core-temp" value="64" oninput="updateBakeLogChart()" class="w-full mt-1 p-2 bg-white border border-[#D7C2BB] rounded-xl font-bold text-[#58634A]">
+                            </div>
+                        </div>
+
+                        <h3 class="font-bold text-xs uppercase text-[#52433E] pt-2 border-t border-[#D7C2BB]">Crumb & Bake Scores (1–5)</h3>
+                        <div class="space-y-2.5 text-xs">
+                            <div>
+                                <div class="flex justify-between font-medium"><span>Canotto Height & Expansion</span><span id="val-score-height" class="font-bold text-[#A33E18]">5</span></div>
+                                <input type="range" id="score-height" min="1" max="5" value="5" oninput="updateBakeLogChart()" class="w-full">
+                            </div>
+                            <div>
+                                <div class="flex justify-between font-medium"><span>Honeycomb Openness</span><span id="val-score-crumb" class="font-bold text-[#A33E18]">4</span></div>
+                                <input type="range" id="score-crumb" min="1" max="5" value="4" oninput="updateBakeLogChart()" class="w-full">
+                            </div>
+                            <div>
+                                <div class="flex justify-between font-medium"><span>Micro-blistering & Leoparding</span><span id="val-score-blister" class="font-bold text-[#A33E18]">5</span></div>
+                                <input type="range" id="score-blister" min="1" max="5" value="5" oninput="updateBakeLogChart()" class="w-full">
+                            </div>
+                            <div>
+                                <div class="flex justify-between font-medium"><span>Crisp Shell / Melting Crumb</span><span id="val-score-texture" class="font-bold text-[#A33E18]">4</span></div>
+                                <input type="range" id="score-texture" min="1" max="5" value="4" oninput="updateBakeLogChart()" class="w-full">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-6 space-y-3.5">
+                        <div class="chart-container">
+                            <canvas id="bakeRadarChart"></canvas>
+                        </div>
+                        <div class="bg-[#201A19] text-[#DCE8C8] p-3.5 rounded-2xl font-mono text-[11px] leading-tight overflow-x-auto relative">
+                            <button onclick="copyLogToClipboard()" class="absolute top-2.5 right-2.5 bg-white/10 hover:bg-white/20 text-white text-[10px] px-2 py-1 rounded font-sans transition-colors">
+                                Copy Text
+                            </button>
+                            <pre id="log-text-export">CANOTTO TEST LOG — READY</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- M3 Mobile Bottom Navigation Bar (< md) -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#F8F2F0] border-t border-[#D7C2BB] flex justify-around items-center h-16 px-1" style="padding-bottom: var(--safe-bottom);">
+        <button onclick="switchTab('protocol')" id="btn-mobile-protocol" class="m3-nav-item active flex-1 flex flex-col items-center justify-center py-1 text-center">
+            <div class="m3-pill h-7 w-12 rounded-full flex items-center justify-center transition-colors">
+                <span class="material-symbols-outlined m3-nav-icon text-xl">calendar_clock</span>
+            </div>
+            <span class="m3-nav-label text-[10px] mt-0.5 text-[#52433E]">Protocol</span>
+        </button>
+        <button onclick="switchTab('calculator')" id="btn-mobile-calculator" class="m3-nav-item flex-1 flex flex-col items-center justify-center py-1 text-center">
+            <div class="m3-pill h-7 w-12 rounded-full flex items-center justify-center transition-colors">
+                <span class="material-symbols-outlined m3-nav-icon text-xl">calculate</span>
+            </div>
+            <span class="m3-nav-label text-[10px] mt-0.5 text-[#52433E]">Calc</span>
+        </button>
+        <button onclick="switchTab('ardore')" id="btn-mobile-ardore" class="m3-nav-item flex-1 flex flex-col items-center justify-center py-1 text-center">
+            <div class="m3-pill h-7 w-12 rounded-full flex items-center justify-center transition-colors">
+                <span class="material-symbols-outlined m3-nav-icon text-xl">local_fire_department</span>
+            </div>
+            <span class="m3-nav-label text-[10px] mt-0.5 text-[#52433E]">Ardore</span>
+        </button>
+        <button onclick="switchTab('diagnostics')" id="btn-mobile-diagnostics" class="m3-nav-item flex-1 flex flex-col items-center justify-center py-1 text-center">
+            <div class="m3-pill h-7 w-12 rounded-full flex items-center justify-center transition-colors">
+                <span class="material-symbols-outlined m3-nav-icon text-xl">troubleshoot</span>
+            </div>
+            <span class="m3-nav-label text-[10px] mt-0.5 text-[#52433E]">Trouble</span>
+        </button>
+        <button onclick="switchTab('log')" id="btn-mobile-log" class="m3-nav-item flex-1 flex flex-col items-center justify-center py-1 text-center">
+            <div class="m3-pill h-7 w-12 rounded-full flex items-center justify-center transition-colors">
+                <span class="material-symbols-outlined m3-nav-icon text-xl">description</span>
+            </div>
+            <span class="m3-nav-label text-[10px] mt-0.5 text-[#52433E]">Log</span>
+        </button>
+    </nav>
+
+    <!-- M3 SHARE & EXPORT MODAL -->
+    <div id="share-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center hidden p-3 sm:p-4">
+        <div class="bg-white rounded-[28px] max-w-md w-full p-5 sm:p-6 shadow-2xl border border-[#D7C2BB] space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between pb-2 border-b border-[#D7C2BB]/50">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-[#FFDBD0] text-[#A33E18] flex items-center justify-center">
+                        <span class="material-symbols-outlined text-lg">share</span>
+                    </div>
+                    <h3 class="text-base font-bold text-[#201A19]">Share & AirDrop Protocol</h3>
+                </div>
+                <button onclick="closeShareModal()" class="h-8 w-8 rounded-full bg-[#EDE6E4] hover:bg-[#E7E0DE] text-[#52433E] flex items-center justify-center transition-colors">
+                    <span class="material-symbols-outlined text-lg">close</span>
+                </button>
+            </div>
+
+            <p class="text-xs text-[#52433E] leading-relaxed">
+                AirDrop the interactive app file directly to your iPad or iPhone, save an offline copy, or export formatted text for Google Docs.
+            </p>
+
+            <div class="space-y-2.5">
+                <!-- Option 1: Native Share API (AirDrop / Share Sheet with File Attachment) -->
+                <button id="btn-native-share" onclick="triggerNativeShare()" class="w-full flex items-center justify-between p-3 rounded-2xl bg-[#F8F2F0] hover:bg-[#EDE6E4] active:scale-[0.99] border border-[#D7C2BB] text-left transition-all">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-full bg-[#FFDBD0] text-[#A33E18] flex items-center justify-center flex-shrink-0">
+                            <span class="material-symbols-outlined text-xl">ios_share</span>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-xs font-bold text-[#201A19]">Share via AirDrop or Apps</span>
+                                <span class="bg-[#DCE8C8] text-[#161E0C] text-[9px] font-bold px-1.5 py-0.2 rounded-full uppercase">Instant</span>
+                            </div>
+                            <span class="block text-[11px] text-[#52433E]">Beams the app file via AirDrop, Messages, or WhatsApp</span>
+                        </div>
+                    </div>
+                    <span class="material-symbols-outlined text-[#85736E] text-lg">chevron_right</span>
+                </button>
+
+                <!-- Option 2: Download Self-Contained HTML File -->
+                <button onclick="downloadSelfHtml()" class="w-full flex items-center justify-between p-3 rounded-2xl bg-[#F8F2F0] hover:bg-[#EDE6E4] active:scale-[0.99] border border-[#D7C2BB] text-left transition-all">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-full bg-[#DCE8C8] text-[#161E0C] flex items-center justify-center flex-shrink-0">
+                            <span class="material-symbols-outlined text-xl">download</span>
+                        </div>
+                        <div>
+                            <span class="block text-xs font-bold text-[#201A19]">Save Offline App (.html)</span>
+                            <span class="block text-[11px] text-[#52433E]">Standalone single file; opens in Safari/Chrome on any device</span>
+                        </div>
+                    </div>
+                    <span class="material-symbols-outlined text-[#85736E] text-lg">chevron_right</span>
+                </button>
+
+                <!-- Option 3: Copy Web Link -->
+                <button onclick="copyShareLink()" class="w-full flex items-center justify-between p-3 rounded-2xl bg-[#F8F2F0] hover:bg-[#EDE6E4] active:scale-[0.99] border border-[#D7C2BB] text-left transition-all">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-full bg-[#EDE6E4] text-[#52433E] flex items-center justify-center flex-shrink-0">
+                            <span class="material-symbols-outlined text-xl">link</span>
+                        </div>
+                        <div>
+                            <span class="block text-xs font-bold text-[#201A19]">Copy App Link</span>
+                            <span class="block text-[11px] text-[#52433E]">Copy direct URL to clipboard for sharing</span>
+                        </div>
+                    </div>
+                    <span class="material-symbols-outlined text-[#85736E] text-lg">chevron_right</span>
+                </button>
+
+                <!-- Option 4: Copy Text / Markdown Protocol for Google Docs -->
+                <button onclick="copyCleanProtocolText()" class="w-full flex items-center justify-between p-3 rounded-2xl bg-[#F8F2F0] hover:bg-[#EDE6E4] active:scale-[0.99] border border-[#D7C2BB] text-left transition-all">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-full bg-[#EDE6E4] text-[#52433E] flex items-center justify-center flex-shrink-0">
+                            <span class="material-symbols-outlined text-xl">content_copy</span>
+                        </div>
+                        <div>
+                            <span class="block text-xs font-bold text-[#201A19]">Copy Protocol for Google Docs</span>
+                            <span class="block text-[11px] text-[#52433E]">Full markdown text with formula, schedules & notes</span>
+                        </div>
+                    </div>
+                    <span class="material-symbols-outlined text-[#85736E] text-lg">chevron_right</span>
+                </button>
+            </div>
+
+            <div id="share-toast" class="hidden text-center p-2 rounded-xl bg-[#DCE8C8] text-[#161E0C] text-xs font-bold transition-all">
+                Copied to clipboard!
+            </div>
+        </div>
+    </div>
+
+    <!-- M3 Reset Confirmation Dialog -->
+    <div id="reset-confirm-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-[28px] max-w-sm w-full p-6 shadow-2xl border border-[#D7C2BB] space-y-4">
+            <div class="text-center">
+                <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-[#FFDBD0] text-[#A33E18] flex items-center justify-center">
+                    <span class="material-symbols-outlined text-2xl">restart_alt</span>
+                </div>
+                <h3 class="text-base font-bold text-[#201A19]">Reset All Completed Steps?</h3>
+                <p class="text-xs text-[#52433E] mt-1.5 leading-relaxed">
+                    This will clear all checkmarks across the master schedule and production workflow.
+                </p>
+            </div>
+            <div class="flex space-x-3 pt-2">
+                <button onclick="closeResetModal()" class="flex-1 py-2.5 rounded-full text-xs font-bold text-[#52433E] bg-[#EDE6E4] hover:bg-[#E7E0DE] transition-colors">
+                    Cancel
+                </button>
+                <button onclick="confirmResetProgress()" class="flex-1 py-2.5 rounded-full text-xs font-bold text-white bg-[#A33E18] hover:bg-[#893313] transition-colors">
+                    Reset All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let hydrationChart = null;
+        let bakeRadarChart = null;
+        let currentDiagFilter = 'ALL';
+        let totalBalls = 8;
+        let frozenBalls = 4;
+        let ballWeight = 275;
+
+        /* Ardore Simulator Animation State */
+        let simPlayInterval = null;
+        let isSimPlaying = false;
+        let currentSimSec = 0;
+
+        const allStepIds = [
+            'p1-1', 'p1-2', 'p1-3', 'p1-4',
+            'p2-1', 'p2-2', 'p2-3', 'p2-4',
+            'p3-1', 'p3-2', 'p3-3', 'p3-4',
+            'p4-1', 'p4-2', 'p4-3',
+            'p5-1', 'p5-2', 'p5-3', 'p5-4'
+        ];
+
+        const phaseStepMap = {
+            1: ['p1-1', 'p1-2', 'p1-3', 'p1-4'],
+            2: ['p2-1', 'p2-2', 'p2-3', 'p2-4'],
+            3: ['p3-1', 'p3-2', 'p3-3', 'p3-4'],
+            4: ['p4-1', 'p4-2', 'p4-3'],
+            5: ['p5-1', 'p5-2', 'p5-3', 'p5-4']
+        };
+
+        let completedSteps = new Set();
+        let calculatedProofHours = 66;
+
+        /* Helper for time arithmetic across days and minutes */
+        function addMinutesToTime(baseHour, baseMin, minutesToAdd) {
+            let totalMin = baseHour * 60 + baseMin + minutesToAdd;
+            let dayOffset = 0;
+            while (totalMin < 0) {
+                totalMin += 24 * 60;
+                dayOffset -= 1;
+            }
+            while (totalMin >= 24 * 60) {
+                totalMin -= 24 * 60;
+                dayOffset += 1;
+            }
+            const h = Math.floor(totalMin / 60);
+            const m = totalMin % 60;
+            return { hour: h, minute: m, dayOffset };
+        }
+
+        function setBakeTimePreset(timeStr) {
+            const timeInp = document.getElementById('sched-time');
+            if (timeInp) {
+                timeInp.value = timeStr;
+                updateUnifiedSchedule();
+            }
+        }
+
+        function saveProgress() {
+            try {
+                localStorage.setItem('canotto_master_steps', JSON.stringify(Array.from(completedSteps)));
+            } catch (e) {
+                console.warn('LocalStorage write unavailable', e);
+            }
+            updateStepVisuals();
+            updateProgressBadges();
+        }
+
+        function loadProgress() {
+            try {
+                const saved = localStorage.getItem('canotto_master_steps');
+                if (saved) {
+                    completedSteps = new Set(JSON.parse(saved));
+                }
+            } catch (e) {
+                console.warn('LocalStorage read error', e);
+            }
+        }
+
+        function promptResetProgress() {
+            document.getElementById('reset-confirm-modal').classList.remove('hidden');
+        }
+
+        function closeResetModal() {
+            document.getElementById('reset-confirm-modal').classList.add('hidden');
+        }
+
+        function confirmResetProgress() {
+            completedSteps.clear();
+            saveProgress();
+            closeResetModal();
+        }
+
+        /* Step Checkbox Toggling */
+        function toggleStep(stepId) {
+            // If freezing is bypassed, steps 4.2 and 4.3 cannot be checked
+            if (frozenBalls === 0 && (stepId === 'p4-2' || stepId === 'p4-3')) {
+                return;
+            }
+
+            if (completedSteps.has(stepId)) {
+                completedSteps.delete(stepId);
+            } else {
+                completedSteps.add(stepId);
+            }
+            saveProgress();
+        }
+
+        function getActiveStepIds() {
+            if (frozenBalls === 0) {
+                return allStepIds.filter(id => id !== 'p4-2' && id !== 'p4-3');
+            }
+            return allStepIds;
+        }
+
+        function updateStepVisuals() {
+            const isAllFresh = (frozenBalls === 0);
+
+            allStepIds.forEach(id => {
+                const card = document.getElementById(`card-${id}`);
+                const check = document.getElementById(`check-${id}`);
+                const isChecked = completedSteps.has(id);
+
+                if (card) {
+                    if (isAllFresh && (id === 'p4-2' || id === 'p4-3')) {
+                        card.classList.remove('step-completed');
+                        card.classList.add('opacity-50', 'bg-[#F2ECFA]/50');
+                    } else {
+                        card.classList.remove('opacity-50', 'bg-[#F2ECFA]/50');
+                        if (isChecked) {
+                            card.classList.add('step-completed');
+                        } else {
+                            card.classList.remove('step-completed');
+                        }
+                    }
+                }
+                if (check) {
+                    if (isAllFresh && (id === 'p4-2' || id === 'p4-3')) {
+                        check.innerHTML = '<span class="material-symbols-outlined text-xs text-[#85736E]">block</span>';
+                        check.classList.add('bg-gray-100', 'border-gray-300');
+                    } else {
+                        check.classList.remove('bg-gray-100', 'border-gray-300');
+                        if (isChecked) {
+                            check.innerHTML = '<span class="material-symbols-outlined text-sm">check</span>';
+                        } else {
+                            check.innerHTML = '';
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateProgressBadges() {
+            const activeIds = getActiveStepIds();
+            const total = activeIds.length;
+            let done = 0;
+            activeIds.forEach(id => {
+                if (completedSteps.has(id)) done++;
+            });
+            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+            const badge = document.getElementById('global-progress-badge');
+            if (badge) badge.innerText = `${done} / ${total}`;
+
+            const bar = document.getElementById('global-progress-bar');
+            if (bar) bar.style.width = `${pct}%`;
+
+            for (let p = 1; p <= 5; p++) {
+                let phaseSteps = phaseStepMap[p];
+                if (p === 4 && frozenBalls === 0) {
+                    phaseSteps = ['p4-1'];
+                }
+                let pDone = 0;
+                phaseSteps.forEach(id => {
+                    if (completedSteps.has(id)) pDone++;
+                });
+                const countBadge = document.getElementById(`badge-p${p}-count`);
+                if (countBadge) {
+                    countBadge.innerText = `${pDone}/${phaseSteps.length} Done`;
+                    if (pDone === phaseSteps.length) {
+                        countBadge.className = "text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#DCE8C8] text-[#161E0C]";
+                    } else {
+                        countBadge.className = "text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#EDE6E4] text-[#52433E]";
+                    }
+                }
+            }
+        }
+
+        /* Real-Time Live Schedule Calculator */
+        function updateUnifiedSchedule() {
+            const daySelect = document.getElementById('sched-day');
+            const timeSelect = document.getElementById('sched-time');
+            if (!daySelect || !timeSelect) return;
+
+            const targetDayIndex = parseInt(daySelect.value); // 0: Sun, 1: Mon ... 6: Sat
+            
+            // Parse time string (supports "17:00", "12:30", or plain integer "17")
+            const timeVal = timeSelect.value || "17:00";
+            let launchHour = 17;
+            let launchMinute = 0;
+            if (timeVal.includes(':')) {
+                const parts = timeVal.split(':');
+                launchHour = parseInt(parts[0], 10);
+                launchMinute = parseInt(parts[1], 10);
+            } else {
+                launchHour = parseInt(timeVal, 10);
+            }
+
+            try {
+                localStorage.setItem('canotto_sched_day', targetDayIndex.toString());
+                localStorage.setItem('canotto_sched_time', timeVal);
+            } catch (e) {}
+
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const fullDayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+            function getDayName(offsetFromBakeDay) {
+                let idx = (targetDayIndex + offsetFromBakeDay) % 7;
+                if (idx < 0) idx += 7;
+                return dayNames[idx];
+            }
+
+            function getFullDayName(offsetFromBakeDay) {
+                let idx = (targetDayIndex + offsetFromBakeDay) % 7;
+                if (idx < 0) idx += 7;
+                return fullDayNames[idx];
+            }
+
+            function formatTime(hour, minute = 0) {
+                const period = hour >= 12 ? 'PM' : 'AM';
+                let h = hour % 12;
+                if (h === 0) h = 12;
+                const m = minute < 10 ? `0${minute}` : minute;
+                return `${h}:${m} ${period}`;
+            }
+
+            // Reference Days relative to target bake day (Day 0)
+            const bakeDayName = getDayName(0);
+            const mixDayName = getDayName(-3);        // 3 days prior
+            const bigaDayName = getDayName(-4);       // 4 days prior
+            const bigaFridgeDayName = getDayName(-3);
+            const thawStartDayName = getDayName(-2);  // 2 days prior for frozen thaw
+
+            // Launch & prep times
+            const launchTimeStr = formatTime(launchHour, launchMinute);
+            const temperCalc = addMinutesToTime(launchHour, launchMinute, -240); // 4 hrs prior
+            const preheatCalc = addMinutesToTime(launchHour, launchMinute, -45);  // 45 mins prior
+            const bakeCalc = addMinutesToTime(launchHour, launchMinute, 2);       // 2 mins post-launch
+
+            const temperDayName = getDayName(temperCalc.dayOffset);
+            const preheatDayName = getDayName(preheatCalc.dayOffset);
+            const temperTimeStr = formatTime(temperCalc.hour, temperCalc.minute);
+            const preheatTimeStr = formatTime(preheatCalc.hour, preheatCalc.minute);
+            const bakeTimeStr = formatTime(bakeCalc.hour, bakeCalc.minute);
+
+            // Cold proof duration calculation:
+            // Balling finishes Day -3 at 19:00 (7:00 PM).
+            // Temper begins Day 0 at (temperCalc.hour + temperCalc.minute/60).
+            const rawProofHrs = 53 + temperCalc.hour + (temperCalc.minute / 60);
+            calculatedProofHours = Math.round(rawProofHrs);
+
+            // Frozen thaw initiation: 55 hours prior to launch (Day -2 at launchHour - 7h)
+            const thawInitCalc = addMinutesToTime(launchHour, launchMinute, -(55 * 60));
+            const thawInitDayName = getDayName(thawInitCalc.dayOffset);
+            const thawInitTimeStr = formatTime(thawInitCalc.hour, thawInitCalc.minute);
+            const frozenTemperCalc = addMinutesToTime(launchHour, launchMinute, -330); // 5.5h prior
+            const frozenTemperTimeStr = formatTime(frozenTemperCalc.hour, frozenTemperCalc.minute);
+
+            // Header summaries
+            const launchDisplay = document.getElementById('sched-launch-display');
+            if (launchDisplay) launchDisplay.innerText = launchTimeStr;
+
+            const daySummary = document.getElementById('sched-day-summary');
+            if (daySummary) {
+                daySummary.innerText = `Biga: ${bigaDayName} 8 PM · Mix: ${mixDayName} 5 PM · Bake: ${bakeDayName}`;
+            }
+
+            const proofSummary = document.getElementById('sched-proof-summary');
+            if (proofSummary) {
+                proofSummary.innerText = `Cold Proof: ${calculatedProofHours} hrs in 37 °F fridge`;
+            }
+
+            // Sync inline and log metrics
+            const inlineProofInp = document.getElementById('inline-proof-hrs');
+            if (inlineProofInp) inlineProofInp.value = calculatedProofHours;
+            const logProofInp = document.getElementById('log-proof-hrs');
+            if (logProofInp) logProofInp.value = calculatedProofHours;
+
+            // Phase 1 Badges & Times
+            const badgeP1Time = document.getElementById('badge-p1-time');
+            if (badgeP1Time) badgeP1Time.innerText = `${bigaDayName} 8:00 PM`;
+
+            const timeP11 = document.getElementById('time-p1-1');
+            if (timeP11) timeP11.innerText = `${bigaDayName} 8:00 PM`;
+
+            const timeP12 = document.getElementById('time-p1-2');
+            if (timeP12) timeP12.innerText = `${bigaDayName} 8:05 PM`;
+
+            const timeP13 = document.getElementById('time-p1-3');
+            if (timeP13) timeP13.innerText = `${bigaDayName} 8:10 PM – 12:00 AM`;
+
+            const timeP14 = document.getElementById('time-p1-4');
+            if (timeP14) timeP14.innerText = `${bigaFridgeDayName} 12:00 AM – 5:00 PM`;
+
+            // Phase 2 Badges & Times
+            const badgeP2Time = document.getElementById('badge-p2-time');
+            if (badgeP2Time) badgeP2Time.innerText = `${mixDayName} 5:00 PM`;
+
+            const timeP21 = document.getElementById('time-p2-1');
+            if (timeP21) timeP21.innerText = `${mixDayName} 5:00 PM`;
+
+            const timeP22 = document.getElementById('time-p2-2');
+            if (timeP22) timeP22.innerText = `${mixDayName} 5:03 PM`;
+
+            const timeP23 = document.getElementById('time-p2-3');
+            if (timeP23) timeP23.innerText = `${mixDayName} 5:08 PM`;
+
+            const timeP24 = document.getElementById('time-p2-4');
+            if (timeP24) timeP24.innerText = `${mixDayName} 5:12 PM`;
+
+            // Phase 3 Badges & Times
+            const badgeP3Time = document.getElementById('badge-p3-time');
+            if (badgeP3Time) badgeP3Time.innerText = `${mixDayName} 5:30 PM`;
+
+            const timeP31 = document.getElementById('time-p3-1');
+            if (timeP31) timeP31.innerText = `${mixDayName} 5:30 PM`;
+
+            const timeP32 = document.getElementById('time-p3-2');
+            if (timeP32) timeP32.innerText = `${mixDayName} 5:50 PM`;
+
+            const timeP33 = document.getElementById('time-p3-3');
+            if (timeP33) timeP33.innerText = `${mixDayName} 6:15 PM`;
+
+            const timeP34 = document.getElementById('time-p3-4');
+            if (timeP34) timeP34.innerText = `${mixDayName} 6:45 PM`;
+
+            // Phase 4 Badges & Times
+            const badgeP4Time = document.getElementById('badge-p4-time');
+            if (badgeP4Time) badgeP4Time.innerText = `${mixDayName} 7:00 PM`;
+
+            const timeP41 = document.getElementById('time-p4-1');
+            if (timeP41) timeP41.innerText = `${mixDayName} 7:00 PM – ${temperDayName} ${temperTimeStr} (~${calculatedProofHours} hrs)`;
+
+            const timeP42 = document.getElementById('time-p4-2');
+            if (timeP42) timeP42.innerText = `${mixDayName} 7:00 PM – 9:00 PM`;
+
+            const timeP43 = document.getElementById('time-p4-3');
+            if (timeP43) timeP43.innerText = `${thawInitDayName} ${thawInitTimeStr} → ${bakeDayName} ${launchTimeStr}`;
+
+            const descP43 = document.getElementById('desc-p4-3');
+            if (descP43 && frozenBalls > 0) {
+                descP43.innerHTML = `Move ${frozenBalls} rock-hard balls to 37 °F fridge on <strong>${thawInitDayName} at ${thawInitTimeStr}</strong> (55 hrs before launch) for 48h slow defrost. Pull to room temp on <strong>${bakeDayName} at ${frozenTemperTimeStr}</strong> (5.5 hrs before launch; Target core: 64–66 °F).`;
+            }
+
+            // Phase 5 Badges & Times
+            const badgeP5Time = document.getElementById('badge-p5-time');
+            if (badgeP5Time) badgeP5Time.innerText = `${temperDayName} ${temperTimeStr}`;
+
+            const timeP51 = document.getElementById('time-p5-1');
+            if (timeP51) timeP51.innerText = `${temperDayName} ${temperTimeStr}`;
+
+            const timeP52 = document.getElementById('time-p5-2');
+            if (timeP52) timeP52.innerText = `${preheatDayName} ${preheatTimeStr}`;
+
+            const timeP53 = document.getElementById('time-p5-3');
+            if (timeP53) timeP53.innerText = `${bakeDayName} ${launchTimeStr}`;
+
+            const timeP54 = document.getElementById('time-p5-4');
+            if (timeP54) timeP54.innerText = `${bakeDayName} ${bakeTimeStr}`;
+
+            updateAdaptedProtocol();
+        }
+
+        /* Phase Filtering Function */
+        function filterPhaseView(phaseKey) {
+            for (let p = 1; p <= 5; p++) {
+                const container = document.getElementById(`container-phase-${p}`);
+                if (!container) continue;
+                if (phaseKey === 'ALL' || phaseKey === `p${p}`) {
+                    container.classList.remove('hidden');
+                } else {
+                    container.classList.add('hidden');
+                }
+            }
+        }
+
+        /* Dynamic Protocol Text Adaptation */
+        function updateAdaptedProtocol() {
+            const freshBalls = totalBalls - frozenBalls;
+            const isAllFresh = (frozenBalls === 0);
+
+            const ratioBadge = document.getElementById('sched-ball-ratio-badge');
+            if (ratioBadge) {
+                if (isAllFresh) {
+                    ratioBadge.innerText = `All ${totalBalls} Fresh (0 Frz)`;
+                    ratioBadge.className = "text-[10px] font-bold text-[#58634A] bg-[#DCE8C8] px-2 py-0.5 rounded-full";
+                } else {
+                    ratioBadge.innerText = `${frozenBalls} Frz / ${freshBalls} Fresh`;
+                    ratioBadge.className = "text-[10px] font-bold text-[#A33E18] bg-[#FFDBD0] px-2 py-0.5 rounded-full";
+                }
+            }
+
+            const schedFrozenNum = document.getElementById('sched-frozen-num');
+            if (schedFrozenNum) schedFrozenNum.innerText = frozenBalls;
+
+            const outFrozenCount = document.getElementById('out-frozen-count');
+            if (outFrozenCount) {
+                if (isAllFresh) {
+                    outFrozenCount.innerText = `0 frozen (${totalBalls} fresh)`;
+                    outFrozenCount.className = "text-[#58634A] font-black";
+                } else {
+                    outFrozenCount.innerText = `${frozenBalls} frozen (${freshBalls} fresh)`;
+                    outFrozenCount.className = "text-[#A33E18] font-black";
+                }
+            }
+
+            const outAllocation = document.getElementById('out-allocation');
+            if (outAllocation) {
+                outAllocation.innerText = isAllFresh ? `${totalBalls} Fresh` : `${freshBalls} Fr / ${frozenBalls} Fz`;
+            }
+
+            // Phase 1 Step 1.1 IDY note
+            const descP11 = document.getElementById('desc-p1-1');
+            if (descP11) {
+                const flour = Math.round((totalBalls * ballWeight) / (1.0 + 0.45 + (isAllFresh ? 0.0010 : 0.00125) + 0.25 + 0.028 + 0.009));
+                const water = Math.round(flour * 0.45);
+                const idy = (flour * (isAllFresh ? 0.0010 : 0.00125)).toFixed(1);
+
+                if (isAllFresh) {
+                    descP11.innerHTML = `Dissolve <strong>${idy} g IDY</strong> in <strong>${water} g cool water</strong> (58–60 °F). Pour over <strong>${flour} g Caputo Cuoco</strong> in spiral mixer. <em>Standard 0.10% inoculation (no freeze buffer needed for 100% fresh batch).</em>`;
+                } else {
+                    descP11.innerHTML = `Dissolve <strong>${idy} g IDY</strong> in <strong>${water} g cool water</strong> (58–60 °F). Pour over <strong>${flour} g Caputo Cuoco</strong> in spiral mixer. <em>Buffered at 0.13% IDY to protect against yeast cell mortality in the ${frozenBalls} frozen balls.</em>`;
+                }
+            }
+
+            // Phase 3 Step 3.4 Balling
+            const titleP34 = document.getElementById('title-p3-4');
+            if (titleP34) titleP34.innerText = `4. Ball on Dry Counter (${totalBalls} × ${ballWeight} g)`;
+            const badgeP34 = document.getElementById('badge-p3-4');
+            if (badgeP34) {
+                badgeP34.innerText = isAllFresh ? `All ${totalBalls} Fresh` : `${freshBalls} Fresh / ${frozenBalls} Frozen`;
+            }
+            const descP34 = document.getElementById('desc-p3-4');
+            if (descP34) {
+                descP34.innerHTML = `Cut into ${totalBalls} × ${ballWeight} g portions. <strong>Keep bottom counter DRY.</strong> Drag-and-cup each ball so friction pulls the oiled skin taut while the un-oiled bottom seam seals completely airtight. ${isAllFresh ? `All ${totalBalls} will cold proof fresh in the fridge.` : `${freshBalls} for fresh cold proofing, ${frozenBalls} for raw flash-freezing.`}`;
+            }
+
+            // Phase 4 Header & Cards
+            const titleP4 = document.getElementById('title-phase-4');
+            const subP4 = document.getElementById('sub-phase-4');
+            const iconP4 = document.getElementById('icon-phase-4');
+
+            if (isAllFresh) {
+                if (titleP4) titleP4.innerText = "Phase 4: Cold Proof in 37 °F Fridge (100% Fresh)";
+                if (subP4) subP4.innerText = `${calculatedProofHours}h slow maturation for all ${totalBalls} balls; no freezer storage required`;
+                if (iconP4) iconP4.innerText = "kitchen";
+            } else {
+                if (titleP4) titleP4.innerText = "Phase 4: Segregation, Cold Proof & Flash Freeze";
+                if (subP4) subP4.innerText = `${calculatedProofHours}h fridge proof for ${freshBalls} fresh; 2h raw flash-freeze for ${frozenBalls} frozen`;
+                if (iconP4) iconP4.innerText = "ac_unit";
+            }
+
+            // Step 4.1
+            const titleP41 = document.getElementById('title-p4-1');
+            const descP41 = document.getElementById('desc-p4-1');
+            if (titleP41) {
+                titleP41.innerText = isAllFresh ? `1. Fresh Batch: All ${totalBalls} Balls into 37 °F Fridge` : `1. Fresh Batch: ${freshBalls} Balls into 37 °F Fridge`;
+            }
+            if (descP41) {
+                descP41.innerHTML = isAllFresh
+                    ? `Place all ${totalBalls} balls in airtight proofing box(es) spaced 3" apart. The micro-thin oil veil preserves moisture without crusting. Hold undisturbed in 37 °F fridge for ${calculatedProofHours} hours.`
+                    : `Place ${freshBalls} fresh balls in an airtight proofing box spaced 3" apart. The micro-thin oil veil preserves moisture without crusting. Hold undisturbed in 37 °F fridge for ${calculatedProofHours} hours.`;
+            }
+
+            // Step 4.2
+            const titleP42 = document.getElementById('title-p4-2');
+            const descP42 = document.getElementById('desc-p4-2');
+            const badgeP42 = document.getElementById('badge-p4-2');
+            if (isAllFresh) {
+                if (titleP42) titleP42.innerText = "2. Raw Flash Freeze (Bypassed — All Fresh)";
+                if (badgeP42) {
+                    badgeP42.innerText = "BYPASSED";
+                    badgeP42.className = "bg-[#DCE8C8] text-[#161E0C] px-2 py-0.5 rounded-full font-bold text-[10px]";
+                }
+                if (descP42) {
+                    descP42.innerHTML = `<strong>Not applicable:</strong> All ${totalBalls} dough balls are scheduled for fresh baking. No balls will be placed in the freezer.`;
+                }
+            } else {
+                if (titleP42) titleP42.innerText = `2. Frozen Batch: Raw Flash-Freeze (${frozenBalls} Balls, 90–120m)`;
+                if (badgeP42) {
+                    badgeP42.innerText = "2 hrs";
+                    badgeP42.className = "bg-[#EDE6E4] text-[#52433E] px-2 py-0.5 rounded-full font-medium";
+                }
+                if (descP42) {
+                    descP42.innerHTML = `Place remaining ${frozenBalls} balls on parchment-lined sheet pan in freezer <strong>uncovered for 90–120 mins</strong> until crust-frozen. Wrap individually in plastic wrap (Capuano oil prevents sticking), bag, and deep freeze.`;
+                }
+            }
+
+            // Step 4.3
+            const titleP43 = document.getElementById('title-p4-3');
+            const descP43 = document.getElementById('desc-p4-3');
+            const badgeP43 = document.getElementById('badge-p4-3');
+            if (isAllFresh) {
+                if (titleP43) titleP43.innerText = "3. Frozen Protocol (Bypassed — All Fresh)";
+                if (badgeP43) {
+                    badgeP43.innerText = "BYPASSED";
+                    badgeP43.className = "bg-[#DCE8C8] text-[#161E0C] px-2 py-0.5 rounded-full font-bold text-[10px]";
+                }
+                if (descP43) {
+                    descP43.innerHTML = `<strong>Not applicable:</strong> Thaw and extended temper protocol is inactive because 0 balls are stored in the freezer.`;
+                }
+            } else {
+                if (titleP43) titleP43.innerText = `3. Frozen Protocol (${frozenBalls} Balls, 2–4 Weeks Later)`;
+                if (badgeP43) {
+                    badgeP43.innerText = "48h Thaw + 5.5h Temper";
+                    badgeP43.className = "bg-[#DCE8C8] text-[#161E0C] px-2 py-0.5 rounded-full font-medium";
+                }
+                if (descP43) {
+                    descP43.innerHTML = `Move ${frozenBalls} rock-hard balls to 37 °F fridge 55 hrs prior to bake for 48h slow defrost. Pull to room temp 5.5 hours before launch (Target core temp: 64–66 °F).`;
+                }
+            }
+
+            // Calculator IDY Role & Pct
+            const calcIdyPct = document.getElementById('calc-idy-pct');
+            const calcIdyRole = document.getElementById('calc-idy-role');
+            if (calcIdyPct) calcIdyPct.innerText = isAllFresh ? "0.10%" : "0.13%";
+            if (calcIdyRole) {
+                calcIdyRole.innerText = isAllFresh ? "Standard inoculation (all fresh)" : `Buffered for ${frozenBalls} frozen balls`;
+            }
+        }
+
+        /* Synchronized Frozen Balls Setter */
+        function setFrozenBalls(count) {
+            frozenBalls = Math.max(0, Math.min(count, totalBalls));
+
+            const schedSlider = document.getElementById('sched-frozen-slider');
+            if (schedSlider) schedSlider.value = frozenBalls;
+
+            const calcSlider = document.getElementById('inp-frozen-balls');
+            if (calcSlider) calcSlider.value = frozenBalls;
+
+            try {
+                localStorage.setItem('canotto_frozen_count', frozenBalls.toString());
+            } catch (e) {}
+
+            updateAdaptedProtocol();
+            updateCalculator();
+            updateStepVisuals();
+            updateProgressBadges();
+        }
+
+        function onTotalBallsInput(val) {
+            totalBalls = parseInt(val);
+            if (frozenBalls > totalBalls) {
+                frozenBalls = totalBalls;
+            }
+
+            const schedSlider = document.getElementById('sched-frozen-slider');
+            if (schedSlider) {
+                schedSlider.max = totalBalls;
+                schedSlider.value = frozenBalls;
+            }
+
+            const calcSlider = document.getElementById('inp-frozen-balls');
+            if (calcSlider) {
+                calcSlider.max = totalBalls;
+                calcSlider.value = frozenBalls;
+            }
+
+            updateCalculator();
+            updateAdaptedProtocol();
+            updateStepVisuals();
+            updateProgressBadges();
+        }
+
+        /* Tab Navigation */
+        function switchTab(tabId) {
+            document.querySelectorAll('.desktop-nav-tab').forEach(btn => {
+                btn.classList.remove('border-[#A33E18]', 'text-[#A33E18]', 'font-bold');
+                btn.classList.add('border-transparent', 'text-[#52433E]');
+            });
+            const desktopTab = document.getElementById(`tab-desktop-${tabId}`);
+            if (desktopTab) {
+                desktopTab.classList.add('border-[#A33E18]', 'text-[#A33E18]', 'font-bold');
+                desktopTab.classList.remove('border-transparent', 'text-[#52433E]');
+            }
+
+            document.querySelectorAll('.m3-nav-item').forEach(btn => btn.classList.remove('active'));
+            const mobileBtn = document.getElementById(`btn-mobile-${tabId}`);
+            if (mobileBtn) mobileBtn.classList.add('active');
+
+            document.querySelectorAll('main > section').forEach(sec => sec.classList.add('hidden'));
+            const targetSec = document.getElementById(`sec-${tabId}`);
+            if (targetSec) targetSec.classList.remove('hidden');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            if (tabId === 'calculator' && hydrationChart) hydrationChart.update();
+            if (tabId === 'log' && bakeRadarChart) bakeRadarChart.update();
+        }
+
+        /* Batch Calculator */
+        function updateCalculator() {
+            const ballsInput = document.getElementById('inp-balls');
+            const weightInput = document.getElementById('inp-weight');
+            if (!ballsInput || !weightInput) return;
+
+            totalBalls = parseInt(ballsInput.value);
+            ballWeight = parseInt(weightInput.value);
+
+            if (frozenBalls > totalBalls) {
+                frozenBalls = totalBalls;
+            }
+
+            document.getElementById('out-ball-count').innerText = `${totalBalls} balls`;
+            document.getElementById('out-ball-weight').innerText = `${ballWeight} g`;
+
+            const totalDough = totalBalls * ballWeight;
+            document.getElementById('out-total-dough').innerText = `${totalDough} g`;
+
+            const isAllFresh = (frozenBalls === 0);
+            const idyFactor = isAllFresh ? 0.0010 : 0.00125;
+            const totalBakerPct = 1.0 + 0.45 + idyFactor + 0.25 + 0.028 + 0.009;
+            const flour = totalDough / totalBakerPct;
+
+            const bigaWater = flour * 0.45;
+            const idy = flour * idyFactor;
+            const mixWater = flour * 0.25;
+            const salt = flour * 0.028;
+            const oil = flour * 0.009;
+
+            document.getElementById('out-flour-mass').innerText = `${Math.round(flour)} g`;
+            document.getElementById('calc-flour').innerText = `${flour.toFixed(1)} g`;
+            document.getElementById('calc-biga-water').innerText = `${bigaWater.toFixed(1)} g`;
+            document.getElementById('calc-idy').innerText = `${idy.toFixed(1)} g`;
+            document.getElementById('calc-mix-water').innerText = `${mixWater.toFixed(1)} g`;
+            document.getElementById('calc-salt').innerText = `${salt.toFixed(1)} g`;
+            document.getElementById('calc-oil').innerText = `${oil.toFixed(1)} g`;
+
+            if (hydrationChart) {
+                hydrationChart.data.datasets[0].data = [Math.round(bigaWater), Math.round(mixWater)];
+                hydrationChart.update();
+            }
+        }
+
+        function initHydrationChart() {
+            const canvas = document.getElementById('hydrationChart');
+            if (!canvas || !window.Chart) return;
+            const ctx = canvas.getContext('2d');
+            hydrationChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Biga Water (45%)', 'Final Mix Water (25%)'],
+                    datasets: [{
+                        data: [572, 318],
+                        backgroundColor: ['#A33E18', '#2563EB'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11, family: 'Lora' } } }
+                    }
+                }
+            });
+        }
+
+        /* Ardore Simulator */
+        const ardoreBakeStages = [
+            {
+                sec: 0,
+                timeLabel: "00:00 — Launch",
+                secondsLabel: "0 / 75 sec",
+                deg: 0,
+                flame: "MEDIUM-LOW",
+                flameColor: "text-amber-800 bg-amber-100",
+                heatText: "Med-Low Pre-Launch",
+                action: "Land pizza on center-right deck. Leave untouched.",
+                facing: "North facing: BACK WALL (North)",
+                explanation: "Pre-launch drop to Medium-Low prevents scorching the left edge of the ballooning canotto rim before the base sets. Biscotto heat flashes hydration into high-pressure steam."
+            },
+            {
+                sec: 20,
+                timeLabel: "00:20 — Base Set",
+                secondsLabel: "20 / 75 sec",
+                deg: 0,
+                flame: "MEDIUM-LOW",
+                flameColor: "text-amber-800 bg-amber-100",
+                heatText: "Med-Low Baking Base",
+                action: "Observe rim ballooning. Base is now firm on biscotto.",
+                facing: "North facing: BACK WALL (North)",
+                explanation: "Thermal mass of biscotto di Casapulla flashes 70% hydration into steam, driving giant honeycomb cornicione without burning bottom crust."
+            },
+            {
+                sec: 25,
+                timeLabel: "00:25 — 180° Turn & Throttle Up",
+                secondsLabel: "25 / 75 sec",
+                deg: 180,
+                flame: "HIGH 🔥🔥",
+                flameColor: "text-red-900 bg-red-100 font-black",
+                heatText: "MAX FLAME BLAST",
+                action: "Rotate 180° with turning peel. Crank gas dial to HIGH.",
+                facing: "North facing: FRONT MOUTH (South)",
+                explanation: "Exposing the pale right-hand edge directly to rolling roof flame under full gas pressure. North indicator now points to front mouth!"
+            },
+            {
+                sec: 45,
+                timeLabel: "00:45 — First Quarter Turn (90°)",
+                secondsLabel: "45 / 75 sec",
+                deg: 270,
+                flame: "HIGH 🔥🔥",
+                flameColor: "text-red-900 bg-red-100 font-black",
+                heatText: "MAX FLAME BLAST",
+                action: "Make 90° clockwise turn. Keep rotating every 10–15 seconds.",
+                facing: "North facing: EAST WALL",
+                explanation: "Rolling ceiling flame micro-blisters lipids from Capuano oil veil into leopard spots along the lateral quarters."
+            },
+            {
+                sec: 75,
+                timeLabel: "00:75 — Dome Dwell & Exit",
+                secondsLabel: "75 / 75 sec",
+                deg: 360,
+                flame: "HIGH → OFF",
+                flameColor: "text-[#58634A] bg-[#DCE8C8]",
+                heatText: "COMPLETE",
+                action: "Lift onto peel to kiss the ceiling for 5s, then retrieve.",
+                facing: "North facing: BACK WALL (Full 360° Complete)",
+                explanation: "Bake complete! Rim is inflated, hollow, crisp, and beautifully micro-blistered. Retain on wire rack for 60 seconds."
+            }
+        ];
+
+        function onArdoreSliderScrub(stepIndex) {
+            if (isSimPlaying) toggleSimPlay();
+            applyArdoreStage(parseInt(stepIndex));
+        }
+
+        function applyArdoreStage(stepIndex) {
+            const stage = ardoreBakeStages[stepIndex];
+            if (!stage) return;
+
+            // Update text elements
+            document.getElementById('bake-time-display').innerText = stage.timeLabel;
+            document.getElementById('bake-seconds-counter').innerText = stage.secondsLabel;
+            document.getElementById('sim-degrees-badge').innerText = `${stage.deg}° Rotation`;
+            document.getElementById('sim-flame-setting').innerText = stage.flame;
+            document.getElementById('sim-flame-setting').className = `font-bold px-2.5 py-0.5 rounded-full ${stage.flameColor}`;
+            document.getElementById('burner-heat-label').innerText = stage.heatText;
+            document.getElementById('sim-action').innerText = stage.action;
+            document.getElementById('sim-explanation').innerText = stage.explanation;
+            document.getElementById('facing-status-tag').innerText = stage.facing;
+            document.getElementById('pizza-rot-angle').innerText = `${stage.deg}°`;
+
+            // Proportional Pizza Rotation
+            const pizza = document.getElementById('sim-proportional-pizza');
+            if (pizza) {
+                pizza.style.transform = `rotate(${stage.deg}deg)`;
+            }
+
+            // Sync Slider
+            const slider = document.getElementById('bake-step-slider');
+            if (slider && parseInt(slider.value) !== stepIndex) {
+                slider.value = stepIndex;
+            }
+        }
+
+        function toggleSimPlay() {
+            const btnText = document.getElementById('play-sim-text');
+            const btnIcon = document.getElementById('play-sim-icon');
+
+            if (isSimPlaying) {
+                clearInterval(simPlayInterval);
+                isSimPlaying = false;
+                if (btnText) btnText.innerText = "Play Bake (75s)";
+                if (btnIcon) btnIcon.innerText = "play_arrow";
+            } else {
+                isSimPlaying = true;
+                if (btnText) btnText.innerText = "Pause Bake";
+                if (btnIcon) btnIcon.innerText = "pause";
+
+                let currentStageIndex = parseInt(document.getElementById('bake-step-slider').value);
+                if (currentStageIndex >= ardoreBakeStages.length - 1) {
+                    currentStageIndex = 0;
+                }
+
+                applyArdoreStage(currentStageIndex);
+
+                simPlayInterval = setInterval(() => {
+                    currentStageIndex++;
+                    if (currentStageIndex >= ardoreBakeStages.length) {
+                        clearInterval(simPlayInterval);
+                        isSimPlaying = false;
+                        if (btnText) btnText.innerText = "Play Bake (75s)";
+                        if (btnIcon) btnIcon.innerText = "play_arrow";
+                    } else {
+                        applyArdoreStage(currentStageIndex);
+                    }
+                }, 3500); // 3.5s per key stage for comfortable kitchen visualization
+            }
+        }
+
+        function resetSim() {
+            if (isSimPlaying) toggleSimPlay();
+            applyArdoreStage(0);
+        }
+
+        /* Inline Metrics & Synchronized Bake Log Engine */
+        function syncInlineMetric(targetLogId, val) {
+            const target = document.getElementById(targetLogId);
+            if (target) target.value = val;
+            saveSessionMetrics();
+            updateBakeLogChart();
+        }
+
+        function syncInlineFdt(val) {
+            const fdtVal = parseFloat(val);
+            const statusBadge = document.getElementById('inline-fdt-status');
+            const target = document.getElementById('log-fdt');
+            if (target) target.value = val;
+
+            if (statusBadge) {
+                if (fdtVal >= 77) {
+                    statusBadge.innerText = "STOP MIXING (≥77°F)";
+                    statusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 animate-pulse";
+                } else if (fdtVal >= 75.5) {
+                    statusBadge.innerText = "WARM (75.5–76.5°F)";
+                    statusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800";
+                } else if (fdtVal >= 72.5) {
+                    statusBadge.innerText = "OPTIMAL (73–75°F)";
+                    statusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#DCE8C8] text-[#161E0C]";
+                } else {
+                    statusBadge.innerText = "COOL (<72.5°F)";
+                    statusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800";
+                }
+            }
+            saveSessionMetrics();
+            updateBakeLogChart();
+        }
+
+        function syncInlineCoreTemp(val) {
+            const coreVal = parseFloat(val);
+            const statusBadge = document.getElementById('inline-core-status');
+            const target = document.getElementById('log-core-temp');
+            if (target) target.value = val;
+
+            if (statusBadge) {
+                if (coreVal < 62) {
+                    statusBadge.innerText = "TOO COLD (WILL SNAP BACK)";
+                    statusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800";
+                } else if (coreVal <= 66.5) {
+                    statusBadge.innerText = "READY TO STRETCH (63–66°F)";
+                    statusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#DCE8C8] text-[#161E0C]";
+                } else {
+                    statusBadge.innerText = "WARM (>67°F) — HANDLE GENTLY";
+                    statusBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800";
+                }
+            }
+            saveSessionMetrics();
+            updateBakeLogChart();
+        }
+
+        function syncDeckTemp(val) {
+            localStorage.setItem('canotto_metric_deck_temp', val);
+            updateBakeLogChart();
+        }
+
+        function syncDomeTemp(val) {
+            localStorage.setItem('canotto_metric_dome_temp', val);
+            updateBakeLogChart();
+        }
+
+        function syncFridgeTemp(val) {
+            localStorage.setItem('canotto_metric_fridge_temp', val);
+            updateBakeLogChart();
+        }
+
+        function syncBakeTime(val) {
+            localStorage.setItem('canotto_metric_bake_sec', val);
+            updateBakeLogChart();
+        }
+
+        function syncBakeNotes(val) {
+            localStorage.setItem('canotto_metric_bake_notes', val);
+            updateBakeLogChart();
+        }
+
+        function syncScore(targetRangeId, val) {
+            const range = document.getElementById(targetRangeId);
+            if (range) range.value = val;
+            updateBakeLogChart();
+        }
+
+        function saveSessionMetrics() {
+            try {
+                const metrics = {
+                    bigaWaterTemp: document.getElementById('inline-biga-wtemp')?.value,
+                    fdt: document.getElementById('inline-fdt')?.value,
+                    fridgeTemp: document.getElementById('inline-fridge-temp')?.value,
+                    proofHrs: document.getElementById('inline-proof-hrs')?.value,
+                    coreTemp: document.getElementById('inline-core-temp')?.value,
+                    deckTemp: document.getElementById('inline-deck-temp')?.value,
+                    domeTemp: document.getElementById('inline-dome-temp')?.value,
+                    bakeSec: document.getElementById('inline-bake-sec')?.value,
+                    notes: document.getElementById('inline-bake-notes')?.value
+                };
+                localStorage.setItem('canotto_step_metrics', JSON.stringify(metrics));
+            } catch (e) {
+                console.warn('LocalStorage metrics write error', e);
+            }
+        }
+
+        function loadSessionMetrics() {
+            try {
+                const saved = localStorage.getItem('canotto_step_metrics');
+                if (saved) {
+                    const m = JSON.parse(saved);
+                    if (m.bigaWaterTemp) {
+                        if (document.getElementById('inline-biga-wtemp')) document.getElementById('inline-biga-wtemp').value = m.bigaWaterTemp;
+                        if (document.getElementById('log-biga-wtemp')) document.getElementById('log-biga-wtemp').value = m.bigaWaterTemp;
+                    }
+                    if (m.fdt) {
+                        if (document.getElementById('inline-fdt')) document.getElementById('inline-fdt').value = m.fdt;
+                        if (document.getElementById('log-fdt')) document.getElementById('log-fdt').value = m.fdt;
+                        syncInlineFdt(m.fdt);
+                    }
+                    if (m.proofHrs) {
+                        if (document.getElementById('inline-proof-hrs')) document.getElementById('inline-proof-hrs').value = m.proofHrs;
+                        if (document.getElementById('log-proof-hrs')) document.getElementById('log-proof-hrs').value = m.proofHrs;
+                    }
+                    if (m.coreTemp) {
+                        if (document.getElementById('inline-core-temp')) document.getElementById('inline-core-temp').value = m.coreTemp;
+                        if (document.getElementById('log-core-temp')) document.getElementById('log-core-temp').value = m.coreTemp;
+                        syncInlineCoreTemp(m.coreTemp);
+                    }
+                    if (m.fridgeTemp && document.getElementById('inline-fridge-temp')) document.getElementById('inline-fridge-temp').value = m.fridgeTemp;
+                    if (m.deckTemp && document.getElementById('inline-deck-temp')) document.getElementById('inline-deck-temp').value = m.deckTemp;
+                    if (m.domeTemp && document.getElementById('inline-dome-temp')) document.getElementById('inline-dome-temp').value = m.domeTemp;
+                    if (m.bakeSec && document.getElementById('inline-bake-sec')) document.getElementById('inline-bake-sec').value = m.bakeSec;
+                    if (m.notes && document.getElementById('inline-bake-notes')) document.getElementById('inline-bake-notes').value = m.notes;
+                }
+            } catch (e) {
+                console.warn('LocalStorage metrics read error', e);
+            }
+        }
+
+        const diagnosticsData = [
+            {
+                title: "Dense, Chewy, or Under-Inflated Rim",
+                category: "RIM",
+                cause: "Dough ball launched too cold (<62 °F), or fingers pressed into the outer rim during stretching.",
+                fix: "Extend counter temper until internal core reaches 63–66 °F; ensure finger presses stop strictly 2.5 cm short of the outer edge."
+            },
+            {
+                title: "Burner-Facing Rim Scorches Before Base Sets",
+                category: "BAKE",
+                cause: "Launching with the Ardore flame set to High, or launching too close to the left burner guard.",
+                fix: "Throttle flame to Medium-Low 30 seconds before launch; place pizza strictly on the center-right section of the deck."
+            },
+            {
+                title: "Rim Collapses or Wrinkles After Exit",
+                category: "RIM",
+                cause: "High moisture trapped in the interior crumb from underbaking, or gluten over-degraded.",
+                fix: "Extend bake time by 10 seconds with a final dome-dwell on the peel; ensure FDT did not exceed 77 °F during the mix."
+            },
+            {
+                title: "Tears During Hand-Stretching",
+                category: "HANDLING",
+                cause: "Dough ball under-relaxed, or skin dried out during tempering.",
+                fix: "Keep containers sealed airtight; let partially opened disc rest on the bench for 30 seconds before lifting for the final stretch."
+            },
+            {
+                title: "Dough Ball Seam Blows Open or Unrolls in Proofing Box",
+                category: "HANDLING",
+                cause: "Counter surface was oily during the drag-and-cup balling step, preventing the bottom seam from sealing cleanly.",
+                fix: "Ball on a completely dry counter; ensure the oil stays exclusively on the top dome of the ball."
+            },
+            {
+                title: "Pale Crust & Sluggish Blistering (>80s Bake)",
+                category: "BAKE",
+                cause: "Depleted simple sugars from long fermentation, stone preheat insufficient, or surface dried out during temper.",
+                fix: "Ensure biscotto floor is heat-soaked to 830–860 °F. Throttle flame to High immediately after the first 180° turn to promote radiant blistering."
+            }
+        ];
+
+        /* Diagnostics Engine */
+        function setDiagFilter(cat, btnElement) {
+            currentDiagFilter = cat;
+            document.querySelectorAll('.diag-chip').forEach(btn => {
+                btn.className = "diag-chip px-3 py-1.5 bg-[#EDE6E4] text-[#52433E] rounded-full font-medium hover:bg-[#E7E0DE] transition-all";
+            });
+            if (btnElement) {
+                btnElement.className = "diag-chip px-3 py-1.5 bg-[#A33E18] text-white rounded-full font-medium transition-all";
+            }
+            filterDiagnostics();
+        }
+
+        function filterDiagnostics() {
+            const searchInput = document.getElementById('diag-search');
+            const query = searchInput ? searchInput.value.toLowerCase() : '';
+            const container = document.getElementById('diag-card-container');
+            if (!container) return;
+
+            const filtered = diagnosticsData.filter(item => {
+                const matchesCat = (currentDiagFilter === 'ALL' || item.category === currentDiagFilter);
+                const matchesQuery = item.title.toLowerCase().includes(query) || item.cause.toLowerCase().includes(query) || item.fix.toLowerCase().includes(query);
+                return matchesCat && matchesQuery;
+            });
+
+            container.innerHTML = filtered.map(item => `
+                <div class="bg-white p-3.5 rounded-2xl border border-[#D7C2BB] space-y-1.5 shadow-xs">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-xs sm:text-sm text-[#A33E18]">${item.title}</span>
+                        <span class="px-2 py-0.5 bg-[#EDE6E4] text-[#52433E] rounded-full text-[10px] font-bold">${item.category}</span>
+                    </div>
+                    <p class="text-xs text-[#52433E]"><strong>Cause:</strong> ${item.cause}</p>
+                    <p class="text-xs text-[#58634A]"><strong>Correction:</strong> ${item.fix}</p>
+                </div>
+            `).join('');
+        }
+
+        /* Bake Log & Radar */
+        function updateBakeLogChart() {
+            const h = parseInt(document.getElementById('score-height')?.value || 5);
+            const c = parseInt(document.getElementById('score-crumb')?.value || 4);
+            const b = parseInt(document.getElementById('score-blister')?.value || 5);
+            const t = parseInt(document.getElementById('score-texture')?.value || 4);
+
+            if (document.getElementById('val-score-height')) document.getElementById('val-score-height').innerText = h;
+            if (document.getElementById('val-score-crumb')) document.getElementById('val-score-crumb').innerText = c;
+            if (document.getElementById('val-score-blister')) document.getElementById('val-score-blister').innerText = b;
+            if (document.getElementById('val-score-texture')) document.getElementById('val-score-texture').innerText = t;
+
+            // Sync step 5.4 dropdowns
+            if (document.getElementById('inline-score-height')) document.getElementById('inline-score-height').value = h;
+            if (document.getElementById('inline-score-crumb')) document.getElementById('inline-score-crumb').value = c;
+            if (document.getElementById('inline-score-blister')) document.getElementById('inline-score-blister').value = b;
+
+            if (bakeRadarChart) {
+                bakeRadarChart.data.datasets[0].data = [h, c, b, t];
+                bakeRadarChart.update();
+            }
+
+            const bigaTemp = document.getElementById('inline-biga-wtemp')?.value || document.getElementById('log-biga-wtemp')?.value || 59;
+            const fdtVal = document.getElementById('inline-fdt')?.value || document.getElementById('log-fdt')?.value || 74;
+            const proofVal = document.getElementById('inline-proof-hrs')?.value || document.getElementById('log-proof-hrs')?.value || 66;
+            const coreVal = document.getElementById('inline-core-temp')?.value || document.getElementById('log-core-temp')?.value || 64;
+            const deckVal = document.getElementById('inline-deck-temp')?.value || 845;
+            const domeVal = document.getElementById('inline-dome-temp')?.value || 915;
+            const bakeSecVal = document.getElementById('inline-bake-sec')?.value || 72;
+            const notesVal = document.getElementById('inline-bake-notes')?.value || "Crisp shell, melting honeycomb crumb.";
+
+            const exportTxt = `CANOTTO TEST LOG EXPORT (100% BIGA CAPUTO CUOCO)
+------------------------------------------------------
+SESSION TEMPERATURES & METRICS (STEP RECORDINGS):
+- Biga Water Temp: ${bigaTemp} °F
+- Finished Dough Temp (FDT): ${fdtVal} °F (Ceiling: 77 °F)
+- Cold Ball Proof Duration: ${proofVal} hrs in 37 °F Fridge
+- Core Ball Temp at Stretch: ${coreVal} °F (Target: 63–66 °F)
+- Biscotto Floor Temp: ${deckVal} °F | Dome: ${domeVal} °F
+- Actual Bake Duration: ${bakeSecVal} seconds (Pizza Party Ardore)
+
+CRUMB & SENSORY EVALUATION:
+- Canotto Height & Expansion: ${h}/5
+- Honeycomb Web / Open Crumb: ${c}/5
+- Micro-blistering & Leoparding: ${b}/5
+- Shell Crispness vs. Melting Crumb: ${t}/5
+
+BAKE NOTES:
+"${notesVal}"`;
+
+            const logExportEl = document.getElementById('log-text-export');
+            if (logExportEl) logExportEl.innerText = exportTxt;
+        }
+
+        function copyLogToClipboard() {
+            const text = document.getElementById('log-text-export').innerText;
+            copyTextFallback(text);
+            showShareToast('Bake log copied to clipboard!');
+        }
+
+        function initRadarChart() {
+            const canvas = document.getElementById('bakeRadarChart');
+            if (!canvas || !window.Chart) return;
+            const ctx = canvas.getContext('2d');
+            bakeRadarChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Rim Height', 'Honeycomb Crumb', 'Micro-Blistering', 'Texture Crispness'],
+                    datasets: [{
+                        label: 'Bake Evaluation',
+                        data: [5, 4, 5, 4],
+                        backgroundColor: 'rgba(163, 62, 24, 0.2)',
+                        borderColor: '#A33E18',
+                        pointBackgroundColor: '#A33E18'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            min: 0,
+                            max: 5,
+                            ticks: { stepSize: 1, display: false },
+                            pointLabels: { font: { size: 11, family: 'Lora' } }
+                        }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        /* ROBUST SHARE & AIRDROP ENGINE */
+        function openShareModal() {
+            document.getElementById('share-modal').classList.remove('hidden');
+        }
+
+        function closeShareModal() {
+            document.getElementById('share-modal').classList.add('hidden');
+        }
+
+        function showShareToast(msg) {
+            const toast = document.getElementById('share-toast');
+            if (toast) {
+                toast.innerText = msg;
+                toast.classList.remove('hidden');
+                setTimeout(() => toast.classList.add('hidden'), 3500);
+            }
+        }
+
+        function copyTextFallback(text) {
+            const temp = document.createElement('textarea');
+            temp.value = text;
+            temp.style.position = 'fixed';
+            temp.style.left = '-9999px';
+            document.body.appendChild(temp);
+            temp.select();
+            try {
+                document.execCommand('copy');
+            } catch (err) {
+                console.error('execCommand error', err);
+            }
+            document.body.removeChild(temp);
+        }
+
+        function copyShareLink() {
+            const currentUrl = window.location.href;
+            if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+                copyTextFallback(currentUrl);
+                showShareToast('App link copied to clipboard!');
+            } else {
+                copyCleanProtocolText();
+                showShareToast('Offline file detected; recipe text copied to clipboard!');
+            }
+        }
+
+        /*
+         * Native Share & AirDrop Engine
+         * 1. Constructs an actual File object from the current application HTML.
+         * 2. Checks navigator.canShare({ files: [file] }).
+         * 3. On iOS / iPadOS / macOS, this opens the AirDrop share sheet beaming the .html app directly.
+         * 4. If in an iframe where Web Share is restricted or unsupported, triggers download & explains.
+         */
+        async function triggerNativeShare() {
+            const btn = document.getElementById('btn-native-share');
+            if (btn) btn.classList.add('opacity-75');
+
+            // 1. Build the standalone HTML File object
+            let htmlFile = null;
+            try {
+                const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+                const htmlBlob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+                htmlFile = new File([htmlBlob], 'Canotto_Master_Protocol.html', { type: 'text/html;charset=utf-8' });
+            } catch (e) {
+                console.warn('File constructor unavailable in this environment', e);
+            }
+
+            // 2. Attempt File-based AirDrop Share (iOS Safari 15+, iPadOS, macOS)
+            if (htmlFile && navigator.canShare && navigator.canShare({ files: [htmlFile] })) {
+                try {
+                    await navigator.share({
+                        files: [htmlFile],
+                        title: 'Contemporary Canotto Master Protocol',
+                        text: 'Master 100% Biga Canotto Pizza Protocol with live schedule, Ardore bake simulator, and batch calculator.'
+                    });
+                    showShareToast('AirDrop / Share Sheet opened!');
+                    if (btn) btn.classList.remove('opacity-75');
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') {
+                        if (btn) btn.classList.remove('opacity-75');
+                        return; // User canceled the share sheet cleanly
+                    }
+                    console.warn('File share threw, checking standard Web Share', err);
+                }
+            }
+
+            // 3. Fallback to standard Text & URL Web Share
+            const sharePayload = {
+                title: 'Contemporary Canotto Master Protocol',
+                text: 'Master 100% Biga Canotto Pizza Protocol with live schedule, Ardore bake simulator, and batch calculator.'
+            };
+
+            // Only pass url if on http or https (Web Share rejects blob:, file:, and about: URLs with TypeError)
+            if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+                sharePayload.url = window.location.href;
+            }
+
+            if (navigator.share) {
+                try {
+                    await navigator.share(sharePayload);
+                    showShareToast('Shared successfully!');
+                    if (btn) btn.classList.remove('opacity-75');
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') {
+                        if (btn) btn.classList.remove('opacity-75');
+                        return;
+                    }
+                    console.warn('Standard Web Share failed:', err);
+                }
+            }
+
+            if (btn) btn.classList.remove('opacity-75');
+
+            // 4. Final Sandbox / Desktop Fallback: Download file directly and guide user
+            downloadSelfHtml();
+            showShareToast('AirDrop sheet restricted in this browser frame. File downloaded to save or AirDrop!');
+        }
+
+        function downloadSelfHtml() {
+            const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Canotto_Master_Protocol.html';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 1000);
+            showShareToast('Downloaded Canotto_Master_Protocol.html! Ready to open or AirDrop.');
+        }
+
+        function copyCleanProtocolText() {
+            const isAllFresh = (frozenBalls === 0);
+            const freshCount = totalBalls - frozenBalls;
+
+            const protocolText = `# Contemporary Canotto: 100% Biga Master Protocol (Caputo Cuoco)
+Target: Hyper-aerated cornicione with crisp micro-blistered exterior and melting crumb.
+Batch: ${totalBalls} balls @ ${ballWeight} g (${isAllFresh ? 'All Fresh (No Freezing)' : `${freshCount} Fresh / ${frozenBalls} Raw Flash-Frozen`}).
+
+## FORMULA & BAKER'S %
+- Caputo Cuoco (Tipo 00): 100% [All in Biga]
+- Biga Water (~58-60 °F): 45%
+- Instant Dry Yeast (IDY): ${isAllFresh ? '0.10% (Standard Inoculation)' : '0.13% (Buffered for Freeze Survival)'}
+- Final Mix Ice-Cold Water: 25% [Bassinage]
+- Fine Sea Salt: 2.8%
+- EVOO (Capuano Topical Veil): ~0.9%
+- Total Hydration: 70%
+
+## PRODUCTION PHASES
+1. Biga: Mix on Speed 1 for 90-120s (ragged clusters). Rest 3.5-4h @ RT, then 17h in 37 °F fridge.
+2. Final Mix: Break cold chunks dry for 60s. Drizzle 200g ice water in 3 doses. Add salt + remaining ice water wash-in. Windowpane on Speed 4-5. Hard stop at 77 °F FDT.
+3. Bench: 2x coil folds (20m intervals). Apply Capuano topical oil veil ("un velo d'olio"). Rest 30m. Ball on a DRY counter.
+4. Cold Proof: ${isAllFresh ? `All ${totalBalls} fresh balls proof 66h in 37 °F fridge.` : `${freshCount} fresh balls proof 66h in 37 °F fridge; ${frozenBalls} balls flash-freeze raw on sheet pan 2h uncovered, wrap & deep freeze.`}
+5. Bake: Temper fresh balls to 63-66 °F. Fire Ardore with biscotto (floor 830-860 °F). Finger press gas into rim. Pre-launch flame to Medium-Low for 20s, then crank to High for 60-75s bake.`;
+
+            copyTextFallback(protocolText);
+            showShareToast('Protocol text copied for Google Docs / Notes!');
+        }
+
+        /* Fail-Safe Dual Initialization */
+        function initApp() {
+            try { loadProgress(); } catch (e) { console.warn(e); }
+            try {
+                const savedFrozen = localStorage.getItem('canotto_frozen_count');
+                if (savedFrozen !== null) frozenBalls = parseInt(savedFrozen);
+            } catch (e) {}
+            try {
+                const savedDay = localStorage.getItem('canotto_sched_day');
+                if (savedDay !== null && document.getElementById('sched-day')) {
+                    document.getElementById('sched-day').value = savedDay;
+                }
+                const savedTime = localStorage.getItem('canotto_sched_time');
+                if (savedTime !== null && document.getElementById('sched-time')) {
+                    document.getElementById('sched-time').value = savedTime;
+                }
+            } catch (e) {}
+            try { loadSessionMetrics(); } catch (e) { console.warn(e); }
+            try { initHydrationChart(); } catch (e) { console.warn(e); }
+            try { initRadarChart(); } catch (e) { console.warn(e); }
+            try { updateUnifiedSchedule(); } catch (e) { console.warn(e); }
+            try { updateCalculator(); } catch (e) { console.warn(e); }
+            try { updateAdaptedProtocol(); } catch (e) { console.warn(e); }
+            try { updateStepVisuals(); } catch (e) { console.warn(e); }
+            try { updateProgressBadges(); } catch (e) { console.warn(e); }
+            try { filterDiagnostics(); } catch (e) { console.warn(e); }
+            try { applyArdoreStage(0); } catch (e) { console.warn(e); }
+            try { updateBakeLogChart(); } catch (e) { console.warn(e); }
+            try { switchTab('protocol'); } catch (e) { console.warn(e); }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            initApp();
+        }
+    </script>
+</body>
+</html>

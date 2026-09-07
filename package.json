@@ -1,0 +1,1 @@
+{"name":"canotto-lab","version":"1.0.0","private":true,"type":"module","description":"Plan, run and compare contemporary canotto pizza doughs.","scripts":{"test":"node tests/run.mjs","serve":"python3 -m http.server 8080"}}
