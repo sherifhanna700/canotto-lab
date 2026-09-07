@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sherifhanna700.github.io/canotto-lab/schema/recipe.schema.json",
+  "title": "Canotto recipe",
+  "description": "A saved recipe: the dough and the protocol it is baked to, under a name. This is what the app writes when you download a single recipe.",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "description": "Stable within one baker's data. Not globally unique." },
+    "name": { "type": "string" },
+    "origin": { "type": "string", "enum": ["house", "user"], "description": "The house protocol ships with the app. Everything else is user made." },
+    "derivedFrom": { "type": ["string", "null"], "description": "The recipe this was duplicated from, if any." },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "notes": { "type": "string" },
+    "recipe": { "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/dough.schema.json" },
+    "schedule": { "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/protocol.schema.json" },
+    "plan": {
+      "type": ["object", "null"],
+      "description": "What the app suggested when the recipe was generated from a flour. Absent for hand-built recipes, and never authoritative: the dough and protocol above are.",
+      "properties": {
+        "totalHours": { "type": "number", "description": "Total maturation the recipe was built around." },
+        "window": { "type": ["array", "null"], "items": { "type": "number" }, "minItems": 2, "maxItems": 2, "description": "Published maturation window for the blend, in hours." },
+        "idyPct": { "type": "number", "description": "Suggested inoculation as instant dry yeast." },
+        "w": { "type": ["number", "null"], "description": "Blended strength." },
+        "sourced": { "type": "boolean", "description": "True when every flour in the blend has a published W, false when any was estimated from protein." }
+      },
+      "additionalProperties": true
+    }
+  },
+  "required": ["id", "name", "recipe", "schedule"],
+  "additionalProperties": true
+}

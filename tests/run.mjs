@@ -10,7 +10,9 @@ import { recipeFromBlend, overallScore, recipeRating, starterRecipes, houseRecip
 import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIXERS } from '../src/model/equipment.js';
 import { diagnose } from '../src/model/diagnostics.js';
 import { mergeCollections } from '../src/lib/cloud.js';
-import { normaliseRecipe } from '../src/lib/store.js';
+import { normaliseRecipe, EMPTY_ACTUALS, EMPTY_SCORES, SCHEMA_BASE } from '../src/lib/store.js';
+import { validate, loadSchemas } from '../tools/validate-schema.mjs';
+import { DEFAULT_EQUIPMENT } from '../src/model/equipment.js';
 import { cToF, fToC, deltaToDisplay, deltaFromDisplay, reconcile, splitDoses } from '../src/model/units.js';
 
 let passed = 0;
@@ -419,6 +421,124 @@ test('a temperature difference scales without the freezing offset', () => {
   near(deltaToDisplay(9, 'F'), 16.2, 0.01, '9 C of friction is 16.2 F, not 48');
   near(deltaFromDisplay(deltaToDisplay(9, 'F'), 'F'), 9, 1e-9, 'round trip');
   assert.equal(deltaToDisplay(9, 'C'), 9, 'no change in Celsius');
+});
+
+/* -------------------------- published schemas --------------------------- */
+
+const schemas = await loadSchemas(new URL('../schema', import.meta.url).pathname);
+const check = (data, file) => validate(data, schemas[file], schemas);
+
+/** A bake shaped exactly as the app files one. */
+function sampleBake() {
+  return {
+    id: 'b1',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    bakedAt: '2026-09-11T17:00',
+    recipeId: 'house-canotto',
+    recipeName: 'Contemporary Canotto (house)',
+    title: 'Contemporary Canotto (house)',
+    planned: false,
+    notes: 'Rim was taller than last time.',
+    issues: ['gumline'],
+    equipment: { ...DEFAULT_EQUIPMENT },
+    recipe: { ...houseRecipe().recipe },
+    schedule: { ...houseRecipe().schedule },
+    actuals: { ...EMPTY_ACTUALS, ambientTempC: 18, deckTempC: 452, bakeSec: 75 },
+    scores: { ...EMPTY_SCORES, canotto: 4, honeycomb: 4 },
+  };
+}
+
+const SCHEMA_FILES = [
+  'dough.schema.json',
+  'protocol.schema.json',
+  'recipe.schema.json',
+  'recipes.schema.json',
+  'bake.schema.json',
+  'log.schema.json',
+  'export.schema.json',
+];
+
+test('every schema file is itself valid JSON with an id and a title', () => {
+  for (const name of SCHEMA_FILES) {
+    const s = schemas[name];
+    assert.ok(s, `${name} is missing`);
+    assert.ok(s.$id?.startsWith('https://'), `${name} needs an absolute $id so $ref works from anywhere`);
+    assert.ok(s.title && s.description, `${name} needs a title and a description`);
+  }
+});
+
+test('the shipped recipe validates against the published recipe schema', () => {
+  const errors = check(houseRecipe(), 'recipe.schema.json');
+  assert.deepEqual(errors, [], errors.join('\n'));
+});
+
+test('a generated recipe validates too', () => {
+  const r = recipeFromBlend([{ id: 'caputo-nuvola-super', pct: 100, stage: 'blend' }], { totalHours: 60 });
+  const errors = check(r, 'recipe.schema.json');
+  assert.deepEqual(errors, [], errors.join('\n'));
+});
+
+test('a logged bake validates against the published bake schema', () => {
+  const errors = check(sampleBake(), 'bake.schema.json');
+  assert.deepEqual(errors, [], errors.join('\n'));
+});
+
+test('a log export validates against the log schema', () => {
+  const file = {
+    $schema: `${SCHEMA_BASE}/log.schema.json`,
+    app: 'Canotto Lab',
+    exportedAt: new Date().toISOString(),
+    bakes: [sampleBake(), sampleBake()],
+  };
+  const errors = check(file, 'log.schema.json');
+  assert.deepEqual(errors, [], errors.join('\n'));
+});
+
+test('a recipe library export validates against the recipes schema', () => {
+  const file = {
+    $schema: `${SCHEMA_BASE}/recipes.schema.json`,
+    app: 'Canotto Lab',
+    exportedAt: new Date().toISOString(),
+    recipes: [houseRecipe(), recipeFromBlend([{ id: 'caputo-cuoco', pct: 100, stage: 'blend' }])],
+  };
+  const errors = check(file, 'recipes.schema.json');
+  assert.deepEqual(errors, [], errors.join('\n'));
+});
+
+test('every exported document type has a schema of its own', () => {
+  // What the app writes, and the schema each file claims to follow.
+  const written = {
+    'canotto-lab.json': 'export.schema.json',
+    'canotto-recipes.json': 'recipes.schema.json',
+    'canotto-log.json': 'log.schema.json',
+    '<recipe>.json': 'recipe.schema.json',
+  };
+  for (const [file, schema] of Object.entries(written)) {
+    assert.ok(schemas[schema], `${file} claims ${schema}, which does not exist`);
+    assert.ok(SCHEMA_FILES.includes(schema), `${schema} is not in the published set`);
+  }
+});
+
+test('an export envelope validates, and names its own schema', () => {
+  const file = {
+    $schema: `${SCHEMA_BASE}/export.schema.json`,
+    app: 'Canotto Lab',
+    exportedAt: new Date().toISOString(),
+    version: 1,
+    recipes: [houseRecipe()],
+    bakes: [sampleBake()],
+    settings: { unit: 'F', model: { ...DEFAULT_MODEL } },
+  };
+  const errors = check(file, 'export.schema.json');
+  assert.deepEqual(errors, [], errors.join('\n'));
+  assert.ok(file.$schema.endsWith('/export.schema.json'), 'an export should say what it is');
+});
+
+test('the schemas actually reject malformed data', () => {
+  assert.ok(check({ ...houseRecipe(), recipe: { ...houseRecipe().recipe, yeastType: 'sourdough' } }, 'recipe.schema.json').length, 'an unknown yeast type should fail');
+  assert.ok(check({ ...sampleBake(), scores: { canotto: 9 } }, 'bake.schema.json').length, 'a score of 9 out of 5 should fail');
+  assert.ok(check({ ...sampleBake(), bakedAt: undefined }, 'bake.schema.json').length, 'a bake with no date should fail');
 });
 
 console.log(`\n${passed} model tests passed.`);

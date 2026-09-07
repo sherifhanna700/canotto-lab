@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Canotto Lab data formats</title>
+<style>
+  :root { color-scheme: light; --bg:#FDF8F7; --fg:#201A19; --dim:#52433E; --line:#D7C2BB; --accent:#A33E18; --panel:#fff; }
+  @media (prefers-color-scheme: dark) {
+    :root { color-scheme: dark; --bg:#191111; --fg:#F0DEDA; --dim:#D7C2BB; --line:#4A3B37; --accent:#FFB59D; --panel:#201817; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:32px 20px 64px; background:var(--bg); color:var(--fg);
+         font:16px/1.6 Georgia, 'Times New Roman', serif; }
+  main { max-width: 720px; margin: 0 auto; }
+  h1 { font-size:1.6rem; margin:0 0 4px; }
+  h2 { font-size:1.1rem; margin:32px 0 8px; }
+  p, li { color:var(--fg); }
+  .lede { color:var(--dim); margin-top:0; }
+  a { color:var(--accent); }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:.92rem; }
+  th, td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; color:var(--dim); }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.86em; }
+  pre { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; overflow-x:auto; }
+  .note { background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--accent);
+          border-radius:10px; padding:10px 14px; margin:14px 0; font-size:.94rem; }
+  footer { margin-top:40px; font-size:.86rem; color:var(--dim); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Canotto Lab data formats</h1>
+  <p class="lede">Everything the app exports is plain JSON, and every file names the schema it follows. If you want to build something on this data, or feed it your own, these are the shapes.</p>
+
+  <p>Schemas are <a href="https://json-schema.org/">JSON Schema 2020-12</a>.</p>
+
+  <table>
+    <thead><tr><th>Schema</th><th>What it describes</th></tr></thead>
+    <tbody>
+      <tr><td><a href="dough.schema.json">dough</a></td><td>The dough: baker's percentages, batch size, flour blend</td></tr>
+      <tr><td><a href="protocol.schema.json">protocol</a></td><td>The timings and temperatures the dough is made to</td></tr>
+      <tr><td><a href="recipe.schema.json">recipe</a></td><td>A named recipe: a dough plus a protocol</td></tr>
+      <tr><td><a href="recipes.schema.json">recipes</a></td><td>A set of recipes, as written by Download all</td></tr>
+      <tr><td><a href="bake.schema.json">bake</a></td><td>One logged bake: what was made, what was measured, how it scored</td></tr>
+      <tr><td><a href="log.schema.json">log</a></td><td>A bake log, as written by Log, Export JSON</td></tr>
+      <tr><td><a href="export.schema.json">export</a></td><td>A full backup: recipes, log and settings together</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Which file is which</h2>
+  <table>
+    <thead><tr><th>The app writes</th><th>Against</th></tr></thead>
+    <tbody>
+      <tr><td><code>canotto-log.json</code></td><td><code>log.schema.json</code></td></tr>
+      <tr><td><code>canotto-recipes.json</code></td><td><code>recipes.schema.json</code></td></tr>
+      <tr><td><code>&lt;recipe-name&gt;.json</code></td><td><code>recipe.schema.json</code></td></tr>
+      <tr><td><code>canotto-lab.json</code></td><td><code>export.schema.json</code></td></tr>
+    </tbody>
+  </table>
+  <p><code>dough</code> and <code>protocol</code> are not written on their own. They are the two halves that <code>recipe</code> and <code>bake</code> are built from, and are published separately so you can reference them directly.</p>
+
+  <h2>Things worth knowing before you read the data</h2>
+
+  <div class="note"><strong>Temperatures are always degrees Celsius.</strong> The display unit is a preference and lives in <code>settings.unit</code>. Nothing in the data changes when you flip it.</div>
+
+  <div class="note"><strong>A bake carries its own copy of the dough and protocol.</strong> It does not just point at a recipe. Recipes get edited, and a bake has to stay truthful about what was actually made, so the copy is deliberate. <code>recipeId</code> is a convenience, and may point at a recipe that no longer exists.</div>
+
+  <div class="note"><strong>Scores are one to five, or null.</strong> Null means not judged, which is not the same as bad. The overall score is the mean of whichever were given, so a bake scored on two axes is not penalised against one scored on five.</div>
+
+  <div class="note"><strong><code>planned: true</code> means the bake has not happened.</strong> Exclude those from any analysis.</div>
+
+  <div class="note"><strong>Inoculation is <code>baseYeastPct</code> in whatever <code>yeastType</code> says</strong>, and the freeze buffer is added on top only when <code>frozenBalls</code> is above zero. Relative potency between the yeast types is 1 : 1.25 : 3 for instant dry, active dry and fresh.</div>
+
+  <div class="note"><strong>Flour shares are percentages that should total 100.</strong> A flour either has an <code>id</code> from the app's library or a <code>name</code> of its own. <code>w</code> is the Chopin alveograph value and is null where the mill publishes none.</div>
+
+  <h2>Comparing two bakes</h2>
+  <p>The fermentation model is not needed to read the data, but it is what makes two schedules comparable. One fermentation unit is one hour at 20 °C. Rate follows a Q10 law, doubling roughly every 10 °C, with a steeper coefficient below 15 °C because a fridge slows dough more than a single Q10 predicts. Sum <code>hours × rate(temperature)</code> across the phases and you have the number the app ranks bakes on. The constants are in <code>settings.model</code>.</p>
+
+  <h2>Example</h2>
+<pre>{
+  "$schema": "https://sherifhanna700.github.io/canotto-lab/schema/export.schema.json",
+  "app": "Canotto Lab",
+  "exportedAt": "2026-09-11T18:22:04.000Z",
+  "bakes": [
+    {
+      "id": "b1",
+      "bakedAt": "2026-09-11T17:00",
+      "recipeName": "Contemporary Canotto (house)",
+      "recipe": { "balls": 8, "ballWeight": 275, "hydrationPct": 70,
+                  "yeastType": "idy", "baseYeastPct": 0.1 },
+      "schedule": { "coldProofHours": 66, "fridgeTempC": 2.8, "roomTempC": 21.1 },
+      "actuals": { "ambientTempC": 18, "deckTempC": 452, "bakeSec": 75 },
+      "scores": { "canotto": 4, "honeycomb": 4, "blistering": null }
+    }
+  ]
+}</pre>
+
+  <footer><a href="../">Back to Canotto Lab</a> · <a href="https://github.com/sherifhanna700/canotto-lab">Source</a></footer>
+</main>
+</body>
+</html>

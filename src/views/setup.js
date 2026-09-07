@@ -1,20 +1,20 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=dba3fb54';
-import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=dba3fb54';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=dba3fb54';
-import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=dba3fb54';
-import { scheduleStages } from '../model/protocol.js?v=dba3fb54';
-import { convertYeast } from '../model/dough.js?v=dba3fb54';
-import { overallScore } from '../model/recipes.js?v=dba3fb54';
-import { SOURCES, FLOURS } from '../model/flours.js?v=dba3fb54';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=dba3fb54';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=dba3fb54';
-import { lineChart } from '../lib/charts.js?v=dba3fb54';
-import * as cloud from '../lib/cloud.js?v=dba3fb54';
-import { tempField, tempDeltaField } from './common.js?v=dba3fb54';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=dba3fb54';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=1c325d9e';
+import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=1c325d9e';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=1c325d9e';
+import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=1c325d9e';
+import { scheduleStages } from '../model/protocol.js?v=1c325d9e';
+import { convertYeast } from '../model/dough.js?v=1c325d9e';
+import { overallScore } from '../model/recipes.js?v=1c325d9e';
+import { SOURCES, FLOURS } from '../model/flours.js?v=1c325d9e';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=1c325d9e';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=1c325d9e';
+import { lineChart } from '../lib/charts.js?v=1c325d9e';
+import * as cloud from '../lib/cloud.js?v=1c325d9e';
+import { tempField, tempDeltaField } from './common.js?v=1c325d9e';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=1c325d9e';
 
 let cloudUser = null;
 let cloudStatus = '';
@@ -293,6 +293,12 @@ function sourcesCard() {
     'Where the numbers come from',
     `${sourced} of ${FLOURS.length} flours carry published strength or maturation figures. The rest are estimated from protein, and the app says so wherever it uses one.`,
     h('ul', { class: 'src-list' }, ...SOURCES.map((x) => h('li', {}, h('a', { href: x.url, target: '_blank', rel: 'noopener' }, x.label)))),
+    h(
+      'p',
+      { class: 'note neutral' },
+      'Everything this app exports is plain JSON and names the schema it follows, so anything else can read it. ',
+      h('a', { href: 'schema/', target: '_blank', rel: 'noopener' }, 'The data formats are published here.')
+    ),
     h(
       'details',
       { class: 'foldout' },

@@ -4,11 +4,11 @@
 // app touches storage directly, so swapping in a cloud backend later means
 // reimplementing `load` and `save`, not rewriting the views.
 
-import { DEFAULT_RECIPE } from '../model/dough.js?v=dba3fb54';
-import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=dba3fb54';
-import { DEFAULT_MODEL } from '../model/ferment.js?v=dba3fb54';
-import { starterRecipes, houseRecipe } from '../model/recipes.js?v=dba3fb54';
-import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=dba3fb54';
+import { DEFAULT_RECIPE } from '../model/dough.js?v=1c325d9e';
+import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=1c325d9e';
+import { DEFAULT_MODEL } from '../model/ferment.js?v=1c325d9e';
+import { starterRecipes, houseRecipe } from '../model/recipes.js?v=1c325d9e';
+import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=1c325d9e';
 
 const KEY = 'canotto-lab/v1';
 const LEGACY = { steps: 'canotto_master_steps', frozen: 'canotto_frozen_count', metrics: 'canotto_step_metrics' };
@@ -430,8 +430,46 @@ export function deleteBake(id) {
 
 /* ------------------------------ import/export --------------------------- */
 
+/**
+ * Exports are self-describing. Every file names the schema it follows, so
+ * somebody handed one of these can read it without asking what it is.
+ * Schemas live at https://sherifhanna700.github.io/canotto-lab/schema/
+ */
+export const SCHEMA_BASE = 'https://sherifhanna700.github.io/canotto-lab/schema';
+
+function envelope(schemaFile, body) {
+  return JSON.stringify(
+    {
+      $schema: `${SCHEMA_BASE}/${schemaFile}`,
+      app: 'Canotto Lab',
+      exportedAt: new Date().toISOString(),
+      ...body,
+    },
+    null,
+    2
+  );
+}
+
+/** Everything: recipes, bakes and settings. */
 export function exportJSON() {
-  return JSON.stringify(load(), null, 2);
+  const s = load();
+  return envelope('export.schema.json', { version: s.version, recipes: s.recipes, bakes: s.bakes, settings: s.settings });
+}
+
+/** The recipe library on its own. */
+export function exportRecipesJSON() {
+  return envelope('recipes.schema.json', { recipes: load().recipes });
+}
+
+/** The bake log on its own. */
+export function exportBakesJSON({ includePlanned = false } = {}) {
+  const bakes = load().bakes.filter((b) => includePlanned || !b.planned);
+  return envelope('log.schema.json', { bakes });
+}
+
+/** One recipe, for sharing as a file. */
+export function exportRecipeJSON(recipe) {
+  return JSON.stringify({ $schema: `${SCHEMA_BASE}/recipe.schema.json`, ...recipe }, null, 2);
 }
 
 export function importJSON(text) {

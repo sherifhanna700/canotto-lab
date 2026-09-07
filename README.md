@@ -98,6 +98,24 @@ Alternatively copy `firebase-config.example.js` to `firebase-config.js`, fill it
 add `<script src="firebase-config.js"></script>` to `index.html` before the module script.
 That file is gitignored.
 
+## Data formats
+
+Everything the app exports is plain JSON, and every file names the schema it
+follows. The log exports as JSON or as CSV with the derived figures already
+worked out. Recipes export singly or as a set.
+
+Schemas are JSON Schema 2020-12 and published alongside the app at
+[`/schema/`](https://sherifhanna700.github.io/canotto-lab/schema/), one per
+document: `dough`, `protocol`, `recipe`, `recipes`, `bake`, `log` and `export`.
+The index there covers the things
+worth knowing before reading the data, chiefly that temperatures are always
+Celsius, that a bake carries its own copy of the dough and protocol so it stays
+truthful after the recipe is edited, and that a null score means not judged
+rather than bad.
+
+The test suite validates real exports against those schemas, so they cannot
+quietly drift from what the app writes.
+
 ## Running it
 
 No build step. It is plain ES modules.
@@ -132,7 +150,9 @@ src/model/            pure logic, no DOM
   diagnostics.js      troubleshooting, with auto-detection
 src/lib/              storage, charts, DOM helpers, sharing, theme, cloud
 src/views/            one module per screen
+schema/               published JSON Schemas for the exported data
 tools/stamp.mjs       cache busting
+tools/validate-schema.mjs  the subset validator the tests use
 tests/run.mjs         model tests
 ```
 

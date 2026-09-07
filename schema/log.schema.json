@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sherifhanna700.github.io/canotto-lab/schema/log.schema.json",
+  "title": "Canotto bake log",
+  "description": "A bake log: the file the app writes from Log, Export JSON. Every entry carries its own copy of the dough and protocol, so the log stays truthful about what was made even after the recipes it came from are edited.",
+  "type": "object",
+  "properties": {
+    "$schema": { "type": "string", "const": "https://sherifhanna700.github.io/canotto-lab/schema/log.schema.json" },
+    "app": { "type": "string" },
+    "exportedAt": { "type": "string", "format": "date-time" },
+    "bakes": {
+      "type": "array",
+      "description": "Newest first is conventional but not guaranteed. Sort on bakedAt.",
+      "items": { "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/bake.schema.json" }
+    }
+  },
+  "required": ["bakes"],
+  "additionalProperties": true
+}

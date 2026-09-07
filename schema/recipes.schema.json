@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sherifhanna700.github.io/canotto-lab/schema/recipes.schema.json",
+  "title": "Canotto recipe library",
+  "description": "A set of recipes: the file the app writes from Recipe, Download all. A single recipe is written on its own against recipe.schema.json instead.",
+  "type": "object",
+  "properties": {
+    "$schema": { "type": "string", "const": "https://sherifhanna700.github.io/canotto-lab/schema/recipes.schema.json" },
+    "app": { "type": "string" },
+    "exportedAt": { "type": "string", "format": "date-time" },
+    "recipes": {
+      "type": "array",
+      "items": { "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/recipe.schema.json" }
+    }
+  },
+  "required": ["recipes"],
+  "additionalProperties": true
+}

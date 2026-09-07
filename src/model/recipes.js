@@ -5,10 +5,10 @@
 // it scored. Pick a flour, take the suggested defaults, name it, and it
 // becomes yours to edit and to score.
 
-import { DEFAULT_RECIPE } from './dough.js?v=dba3fb54';
-import { DEFAULT_SCHEDULE } from './protocol.js?v=dba3fb54';
-import { blendStats, blendLabel } from './flours.js?v=dba3fb54';
-import { suggestPlan, defaultLeadHours } from './advisor.js?v=dba3fb54';
+import { DEFAULT_RECIPE } from './dough.js?v=1c325d9e';
+import { DEFAULT_SCHEDULE } from './protocol.js?v=1c325d9e';
+import { blendStats, blendLabel } from './flours.js?v=1c325d9e';
+import { suggestPlan, defaultLeadHours } from './advisor.js?v=1c325d9e';
 
 export const SCORE_KEYS = [
   { key: 'canotto', label: 'Canotto height', hint: '1 flat, 5 massive' },
@@ -42,7 +42,9 @@ export function recipeFromBlend(flours, opts = {}) {
   return {
     id: newId(),
     name: opts.name || `${blendLabel(flours)}, ${Math.round(totalHours)} hour`,
-    origin: opts.origin || 'generated',
+    // Anything generated from a flour belongs to the baker. Only the shipped
+    // protocol is 'house'.
+    origin: opts.origin || 'user',
     derivedFrom: opts.derivedFrom || null,
     createdAt: new Date().toISOString(),
     notes: opts.notes || '',
