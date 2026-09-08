@@ -52,6 +52,18 @@ The field must not fight the person typing. For every number field on every tab:
 3. Deleting removes it; the house protocol offers Restore instead of Delete.
 4. Download writes valid JSON naming its schema.
 
+## J14. The shipped protocol is protected
+
+It is the reference every other schedule is measured against, and with no save
+step it was far too easy to edit by accident.
+
+1. Editing anything while it is loaded copies it first, and the copy is loaded.
+2. The shipped one keeps its original numbers.
+3. The baker is told the copy happened.
+4. Edits made from any screen behave the same way, including the oven targets
+   and the kitchen temperatures on Setup.
+5. Edits reach the stored recipe, so they survive switching away and back.
+
 ## J6. Recompute
 
 1. With a freshly recomputed recipe, the button is disabled.

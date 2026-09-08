@@ -89,7 +89,19 @@
     };
 
     /* -------------------------------- J1 -------------------------------- */
-    localStorage.removeItem('canotto-lab/v1');
+    /*
+     * Must start from a freshly loaded page. Clearing storage here would not
+     * help: the app holds its state in memory from load, so a dirty session
+     * would produce failures that look like regressions and are not.
+     */
+    const opening = stored();
+    if (opening && (opening.recipes.length > 1 || opening.bakes.length)) {
+      return {
+        passed: 0,
+        failed: 1,
+        lines: ['FAIL  precondition: run this on a fresh page. Do localStorage.clear() then reload, then run again.'],
+      };
+    }
     location.hash = '#recipe';
     await goTab(0);
 
@@ -198,6 +210,8 @@
     check('J5.3 house offers Restore not Delete',
       !!houseRow && /Restore/.test(houseRow.textContent) && !/Delete/.test(houseRow.textContent),
       houseRow ? [...houseRow.querySelectorAll('.item-actions button')].map((b) => b.textContent.replace(/^[a-z_]+/, '')).join(',') : 'no house row');
+
+    lines.push('     (J14 needs the shipped protocol loaded; run canottoQAHouse() on a fresh page)');
 
     /* -------------------------------- J6 -------------------------------- */
     const recompute = () => button('Recompute');
@@ -360,6 +374,61 @@
     lines.push('     (reload required for J11.2, run canottoQAAfterReload() next)');
 
     return { passed, failed, lines };
+  };
+
+  /**
+   * J14, which has to begin with the shipped protocol loaded, so it runs on a
+   * fresh page rather than after the rest of the sweep.
+   */
+  window.canottoQAHouse = async function () {
+    const out = [];
+    const say = (id, ok, detail) => out.push(`${ok ? 'PASS' : 'FAIL'}  ${id}  ${detail}`);
+    const stored2 = () => JSON.parse(localStorage.getItem('canotto-lab/v1') || 'null');
+    const field = (n) => [...document.querySelectorAll('#main label.field')]
+      .find((l) => l.querySelector('.field-label').textContent.trim() === n)?.querySelector('input');
+
+    // Nothing is written until something changes, so nudge a harmless setting
+    // to get a baseline on disk. Units are display only and round-trip exactly.
+    document.getElementById('unit-toggle').click();
+    document.getElementById('unit-toggle').click();
+    await Promise.resolve();
+
+    const before = stored2();
+    const houseBefore = before.recipes.find((r) => r.origin === 'house');
+    say('J14.0 the shipped protocol is loaded', before.current.recipeId === houseBefore.id, houseBefore.name);
+
+    // Edit a duration, exactly as a baker shortening the schedule would.
+    const proof = field('Cold proof');
+    proof.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    proof.focus();
+    proof.value = '42';
+    proof.dispatchEvent(new Event('input', { bubbles: true }));
+    proof.dispatchEvent(new Event('change', { bubbles: true }));
+    proof.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await Promise.resolve();
+
+    const after = stored2();
+    const houseAfter = after.recipes.find((r) => r.id === houseBefore.id);
+    const loaded = after.recipes.find((r) => r.id === after.current.recipeId);
+
+    say('J14.1 the edit forked a copy', after.recipes.length === before.recipes.length + 1 && loaded.id !== houseBefore.id, `${before.recipes.length} -> ${after.recipes.length}, loaded "${loaded.name}"`);
+    say('J14.2 the shipped one is unchanged', houseAfter.schedule.coldProofHours === 66, `house cold proof ${houseAfter.schedule.coldProofHours} h`);
+    say('J14.3 the copy took the edit', loaded.schedule.coldProofHours === 42, `copy cold proof ${loaded.schedule.coldProofHours} h`);
+    say('J14.5 the edit reached the stored recipe', loaded.schedule.coldProofHours === after.current.schedule.coldProofHours, 'session and recipe agree');
+
+    // A second edit must not fork again.
+    const count = stored2().recipes.length;
+    const temper = field('Counter temper');
+    temper.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    temper.focus();
+    temper.value = '3';
+    temper.dispatchEvent(new Event('input', { bubbles: true }));
+    temper.dispatchEvent(new Event('change', { bubbles: true }));
+    temper.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await Promise.resolve();
+    say('J14.1b editing the copy does not fork again', stored2().recipes.length === count, `${count} recipes still`);
+
+    return out.join('\n');
   };
 
   /** The half of J11 that needs a fresh load. */

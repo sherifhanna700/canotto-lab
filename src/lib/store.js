@@ -4,11 +4,11 @@
 // app touches storage directly, so swapping in a cloud backend later means
 // reimplementing `load` and `save`, not rewriting the views.
 
-import { DEFAULT_RECIPE } from '../model/dough.js?v=f38a4426';
-import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=f38a4426';
-import { DEFAULT_MODEL } from '../model/ferment.js?v=f38a4426';
-import { starterRecipes, houseRecipe } from '../model/recipes.js?v=f38a4426';
-import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=f38a4426';
+import { DEFAULT_RECIPE } from '../model/dough.js?v=7a9b00d7';
+import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=7a9b00d7';
+import { DEFAULT_MODEL } from '../model/ferment.js?v=7a9b00d7';
+import { starterRecipes, houseRecipe } from '../model/recipes.js?v=7a9b00d7';
+import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=7a9b00d7';
 
 const KEY = 'canotto-lab/v1';
 const LEGACY = { steps: 'canotto_master_steps', frozen: 'canotto_frozen_count', metrics: 'canotto_step_metrics' };
@@ -339,24 +339,62 @@ export function activateRecipe(id) {
   });
 }
 
+/** A copy of the house protocol, taking whatever the session currently holds. */
+function forkOf(house, current) {
+  return {
+    ...JSON.parse(JSON.stringify(house)),
+    id: newId('r'),
+    name: house.name.includes('(house)')
+      ? house.name.replace('(house)', '(my version)')
+      : `${house.name} (my version)`,
+    origin: 'user',
+    derivedFrom: house.id,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    recipe: JSON.parse(JSON.stringify(current.recipe)),
+    schedule: JSON.parse(JSON.stringify(current.schedule)),
+  };
+}
+
 /**
- * Change the dough you are working on. The edit is mirrored onto the saved
- * recipe immediately, so there is no separate save step and no way for the
- * name in the list to drift from the name in the field.
+ * Change the dough you are working on.
+ *
+ * The edit is mirrored onto the saved recipe immediately, so there is no
+ * separate save step and no way for the name in the list to drift from the
+ * name in the field.
+ *
+ * The one exception is the shipped protocol. It is a reference, not a working
+ * copy, and it is far too easy to edit it by accident when there is no save
+ * step to stop you. So the first edit forks it: the copy takes the change and
+ * is loaded, and the original is left exactly as shipped.
+ *
+ * Returns whether a fork happened, so the caller can say so.
  */
 export function editCurrent(fn) {
-  return update((s) => {
-    fn(s.current);
+  let forked = false;
+  update((s) => {
     const i = s.recipes.findIndex((r) => r.id === s.current.recipeId);
-    if (i < 0) return;
-    s.recipes[i] = {
-      ...s.recipes[i],
+    if (i >= 0 && s.recipes[i].origin === 'house') {
+      const fork = forkOf(s.recipes[i], s.current);
+      s.recipes.unshift(fork);
+      s.current.recipeId = fork.id;
+      s.current.title = fork.name;
+      forked = true;
+    }
+
+    fn(s.current);
+
+    const j = s.recipes.findIndex((r) => r.id === s.current.recipeId);
+    if (j < 0) return;
+    s.recipes[j] = {
+      ...s.recipes[j],
       name: s.current.title,
       recipe: JSON.parse(JSON.stringify(s.current.recipe)),
       schedule: JSON.parse(JSON.stringify(s.current.schedule)),
       updatedAt: new Date().toISOString(),
     };
   });
+  return { forked };
 }
 
 /** Put the house protocol back exactly as shipped. */

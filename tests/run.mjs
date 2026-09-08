@@ -11,6 +11,7 @@ import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIX
 import { diagnose } from '../src/model/diagnostics.js';
 import { mergeCollections } from '../src/lib/cloud.js';
 import { normaliseRecipe, EMPTY_ACTUALS, EMPTY_SCORES, SCHEMA_BASE } from '../src/lib/store.js';
+import { DEFAULT_SCHEDULE as SCHED } from '../src/model/protocol.js';
 import { validate, loadSchemas } from '../tools/validate-schema.mjs';
 import { DEFAULT_EQUIPMENT } from '../src/model/equipment.js';
 import { cToF, fToC, deltaToDisplay, deltaFromDisplay, reconcile, splitDoses } from '../src/model/units.js';
@@ -403,6 +404,18 @@ test('cloud merge keeps the newest version of each record', () => {
   assert.equal(merged[0].v, 'local');
 });
 
+test('the shipped protocol is the reference the app measures against', () => {
+  // Fork-on-edit exists to keep these numbers true. If they drift, the thing
+  // every schedule is compared against has moved.
+  const h = houseRecipe();
+  assert.equal(h.origin, 'house');
+  assert.equal(h.schedule.coldProofHours, 66, 'the house cold proof');
+  assert.equal(h.schedule.bigaColdHours, 17, 'the house biga cold hold');
+  assert.equal(h.recipe.baseYeastPct, 0.1, 'the house inoculation');
+  assert.equal(h.recipe.hydrationPct, 70, 'the house hydration');
+  assert.equal(h.schedule.fridgeTempC, SCHED.fridgeTempC);
+});
+
 test('a recipe missing fields is filled in rather than left to crash a screen', () => {
   const r = normaliseRecipe({ id: 'x', recipe: { hydrationPct: 75 } });
   assert.equal(r.recipe.hydrationPct, 75, 'the given value survives');
@@ -567,6 +580,29 @@ test('the schemas actually reject malformed data', () => {
   assert.ok(check({ ...houseRecipe(), recipe: { ...houseRecipe().recipe, yeastType: 'sourdough' } }, 'recipe.schema.json').length, 'an unknown yeast type should fail');
   assert.ok(check({ ...sampleBake(), scores: { canotto: 9 } }, 'bake.schema.json').length, 'a score of 9 out of 5 should fail');
   assert.ok(check({ ...sampleBake(), bakedAt: undefined }, 'bake.schema.json').length, 'a bake with no date should fail');
+});
+
+test('every view imports what it uses', async () => {
+  // A missing import throws inside a click handler, where nothing surfaces it:
+  // the button simply does nothing. This has happened twice, so it is pinned.
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const dir = new URL('../src/views', import.meta.url).pathname;
+  const problems = [];
+  for (const file of readdirSync(dir).filter((f) => f.endsWith('.js'))) {
+    const text = readFileSync(`${dir}/${file}`, 'utf8');
+    const imported = new Set([...text.matchAll(/import \{([^}]*)\} from/g)]
+      .flatMap((m) => m[1].split(',').map((x) => x.trim().split(' as ').pop())));
+    const declared = new Set([...text.matchAll(/(?:function|const|let|class)\s+([A-Za-z_$][\w$]*)/g)].map((m) => m[1]));
+    for (const [, name] of text.matchAll(/\b([a-z][A-Za-z0-9_$]*)\(/g)) {
+      if (imported.has(name) || declared.has(name)) continue;
+      if (['if', 'for', 'while', 'switch', 'catch', 'return', 'typeof', 'function', 'await', 'super'].includes(name)) continue;
+      if (/^(parse|Number|String|Object|Array|Math|JSON|console|document|window|set|clear|require)/.test(name)) continue;
+      problems.push(`${file}: ${name}`);
+    }
+  }
+  // Only names the app defines itself matter here; globals are filtered above.
+  const ours = problems.filter((p) => /(editCurrent|announceFork|toast|update|render|go|card|stat|pill|icon|chip)\b/.test(p));
+  assert.deepEqual(ours, [], `used but not imported:\n  ${ours.join('\n  ')}`);
 });
 
 console.log(`\n${passed} model tests passed.`);

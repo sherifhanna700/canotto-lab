@@ -1,20 +1,20 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=f38a4426';
-import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=f38a4426';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=f38a4426';
-import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=f38a4426';
-import { scheduleStages } from '../model/protocol.js?v=f38a4426';
-import { convertYeast } from '../model/dough.js?v=f38a4426';
-import { overallScore } from '../model/recipes.js?v=f38a4426';
-import { SOURCES, FLOURS } from '../model/flours.js?v=f38a4426';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=f38a4426';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=f38a4426';
-import { lineChart } from '../lib/charts.js?v=f38a4426';
-import * as cloud from '../lib/cloud.js?v=f38a4426';
-import { tempField, tempDeltaField } from './common.js?v=f38a4426';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=f38a4426';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=7a9b00d7';
+import { editCurrent, update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=7a9b00d7';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=7a9b00d7';
+import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=7a9b00d7';
+import { scheduleStages } from '../model/protocol.js?v=7a9b00d7';
+import { convertYeast } from '../model/dough.js?v=7a9b00d7';
+import { overallScore } from '../model/recipes.js?v=7a9b00d7';
+import { SOURCES, FLOURS } from '../model/flours.js?v=7a9b00d7';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=7a9b00d7';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=7a9b00d7';
+import { lineChart } from '../lib/charts.js?v=7a9b00d7';
+import * as cloud from '../lib/cloud.js?v=7a9b00d7';
+import { tempField, tempDeltaField, announceFork } from './common.js?v=7a9b00d7';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=7a9b00d7';
 
 let cloudUser = null;
 let cloudStatus = '';
@@ -46,12 +46,13 @@ function equipmentCard(ctx) {
       hint: oven.notes,
       onChange: (v) => {
         const o = findOven(v);
-        update((st) => {
-          st.current.equipment.ovenId = v;
-          st.current.schedule.deckTempC = o.deckC;
-          st.current.schedule.domeTempC = o.domeC;
-          st.current.schedule.bakeSec = o.bakeSec;
-        });
+        // The oven itself is kitchen kit; its temperatures belong to the recipe.
+        update((st) => { st.current.equipment.ovenId = v; });
+        announceFork(editCurrent((c) => {
+          c.schedule.deckTempC = o.deckC;
+          c.schedule.domeTempC = o.domeC;
+          c.schedule.bakeSec = o.bakeSec;
+        }));
       },
     }),
     h(
@@ -63,10 +64,10 @@ function equipmentCard(ctx) {
     h(
       'div',
       { class: 'row' },
-      tempField({ label: 'Floor', valueC: s.current.schedule.deckTempC, unit: u, step: 5, onChange: (v) => update((st) => { st.current.schedule.deckTempC = v; }) }),
-      tempField({ label: 'Dome', valueC: s.current.schedule.domeTempC, unit: u, step: 5, onChange: (v) => update((st) => { st.current.schedule.domeTempC = v; }) }),
-      numberField({ label: 'Bake time', value: s.current.schedule.bakeSec, min: 20, max: 600, step: 5, suffix: 'sec', onInput: (v) => update((st) => { st.current.schedule.bakeSec = v; }) }),
-      numberField({ label: 'Preheat', value: s.current.schedule.preheatMin, min: 10, max: 180, step: 5, suffix: 'min', onInput: (v) => update((st) => { st.current.schedule.preheatMin = v; }) })
+      tempField({ label: 'Floor', valueC: s.current.schedule.deckTempC, unit: u, step: 5, onChange: (v) => announceFork(editCurrent((c) => { c.schedule.deckTempC = v; })) }),
+      tempField({ label: 'Dome', valueC: s.current.schedule.domeTempC, unit: u, step: 5, onChange: (v) => announceFork(editCurrent((c) => { c.schedule.domeTempC = v; })) }),
+      numberField({ label: 'Bake time', value: s.current.schedule.bakeSec, min: 20, max: 600, step: 5, suffix: 'sec', onInput: (v) => announceFork(editCurrent((c) => { c.schedule.bakeSec = v; })) }),
+      numberField({ label: 'Preheat', value: s.current.schedule.preheatMin, min: 10, max: 180, step: 5, suffix: 'min', onInput: (v) => announceFork(editCurrent((c) => { c.schedule.preheatMin = v; })) })
     ),
 
     h('h3', { style: { fontSize: '.86rem', marginTop: '6px' } }, 'Mixer'),
@@ -128,10 +129,11 @@ function kitchenCard(ctx) {
         h('span', { class: 'field-label' }, 'Appearance'),
         h('span', { class: 'field-input' }, h('div', { class: 'chip-row' }, ...THEMES.map((t) => chip(t.label, readTheme() === t.id, () => { setTheme(t.id); update(() => {}); }))))
       ),
-      tempField({ label: 'Cold ferment temperature', valueC: S.fridgeTempC, unit: u, step: 1, hint: 'Whatever your fridge actually holds', onChange: (v) => update((st) => { st.current.schedule.fridgeTempC = v; st.current.schedule.bigaFridgeTempC = v; }) }),
-      tempField({ label: 'Room temperature', valueC: S.roomTempC, unit: u, step: 1, onChange: (v) => update((st) => { st.current.schedule.roomTempC = v; st.current.schedule.bigaRoomTempC = v; }) }),
-      tempField({ label: 'Bench temperature', valueC: S.benchTempC, unit: u, step: 1, onChange: (v) => update((st) => { st.current.schedule.benchTempC = v; }) })
+      tempField({ label: 'Cold ferment temperature', valueC: S.fridgeTempC, unit: u, step: 1, hint: 'Whatever your fridge actually holds', onChange: (v) => announceFork(editCurrent((c) => { c.schedule.fridgeTempC = v; c.schedule.bigaFridgeTempC = v; })) }),
+      tempField({ label: 'Room temperature', valueC: S.roomTempC, unit: u, step: 1, onChange: (v) => announceFork(editCurrent((c) => { c.schedule.roomTempC = v; c.schedule.bigaRoomTempC = v; })) }),
+      tempField({ label: 'Bench temperature', valueC: S.benchTempC, unit: u, step: 1, onChange: (v) => announceFork(editCurrent((c) => { c.schedule.benchTempC = v; })) })
     ),
+    h('p', { class: 'note neutral' }, 'These belong to the recipe you have loaded, because they decide what its timings mean. Changing them while the shipped protocol is loaded copies it to a version of your own first.'),
     h('p', { class: 'note neutral' }, `At ${fmtTemp(S.fridgeTempC, u)} your dough ferments at ${(rateAt(S.fridgeTempC, ctx.model) * 100).toFixed(0)}% of its room-temperature rate. Measure the fridge with a thermometer rather than trusting the dial; a few degrees changes the schedule by many hours.`)
   );
 }

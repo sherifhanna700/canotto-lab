@@ -1,8 +1,8 @@
 // Shared view pieces.
 
-import { h, numberField, selectField, pill } from '../lib/ui.js?v=f38a4426';
-import { toDisplay, fromDisplay, deltaToDisplay, deltaFromDisplay, round } from '../model/units.js?v=f38a4426';
-import { SCORE_KEYS, overallScore } from '../model/recipes.js?v=f38a4426';
+import { h, numberField, selectField, pill, toast } from '../lib/ui.js?v=7a9b00d7';
+import { toDisplay, fromDisplay, deltaToDisplay, deltaFromDisplay, round } from '../model/units.js?v=7a9b00d7';
+import { SCORE_KEYS, overallScore } from '../model/recipes.js?v=7a9b00d7';
 
 /** A temperature input that stores °C but shows whatever unit is selected. */
 export function tempField({ label, valueC, unit, onChange, hint, step = 1, min, max, allowEmpty = false }) {
@@ -70,6 +70,16 @@ export function ratingBadge(rating) {
 
 export function bakeScore(bake) {
   return overallScore(bake?.scores);
+}
+
+/**
+ * Report a fork to the baker. Editing the shipped protocol copies it first, and
+ * silently swapping which recipe someone is working on would be worse than the
+ * accident it prevents.
+ */
+export function announceFork(result) {
+  if (result?.forked) toast('Copied to a version of your own. The house protocol is untouched.');
+  return result;
 }
 
 export function sectionNote(tone, text) {
