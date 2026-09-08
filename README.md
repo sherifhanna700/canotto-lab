@@ -21,9 +21,15 @@ phase, which in turn become the 19-step protocol. Everything it produced stays e
 afterwards if you want to override it.
 
 Creating from scratch walks the same five inputs and previews what they give you before
-anything is saved. Edits save onto the selected recipe as you make them, so the name in
-the list is always the name in the field. Every recipe carries the average score of the
-bakes filed against it.
+anything is saved.
+
+Edits go to a working draft, not to the stored recipe. A bar appears naming what you are
+editing and offering Save or Discard, so a recipe can be opened, played with and walked
+away from without harm. The shipped protocol cannot be written over at all: saving on top
+of it makes a copy, and the reference keeps its numbers, because it is what every other
+schedule is measured against.
+
+Every recipe carries the average score of the bakes filed against it.
 
 Fermentation is the heart of it. Every phase reduces to *fermentation units*, one FU being
 an hour at 20 °C. That is what makes two schedules comparable: 66 hours at 37 °F and

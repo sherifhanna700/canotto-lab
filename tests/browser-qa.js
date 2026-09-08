@@ -383,52 +383,87 @@
   window.canottoQAHouse = async function () {
     const out = [];
     const say = (id, ok, detail) => out.push(`${ok ? 'PASS' : 'FAIL'}  ${id}  ${detail}`);
-    const stored2 = () => JSON.parse(localStorage.getItem('canotto-lab/v1') || 'null');
+    const st = () => JSON.parse(localStorage.getItem('canotto-lab/v1') || 'null');
     const field = (n) => [...document.querySelectorAll('#main label.field')]
       .find((l) => l.querySelector('.field-label').textContent.trim() === n)?.querySelector('input');
+    const bar = () => document.getElementById('save-bar');
+    const barButton = (t) => [...bar().querySelectorAll('button')].find((b) => b.textContent.includes(t));
+    const type = async (el, value) => {
+      el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+      el.focus();
+      el.value = value;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+      await Promise.resolve();
+    };
+    const savedRecipe = () => { const s = st(); return s.recipes.find((r) => r.id === s.current.recipeId); };
 
-    // Nothing is written until something changes, so nudge a harmless setting
-    // to get a baseline on disk. Units are display only and round-trip exactly.
+    // Something has to be written before there is anything to compare against.
     document.getElementById('unit-toggle').click();
     document.getElementById('unit-toggle').click();
     await Promise.resolve();
 
-    const before = stored2();
-    const houseBefore = before.recipes.find((r) => r.origin === 'house');
-    say('J14.0 the shipped protocol is loaded', before.current.recipeId === houseBefore.id, houseBefore.name);
+    say('J14.0 the shipped protocol is loaded', savedRecipe().origin === 'house', savedRecipe().name);
+    say('J14.2a no bar until something changes', bar().hidden, 'bar hidden');
 
-    // Edit a duration, exactly as a baker shortening the schedule would.
-    const proof = field('Cold proof');
-    proof.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
-    proof.focus();
-    proof.value = '42';
-    proof.dispatchEvent(new Event('input', { bubbles: true }));
-    proof.dispatchEvent(new Event('change', { bubbles: true }));
-    proof.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await type(field('Inoculation'), '0.09');
+    say('J14.1 editing does not touch the stored recipe', savedRecipe().recipe.baseYeastPct === 0.1, `stored ${savedRecipe().recipe.baseYeastPct}%, draft ${st().current.recipe.baseYeastPct}%`);
+    say('J14.2 the bar names the recipe and offers a way out',
+      !bar().hidden && bar().textContent.includes(savedRecipe().name) && !!barButton('Discard'),
+      bar().textContent.replace(/\s+/g, ' ').trim());
+    say('J14.5a it offers a copy rather than an overwrite', !!barButton('Save as a copy'), barButton('Save as a copy') ? 'Save as a copy' : 'plain Save');
+
+    const houseId = savedRecipe().id;
+    const before = st().recipes.length;
+    barButton('Save as a copy').click();
     await Promise.resolve();
+    const after = st();
+    const house = after.recipes.find((r) => r.id === houseId);
+    say('J14.5 saving on the shipped protocol copies it',
+      after.recipes.length === before + 1 && after.current.recipeId !== houseId && house.recipe.baseYeastPct === 0.1,
+      `${before} -> ${after.recipes.length}, house still ${house.recipe.baseYeastPct}%, working on "${savedRecipe().name}"`);
+    say('J14.3 the copy holds the edit and the bar goes', savedRecipe().recipe.baseYeastPct === 0.09 && bar().hidden, `copy ${savedRecipe().recipe.baseYeastPct}%`);
 
-    const after = stored2();
-    const houseAfter = after.recipes.find((r) => r.id === houseBefore.id);
-    const loaded = after.recipes.find((r) => r.id === after.current.recipeId);
-
-    say('J14.1 the edit forked a copy', after.recipes.length === before.recipes.length + 1 && loaded.id !== houseBefore.id, `${before.recipes.length} -> ${after.recipes.length}, loaded "${loaded.name}"`);
-    say('J14.2 the shipped one is unchanged', houseAfter.schedule.coldProofHours === 66, `house cold proof ${houseAfter.schedule.coldProofHours} h`);
-    say('J14.3 the copy took the edit', loaded.schedule.coldProofHours === 42, `copy cold proof ${loaded.schedule.coldProofHours} h`);
-    say('J14.5 the edit reached the stored recipe', loaded.schedule.coldProofHours === after.current.schedule.coldProofHours, 'session and recipe agree');
-
-    // A second edit must not fork again.
-    const count = stored2().recipes.length;
-    const temper = field('Counter temper');
-    temper.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
-    temper.focus();
-    temper.value = '3';
-    temper.dispatchEvent(new Event('input', { bubbles: true }));
-    temper.dispatchEvent(new Event('change', { bubbles: true }));
-    temper.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    // A plain save on a recipe of one's own.
+    await type(field('Inoculation'), '0.12');
+    say('J14.3a a normal recipe saves in place', !!barButton('Save') && !barButton('Save as a copy'), 'plain Save offered');
+    barButton('Save').click();
     await Promise.resolve();
-    say('J14.1b editing the copy does not fork again', stored2().recipes.length === count, `${count} recipes still`);
+    say('J14.3b saved', savedRecipe().recipe.baseYeastPct === 0.12 && bar().hidden, `stored ${savedRecipe().recipe.baseYeastPct}%`);
+
+    // Discard.
+    await type(field('Inoculation'), '0.30');
+    barButton('Discard').click();
+    await Promise.resolve();
+    say('J14.4 discard puts the draft back', field('Inoculation').value === '0.12' && savedRecipe().recipe.baseYeastPct === 0.12, `field reads ${field('Inoculation').value}`);
 
     return out.join('\n');
+  };
+
+  /** J14.6, the rescue, which needs a damaged saved state and a reload. */
+  window.canottoQARescueSetup = function () {
+    localStorage.setItem('canotto-lab/v1', JSON.stringify({
+      version: 1,
+      recipes: [{
+        id: 'house-canotto', name: 'Contemporary Canotto (first run)', origin: 'house',
+        createdAt: '2026-09-01T00:00:00.000Z',
+        recipe: { hydrationPct: 70, baseYeastPct: 0.11, saltPct: 2.8, oilPct: 0.9, balls: 8, ballWeight: 275, yeastType: 'idy', prefermentFlourPct: 100, prefermentHydrationPct: 45, flours: [{ id: 'caputo-cuoco', pct: 100, stage: 'blend' }] },
+        schedule: { coldProofHours: 66, fridgeTempC: 2.8, roomTempC: 21.1, bigaRestHours: 3.75, bigaColdHours: 17, temperHours: 4 },
+      }],
+      bakes: [],
+      current: { recipeId: 'house-canotto' },
+    }));
+    return 'seeded a house protocol edited in place; reload and run canottoQARescueCheck()';
+  };
+
+  window.canottoQARescueCheck = function () {
+    const s = JSON.parse(localStorage.getItem('canotto-lab/v1'));
+    const house = s.recipes.find((r) => r.origin === 'house');
+    const mine = s.recipes.find((r) => r.name === 'Contemporary Canotto (first run)');
+    const ok = house && mine && house.recipe.baseYeastPct === 0.1 && mine.recipe.baseYeastPct === 0.11
+      && mine.origin === 'user' && s.current.recipeId === mine.id;
+    return `${ok ? 'PASS' : 'FAIL'}  J14.6 an edited shipped protocol is rescued  house back to ${house?.recipe.baseYeastPct}%, work kept as "${mine?.name}" at ${mine?.recipe.baseYeastPct}%, loaded ${s.recipes.find((r) => r.id === s.current.recipeId)?.name}`;
   };
 
   /** The half of J11 that needs a fresh load. */

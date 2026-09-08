@@ -1,17 +1,17 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe } from './lib/store.js?v=7a9b00d7';
-import { readRecipeLink } from './lib/share.js?v=7a9b00d7';
-import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=7a9b00d7';
-import { h, $, icon } from './lib/ui.js?v=7a9b00d7';
-import { computeRecipe } from './model/dough.js?v=7a9b00d7';
-import { solveSchedule, activeSteps } from './model/protocol.js?v=7a9b00d7';
+import { load, subscribe, update, addRecipe, isDirty, saveCurrent, discardCurrent } from './lib/store.js?v=589c615b';
+import { readRecipeLink } from './lib/share.js?v=589c615b';
+import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=589c615b';
+import { h, $, icon, clear, toast } from './lib/ui.js?v=589c615b';
+import { computeRecipe } from './model/dough.js?v=589c615b';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=589c615b';
 
-import renderRecipe from './views/recipe.js?v=7a9b00d7';
-import renderProtocol from './views/protocol.js?v=7a9b00d7';
-import renderBake from './views/bake.js?v=7a9b00d7';
-import renderLog from './views/log.js?v=7a9b00d7';
-import renderSetup from './views/setup.js?v=7a9b00d7';
+import renderRecipe from './views/recipe.js?v=589c615b';
+import renderProtocol from './views/protocol.js?v=589c615b';
+import renderBake from './views/bake.js?v=589c615b';
+import renderLog from './views/log.js?v=589c615b';
+import renderSetup from './views/setup.js?v=589c615b';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
@@ -248,6 +248,7 @@ export function render() {
 
   assignKeys(main);
   restoreFocus(main, snap);
+  renderSaveBar();
 }
 
 function paintThemeButton() {
@@ -302,6 +303,50 @@ window.addEventListener('hashchange', () => {
   history.replaceState(null, '', location.pathname);
   activeTab = 'recipe';
 })();
+
+/**
+ * The editing bar.
+ *
+ * Edits go to a working draft, not to the stored recipe, so this is what says
+ * so: which recipe is open, that it has unsaved changes, and the two ways out.
+ * It only exists while there is something to decide.
+ */
+function renderSaveBar() {
+  const s = load();
+  const bar = $('#save-bar');
+  const dirty = isDirty(s);
+  bar.hidden = !dirty;
+  document.body.classList.toggle('has-save-bar', dirty);
+  if (!dirty) return;
+
+  const saved = s.recipes.find((r) => r.id === s.current.recipeId);
+  const isHouse = saved?.origin === 'house';
+  clear(bar);
+  bar.appendChild(
+    h(
+      'div',
+      { class: 'save-bar-inner' },
+      h(
+        'div',
+        { class: 'save-bar-what' },
+        h('span', { class: 'save-bar-name' }, s.current.title || 'Recipe'),
+        h('span', { class: 'save-bar-note' }, isHouse ? 'Saving makes a copy of your own' : 'Unsaved changes')
+      ),
+      h(
+        'div',
+        { class: 'save-bar-actions' },
+        h('button', { class: 'btn ghost small', onClick: () => { discardCurrent(); toast('Changes discarded'); } }, 'Discard'),
+        h('button', {
+          class: 'btn small',
+          onClick: () => {
+            const r = saveCurrent();
+            toast(r.forked ? `Saved as ${r.name}. The house protocol is untouched.` : `Saved ${r.name}`);
+          },
+        }, icon('save'), isHouse ? 'Save as a copy' : 'Save')
+      )
+    )
+  );
+}
 
 const foot = document.querySelector('.foot p');
 if (foot) foot.textContent = `${foot.textContent} Build ${BUILD}.`;

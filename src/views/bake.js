@@ -1,14 +1,14 @@
 // Bake day: the flame modulation walkthrough, a live timer, and the form that
 // turns this session into a logged bake.
 
-import { h, card, numberField, selectField, textField, stat, pill, toast, icon, sliderField } from '../lib/ui.js?v=7a9b00d7';
-import { update, editCurrent, snapshotBake, addBake, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=7a9b00d7';
-import { bakeStages, OVENS, findOven, ovenLabel } from '../model/equipment.js?v=7a9b00d7';
-import { diagnose, DIAGNOSTICS, CATEGORIES, byCategory } from '../model/diagnostics.js?v=7a9b00d7';
-import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=7a9b00d7';
-import { fmtTemp, fmtGrams } from '../model/units.js?v=7a9b00d7';
-import { tempField, scoreInputs, stars, announceFork } from './common.js?v=7a9b00d7';
-import { go } from '../app.js?v=7a9b00d7';
+import { h, card, numberField, selectField, textField, stat, pill, toast, icon, sliderField } from '../lib/ui.js?v=589c615b';
+import { update, editCurrent, snapshotBake, addBake, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=589c615b';
+import { bakeStages, OVENS, findOven, ovenLabel } from '../model/equipment.js?v=589c615b';
+import { diagnose, DIAGNOSTICS, CATEGORIES, byCategory } from '../model/diagnostics.js?v=589c615b';
+import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=589c615b';
+import { fmtTemp, fmtGrams } from '../model/units.js?v=589c615b';
+import { tempField, scoreInputs, stars, } from './common.js?v=589c615b';
+import { go } from '../app.js?v=589c615b';
 
 let simIndex = 0;
 let timerId = null;
@@ -35,10 +35,10 @@ function ovenCard(ctx) {
     h(
       'div',
       { class: 'row' },
-      tempField({ label: 'Target floor', valueC: S.deckTempC, unit: u, step: 5, onChange: (v) => announceFork(editCurrent((c) => { c.schedule.deckTempC = v; })) }),
-      tempField({ label: 'Target dome', valueC: S.domeTempC, unit: u, step: 5, onChange: (v) => announceFork(editCurrent((c) => { c.schedule.domeTempC = v; })) }),
-      numberField({ label: 'Bake time', value: S.bakeSec, min: 20, max: 600, step: 5, suffix: 'sec', onInput: (v) => announceFork(editCurrent((c) => { c.schedule.bakeSec = v; })) }),
-      numberField({ label: 'Preheat soak', value: S.preheatMin, min: 10, max: 120, step: 5, suffix: 'min', onInput: (v) => announceFork(editCurrent((c) => { c.schedule.preheatMin = v; })) })
+      tempField({ label: 'Target floor', valueC: S.deckTempC, unit: u, step: 5, onChange: (v) => editCurrent((c) => { c.schedule.deckTempC = v; }) }),
+      tempField({ label: 'Target dome', valueC: S.domeTempC, unit: u, step: 5, onChange: (v) => editCurrent((c) => { c.schedule.domeTempC = v; }) }),
+      numberField({ label: 'Bake time', value: S.bakeSec, min: 20, max: 600, step: 5, suffix: 'sec', onInput: (v) => editCurrent((c) => { c.schedule.bakeSec = v; }) }),
+      numberField({ label: 'Preheat soak', value: S.preheatMin, min: 10, max: 120, step: 5, suffix: 'min', onInput: (v) => editCurrent((c) => { c.schedule.preheatMin = v; }) })
     )
   );
 }

@@ -404,3 +404,28 @@ details.foldout[open] summary { margin-bottom: 8px; }
     scroll-behavior: auto !important;
   }
 }
+
+/* ------------------------------ editing bar ----------------------------- */
+
+.save-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  background: var(--surface-lowest);
+  border-top: 1px solid var(--outline-variant);
+  box-shadow: 0 -4px 18px rgba(60, 30, 20, .10);
+  padding: 10px 14px calc(10px + var(--safe-bottom));
+}
+.save-bar[hidden] { display: none; }
+.save-bar-inner {
+  max-width: 1080px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.save-bar-what { min-width: 0; display: grid; gap: 1px; }
+.save-bar-name {
+  font-family: 'Fraunces', serif; font-weight: 700; font-size: .92rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.save-bar-note { font-size: .72rem; color: var(--on-surface-variant); }
+.save-bar-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+
+/* Keep the bar from covering the end of the page. */
+body.has-save-bar { padding-bottom: calc(84px + var(--safe-bottom)); }

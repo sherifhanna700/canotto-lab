@@ -4,11 +4,11 @@
 // app touches storage directly, so swapping in a cloud backend later means
 // reimplementing `load` and `save`, not rewriting the views.
 
-import { DEFAULT_RECIPE } from '../model/dough.js?v=7a9b00d7';
-import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=7a9b00d7';
-import { DEFAULT_MODEL } from '../model/ferment.js?v=7a9b00d7';
-import { starterRecipes, houseRecipe } from '../model/recipes.js?v=7a9b00d7';
-import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=7a9b00d7';
+import { DEFAULT_RECIPE } from '../model/dough.js?v=589c615b';
+import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=589c615b';
+import { DEFAULT_MODEL } from '../model/ferment.js?v=589c615b';
+import { starterRecipes, houseRecipe } from '../model/recipes.js?v=589c615b';
+import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=589c615b';
 
 const KEY = 'canotto-lab/v1';
 const LEGACY = { steps: 'canotto_master_steps', frozen: 'canotto_frozen_count', metrics: 'canotto_step_metrics' };
@@ -29,16 +29,21 @@ export const EMPTY_ACTUALS = {
 export const EMPTY_SCORES = { canotto: null, honeycomb: null, blistering: null, flavour: null, base: null };
 
 export function defaultState() {
+  const recipes = starterRecipes();
+  const house = recipes.find((r) => r.origin === 'house');
   return {
     version: 1,
     settings: { unit: 'F', model: { ...DEFAULT_MODEL }, autoCalibrate: true },
-    recipes: starterRecipes(),
+    recipes,
     current: {
-      recipeId: 'house-canotto',
-      title: 'Contemporary Canotto',
+      // Taken from the shipped recipe rather than restated. Stating it twice
+      // meant the draft and the recipe disagreed from the first load, so the
+      // app believed there were unsaved changes before anything was touched.
+      recipeId: house.id,
+      title: house.name,
       equipment: { ...DEFAULT_EQUIPMENT },
-      recipe: { ...DEFAULT_RECIPE },
-      schedule: { ...DEFAULT_SCHEDULE },
+      recipe: JSON.parse(JSON.stringify(house.recipe)),
+      schedule: JSON.parse(JSON.stringify(house.schedule)),
       launchISO: nextFridayEvening(),
       done: [],
       actuals: { ...EMPTY_ACTUALS },
@@ -78,6 +83,15 @@ export function load() {
   }
   const base = defaultState();
   cache = parsed ? mergeState(base, parsed) : migrateLegacy(base);
+
+  // If the shipped protocol was rescued, stay on the baker's own copy of it
+  // rather than silently switching them to the restored reference.
+  if (rescuedId) {
+    const mine = cache.recipes.find((r) => r.id === rescuedId);
+    if (mine) loadRecipeInto(cache, mine);
+    rescuedId = null;
+    save();
+  }
 
   const fixed = repairValues(cache.current);
   if (fixed.length) {
@@ -196,7 +210,44 @@ function reconcileRecipes(saved, base) {
     });
 
   if (!kept.some((r) => r.origin === 'house')) kept.push(house);
-  return kept;
+  return splitEditedHouse(kept, house);
+}
+
+/**
+ * Rescue a house protocol that was edited in place.
+ *
+ * An earlier version let edits land directly on the shipped protocol, so a
+ * baker who renamed it and changed its numbers ended up with no reference left
+ * and no copy of their own either, just one recipe wearing the wrong label.
+ * Their work is kept, as a recipe of their own, and the reference is put back.
+ */
+let rescuedId = null;
+
+function splitEditedHouse(recipes, pristine) {
+  const i = recipes.findIndex((r) => r.origin === 'house');
+  if (i < 0) return recipes;
+  const theirs = recipes[i];
+  const same =
+    theirs.name === pristine.name &&
+    JSON.stringify(theirs.recipe) === JSON.stringify(pristine.recipe) &&
+    JSON.stringify(theirs.schedule) === JSON.stringify(pristine.schedule);
+  if (same) return recipes;
+
+  const rescued = {
+    ...theirs,
+    id: `${theirs.id}-yours`,
+    name: theirs.name === pristine.name ? `${theirs.name.replace(' (house)', '')} (my version)` : theirs.name,
+    origin: 'user',
+    derivedFrom: pristine.id,
+    updatedAt: new Date().toISOString(),
+  };
+  console.warn(`Canotto Lab: the shipped protocol had been edited. Your changes are kept as "${rescued.name}" and the reference is restored.`);
+
+  rescuedId = rescued.id;
+  const out = [...recipes];
+  out[i] = pristine;
+  out.unshift(rescued);
+  return out;
 }
 
 /**
@@ -339,16 +390,14 @@ export function activateRecipe(id) {
   });
 }
 
-/** A copy of the house protocol, taking whatever the session currently holds. */
-function forkOf(house, current) {
+/** A copy of a recipe, taking whatever the working draft currently holds. */
+function forkOf(source, current, name) {
   return {
-    ...JSON.parse(JSON.stringify(house)),
+    ...JSON.parse(JSON.stringify(source)),
     id: newId('r'),
-    name: house.name.includes('(house)')
-      ? house.name.replace('(house)', '(my version)')
-      : `${house.name} (my version)`,
+    name,
     origin: 'user',
-    derivedFrom: house.id,
+    derivedFrom: source.id,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     recipe: JSON.parse(JSON.stringify(current.recipe)),
@@ -357,44 +406,78 @@ function forkOf(house, current) {
 }
 
 /**
- * Change the dough you are working on.
+ * Change the working draft.
  *
- * The edit is mirrored onto the saved recipe immediately, so there is no
- * separate save step and no way for the name in the list to drift from the
- * name in the field.
- *
- * The one exception is the shipped protocol. It is a reference, not a working
- * copy, and it is far too easy to edit it by accident when there is no save
- * step to stop you. So the first edit forks it: the copy takes the change and
- * is loaded, and the original is left exactly as shipped.
- *
- * Returns whether a fork happened, so the caller can say so.
+ * Edits land here and nowhere else. The stored recipe is not touched until the
+ * draft is saved, which is what makes it safe to open a recipe, try something,
+ * and walk away without having changed it.
  */
 export function editCurrent(fn) {
-  let forked = false;
+  return update((s) => {
+    fn(s.current);
+  });
+}
+
+/** Fields of the draft that belong to the recipe rather than to the session. */
+function draftOf(holder) {
+  return JSON.stringify({
+    name: holder.title ?? holder.name,
+    recipe: holder.recipe,
+    schedule: holder.schedule,
+  });
+}
+
+/** Does the draft differ from the recipe it was opened from? */
+export function isDirty(s = load()) {
+  const saved = s.recipes.find((r) => r.id === s.current.recipeId);
+  if (!saved) return false;
+  return draftOf(s.current) !== draftOf(saved);
+}
+
+/**
+ * Write the draft onto its recipe.
+ *
+ * The shipped protocol cannot be written over: it is the reference every other
+ * schedule is measured against. Saving on top of it produces a copy instead,
+ * and the copy becomes the one being worked on.
+ */
+export function saveCurrent() {
+  let result = { saved: false, forked: false, name: '' };
   update((s) => {
     const i = s.recipes.findIndex((r) => r.id === s.current.recipeId);
-    if (i >= 0 && s.recipes[i].origin === 'house') {
-      const fork = forkOf(s.recipes[i], s.current);
+    if (i < 0) return;
+    const target = s.recipes[i];
+
+    if (target.origin === 'house') {
+      const name = s.current.title === target.name
+        ? target.name.replace('(house)', '(my version)')
+        : s.current.title;
+      const fork = forkOf(target, s.current, name);
       s.recipes.unshift(fork);
       s.current.recipeId = fork.id;
       s.current.title = fork.name;
-      forked = true;
+      result = { saved: true, forked: true, name: fork.name };
+      return;
     }
 
-    fn(s.current);
-
-    const j = s.recipes.findIndex((r) => r.id === s.current.recipeId);
-    if (j < 0) return;
-    s.recipes[j] = {
-      ...s.recipes[j],
+    s.recipes[i] = {
+      ...target,
       name: s.current.title,
       recipe: JSON.parse(JSON.stringify(s.current.recipe)),
       schedule: JSON.parse(JSON.stringify(s.current.schedule)),
       updatedAt: new Date().toISOString(),
     };
+    result = { saved: true, forked: false, name: s.current.title };
   });
-  return { forked };
+  return result;
+}
+
+/** Throw the draft away and go back to what is stored. */
+export function discardCurrent() {
+  return update((s) => {
+    const saved = s.recipes.find((r) => r.id === s.current.recipeId);
+    if (saved) loadRecipeInto(s, saved);
+  });
 }
 
 /** Put the house protocol back exactly as shipped. */
