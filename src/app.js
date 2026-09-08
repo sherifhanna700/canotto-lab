@@ -1,17 +1,17 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe } from './lib/store.js?v=23f1612e';
-import { readRecipeLink } from './lib/share.js?v=23f1612e';
-import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=23f1612e';
-import { h, $, icon } from './lib/ui.js?v=23f1612e';
-import { computeRecipe } from './model/dough.js?v=23f1612e';
-import { solveSchedule, activeSteps } from './model/protocol.js?v=23f1612e';
+import { load, subscribe, update, addRecipe } from './lib/store.js?v=24df1a08';
+import { readRecipeLink } from './lib/share.js?v=24df1a08';
+import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=24df1a08';
+import { h, $, icon } from './lib/ui.js?v=24df1a08';
+import { computeRecipe } from './model/dough.js?v=24df1a08';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=24df1a08';
 
-import renderRecipe from './views/recipe.js?v=23f1612e';
-import renderProtocol from './views/protocol.js?v=23f1612e';
-import renderBake from './views/bake.js?v=23f1612e';
-import renderLog from './views/log.js?v=23f1612e';
-import renderSetup from './views/setup.js?v=23f1612e';
+import renderRecipe from './views/recipe.js?v=24df1a08';
+import renderProtocol from './views/protocol.js?v=24df1a08';
+import renderBake from './views/bake.js?v=24df1a08';
+import renderLog from './views/log.js?v=24df1a08';
+import renderSetup from './views/setup.js?v=24df1a08';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
@@ -90,7 +90,10 @@ export function go(tabId) {
 function isTextEntry(el) {
   if (!el) return false;
   if (el.tagName === 'TEXTAREA') return true;
-  return el.tagName === 'INPUT' && ['text', 'search', 'email', 'url'].includes(el.type);
+  // Number fields are included: a value is typed one character at a time, and
+  // "0." on the way to "0.05" is not something the model should see and echo
+  // back. Sliders are not, since they commit on release and hold no state.
+  return el.tagName === 'INPUT' && ['text', 'search', 'email', 'url', 'number'].includes(el.type);
 }
 
 function captureFocus() {

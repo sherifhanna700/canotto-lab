@@ -5,19 +5,19 @@
 // Edits save straight onto the selected recipe, so there is no save step and
 // the name in the list is always the name in the field.
 
-import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=23f1612e';
-import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download, exportRecipesJSON, exportRecipeJSON } from '../lib/store.js?v=23f1612e';
-import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=23f1612e';
-import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=23f1612e';
-import { scheduleStages, solveSchedule } from '../model/protocol.js?v=23f1612e';
-import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, waterTempFor } from '../model/ferment.js?v=23f1612e';
-import { suggestPlan, reviewPlan, defaultLeadHours } from '../model/advisor.js?v=23f1612e';
-import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js?v=23f1612e';
-import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=23f1612e';
-import { recipeLink, copyText } from '../lib/share.js?v=23f1612e';
-import { findMixer, mixerLabel } from '../model/equipment.js?v=23f1612e';
-import { tempField, tempDeltaField, ratingBadge, stars } from './common.js?v=23f1612e';
-import { go } from '../app.js?v=23f1612e';
+import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=24df1a08';
+import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download, exportRecipesJSON, exportRecipeJSON } from '../lib/store.js?v=24df1a08';
+import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=24df1a08';
+import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=24df1a08';
+import { scheduleStages, solveSchedule } from '../model/protocol.js?v=24df1a08';
+import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, waterTempFor } from '../model/ferment.js?v=24df1a08';
+import { suggestPlan, reviewPlan, defaultLeadHours } from '../model/advisor.js?v=24df1a08';
+import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js?v=24df1a08';
+import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=24df1a08';
+import { recipeLink, copyText } from '../lib/share.js?v=24df1a08';
+import { findMixer, mixerLabel } from '../model/equipment.js?v=24df1a08';
+import { tempField, tempDeltaField, ratingBadge, stars } from './common.js?v=24df1a08';
+import { go } from '../app.js?v=24df1a08';
 
 const setRecipe = (patch) => editCurrent((c) => Object.assign(c.recipe, patch));
 const setSchedule = (patch) => editCurrent((c) => Object.assign(c.schedule, patch));
@@ -91,7 +91,7 @@ function createCard(ctx) {
       })),
       h('div', { style: { flex: '0 0 88px' } }, numberField({
         label: 'Share', value: entry.pct, min: 0, max: 100, suffix: '%',
-        onInput: (v) => update((st) => { draft(st).flours[i].pct = v ?? 0; }),
+        onInput: (v) => update((st) => { draft(st).flours[i].pct = v; }),
       })),
       d.flours.length > 1
         ? h('div', { style: { flex: '0 0 auto' } }, h('button', { class: 'btn ghost small', onClick: () => update((st) => { draft(st).flours.splice(i, 1); }) }, icon('close')))
@@ -119,9 +119,9 @@ function createCard(ctx) {
     h(
       'div',
       { class: 'row' },
-      numberField({ label: 'Dough balls', value: d.balls, min: 1, max: 60, onInput: (v) => setDraft({ balls: v ?? 1 }) }),
-      numberField({ label: 'Ball weight', value: d.ballWeight, min: 100, max: 500, step: 5, suffix: 'g', onInput: (v) => setDraft({ ballWeight: v ?? 250 }) }),
-      numberField({ label: 'For the freezer', value: d.frozenBalls, min: 0, max: d.balls, onInput: (v) => setDraft({ frozenBalls: Math.min(v ?? 0, d.balls) }) })
+      numberField({ label: 'Dough balls', value: d.balls, min: 1, max: 60, onInput: (v) => setDraft({ balls: v }) }),
+      numberField({ label: 'Ball weight', value: d.ballWeight, min: 100, max: 500, step: 5, suffix: 'g', onInput: (v) => setDraft({ ballWeight: v }) }),
+      numberField({ label: 'For the freezer', value: d.frozenBalls, min: 0, max: d.balls, onInput: (v) => setDraft({ frozenBalls: Math.min(v, d.balls) }) })
     ),
 
     h('h3', { style: { fontSize: '.86rem', marginTop: '4px' } }, '4. Your temperatures'),
@@ -330,7 +330,7 @@ function inputsCard(ctx) {
       })),
       h('div', { style: { flex: '0 0 88px' } }, numberField({
         label: 'Share', value: entry.pct, min: 0, max: 100, suffix: '%',
-        onInput: (v) => editCurrent((cc) => { cc.recipe.flours[i].pct = v ?? 0; }),
+        onInput: (v) => editCurrent((cc) => { cc.recipe.flours[i].pct = v; }),
       })),
       r.flours.length > 1
         ? h('div', { style: { flex: '0 0 auto' } }, h('button', { class: 'btn ghost small', onClick: () => editCurrent((cc) => { cc.recipe.flours.splice(i, 1); }) }, icon('close')))
@@ -352,9 +352,9 @@ function inputsCard(ctx) {
     h(
       'div',
       { class: 'row' },
-      numberField({ label: 'Dough balls', value: r.balls, min: 1, max: 60, onInput: (v) => setRecipe({ balls: v ?? 1, frozenBalls: Math.min(r.frozenBalls, v ?? 1) }) }),
-      numberField({ label: 'Ball weight', value: r.ballWeight, min: 100, max: 500, step: 5, suffix: 'g', onInput: (v) => setRecipe({ ballWeight: v ?? 250 }) }),
-      numberField({ label: 'For the freezer', value: r.frozenBalls, min: 0, max: r.balls, onInput: (v) => setRecipe({ frozenBalls: Math.min(v ?? 0, r.balls) }) })
+      numberField({ label: 'Dough balls', value: r.balls, min: 1, max: 60, onInput: (v) => setRecipe({ balls: v, frozenBalls: Math.min(r.frozenBalls, v) }) }),
+      numberField({ label: 'Ball weight', value: r.ballWeight, min: 100, max: 500, step: 5, suffix: 'g', onInput: (v) => setRecipe({ ballWeight: v }) }),
+      numberField({ label: 'For the freezer', value: r.frozenBalls, min: 0, max: r.balls, onInput: (v) => setRecipe({ frozenBalls: Math.min(v, r.balls) }) })
     ),
     h(
       'div',
@@ -429,10 +429,10 @@ function doughCard(ctx) {
     h(
       'div',
       { class: 'row' },
-      numberField({ label: 'Salt', value: r.saltPct, min: 0, max: 5, step: 0.1, suffix: '%', onInput: (v) => setRecipe({ saltPct: v ?? 0 }) }),
-      numberField({ label: 'Olive oil', value: r.oilPct, min: 0, max: 5, step: 0.1, suffix: '%', onInput: (v) => setRecipe({ oilPct: v ?? 0 }) }),
-      numberField({ label: 'Biga flour', value: r.prefermentFlourPct, min: 10, max: 100, step: 5, suffix: '%', hint: 'Share of total flour in the biga', onInput: (v) => setRecipe({ prefermentFlourPct: v ?? 100 }) }),
-      numberField({ label: 'Biga hydration', value: r.prefermentHydrationPct, min: 35, max: 60, step: 1, suffix: '%', hint: 'Traditionally 44 to 45%', onInput: (v) => setRecipe({ prefermentHydrationPct: v ?? 45 }) })
+      numberField({ label: 'Salt', value: r.saltPct, min: 0, max: 5, step: 0.1, suffix: '%', onInput: (v) => setRecipe({ saltPct: v }) }),
+      numberField({ label: 'Olive oil', value: r.oilPct, min: 0, max: 5, step: 0.1, suffix: '%', onInput: (v) => setRecipe({ oilPct: v }) }),
+      numberField({ label: 'Biga flour', value: r.prefermentFlourPct, min: 10, max: 100, step: 5, suffix: '%', hint: 'Share of total flour in the biga', onInput: (v) => setRecipe({ prefermentFlourPct: v }) }),
+      numberField({ label: 'Biga hydration', value: r.prefermentHydrationPct, min: 35, max: 60, step: 1, suffix: '%', hint: 'Traditionally 44 to 45%', onInput: (v) => setRecipe({ prefermentHydrationPct: v }) })
     ),
     h(
       'div',
@@ -443,8 +443,8 @@ function doughCard(ctx) {
         options: Object.entries(YEAST_LABEL).map(([k, v]) => ({ value: k, label: v })),
         onChange: (v) => setRecipe({ yeastType: v, baseYeastPct: round(convertYeast(r.baseYeastPct, r.yeastType, v), 3) }),
       }),
-      numberField({ label: 'Inoculation', value: r.baseYeastPct, min: 0, max: 3, step: 0.005, suffix: '%', onInput: (v) => setRecipe({ baseYeastPct: v ?? 0 }) }),
-      numberField({ label: 'Freeze buffer', value: r.freezeBufferPct, min: 0, max: 0.2, step: 0.005, suffix: '%', hint: 'Added only when balls go to the freezer', onInput: (v) => setRecipe({ freezeBufferPct: v ?? 0 }) })
+      numberField({ label: 'Inoculation', value: r.baseYeastPct, min: 0, max: 3, step: 0.005, suffix: '%', onInput: (v) => setRecipe({ baseYeastPct: v }) }),
+      numberField({ label: 'Freeze buffer', value: r.freezeBufferPct, min: 0, max: 0.2, step: 0.005, suffix: '%', hint: 'Added only when balls go to the freezer', onInput: (v) => setRecipe({ freezeBufferPct: v }) })
     ),
     ...c.warnings.map((w) => h('p', { class: 'note warn' }, w))
   );
@@ -468,10 +468,10 @@ function timingCard(ctx) {
     h(
       'div',
       { class: 'row' },
-      numberField({ label: 'Biga ambient rest', value: S.bigaRestHours, min: 0, max: 24, step: 0.25, suffix: 'h', onInput: (v) => setSchedule({ bigaRestHours: v ?? 0 }) }),
-      numberField({ label: 'Biga cold hold', value: S.bigaColdHours, min: 0, max: 48, step: 1, suffix: 'h', onInput: (v) => setSchedule({ bigaColdHours: v ?? 0 }) }),
-      numberField({ label: 'Cold proof', value: S.coldProofHours, min: 1, max: 168, step: 1, suffix: 'h', onInput: (v) => setSchedule({ coldProofHours: v ?? 1 }) }),
-      numberField({ label: 'Counter temper', value: S.temperHours, min: 0, max: 12, step: 0.25, suffix: 'h', onInput: (v) => setSchedule({ temperHours: v ?? 0 }) })
+      numberField({ label: 'Biga ambient rest', value: S.bigaRestHours, min: 0, max: 24, step: 0.25, suffix: 'h', onInput: (v) => setSchedule({ bigaRestHours: v }) }),
+      numberField({ label: 'Biga cold hold', value: S.bigaColdHours, min: 0, max: 48, step: 1, suffix: 'h', onInput: (v) => setSchedule({ bigaColdHours: v }) }),
+      numberField({ label: 'Cold proof', value: S.coldProofHours, min: 1, max: 168, step: 1, suffix: 'h', onInput: (v) => setSchedule({ coldProofHours: v }) }),
+      numberField({ label: 'Counter temper', value: S.temperHours, min: 0, max: 12, step: 0.25, suffix: 'h', onInput: (v) => setSchedule({ temperHours: v }) })
     ),
     h(
       'div',

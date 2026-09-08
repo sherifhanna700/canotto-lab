@@ -1,17 +1,17 @@
 // Log: every bake, and what the differences between them add up to.
 
-import { h, card, pill, chip, selectField, numberField, toast, icon, confirmDialog } from '../lib/ui.js?v=23f1612e';
-import { update, updateBake, deleteBake, download, exportBakesJSON } from '../lib/store.js?v=23f1612e';
-import { computeRecipe } from '../model/dough.js?v=23f1612e';
-import { scheduleStages } from '../model/protocol.js?v=23f1612e';
-import { fermentUnits } from '../model/ferment.js?v=23f1612e';
-import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=23f1612e';
-import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js?v=23f1612e';
-import { scatterChart, barChart, linearFit } from '../lib/charts.js?v=23f1612e';
-import { fmtTemp, fmtDuration, round } from '../model/units.js?v=23f1612e';
-import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js?v=23f1612e';
-import { stars, scoreInputs, tempField } from './common.js?v=23f1612e';
-import { bakeCSV } from '../lib/csv.js?v=23f1612e';
+import { h, card, pill, chip, selectField, numberField, toast, icon, confirmDialog } from '../lib/ui.js?v=24df1a08';
+import { update, updateBake, deleteBake, download, exportBakesJSON } from '../lib/store.js?v=24df1a08';
+import { computeRecipe } from '../model/dough.js?v=24df1a08';
+import { scheduleStages } from '../model/protocol.js?v=24df1a08';
+import { fermentUnits } from '../model/ferment.js?v=24df1a08';
+import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=24df1a08';
+import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js?v=24df1a08';
+import { scatterChart, barChart, linearFit } from '../lib/charts.js?v=24df1a08';
+import { fmtTemp, fmtDuration, round } from '../model/units.js?v=24df1a08';
+import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js?v=24df1a08';
+import { stars, scoreInputs, tempField } from './common.js?v=24df1a08';
+import { bakeCSV } from '../lib/csv.js?v=24df1a08';
 
 export default function renderLog(ctx) {
   const { s } = ctx;
@@ -154,10 +154,10 @@ function editor(ctx, b) {
     h(
       'div',
       { class: 'row' },
-      tempField({ label: 'Ambient', valueC: b.actuals?.ambientTempC, unit: u, onChange: setActual('ambientTempC') }),
-      tempField({ label: 'Floor', valueC: b.actuals?.deckTempC, unit: u, step: 5, onChange: setActual('deckTempC') }),
-      tempField({ label: 'Ball core', valueC: b.actuals?.coreTempC, unit: u, onChange: setActual('coreTempC') }),
-      numberField({ label: 'Bake time', value: b.actuals?.bakeSec ?? '', suffix: 'sec', onInput: setActual('bakeSec') })
+      tempField({ allowEmpty: true, label: 'Ambient', valueC: b.actuals?.ambientTempC, unit: u, onChange: setActual('ambientTempC') }),
+      tempField({ allowEmpty: true, label: 'Floor', valueC: b.actuals?.deckTempC, unit: u, step: 5, onChange: setActual('deckTempC') }),
+      tempField({ allowEmpty: true, label: 'Ball core', valueC: b.actuals?.coreTempC, unit: u, onChange: setActual('coreTempC') }),
+      numberField({ allowEmpty: true, label: 'Bake time', value: b.actuals?.bakeSec ?? '', suffix: 'sec', onInput: setActual('bakeSec') })
     ),
     h(
       'label',

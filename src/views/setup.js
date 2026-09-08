@@ -1,20 +1,20 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=23f1612e';
-import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=23f1612e';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=23f1612e';
-import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=23f1612e';
-import { scheduleStages } from '../model/protocol.js?v=23f1612e';
-import { convertYeast } from '../model/dough.js?v=23f1612e';
-import { overallScore } from '../model/recipes.js?v=23f1612e';
-import { SOURCES, FLOURS } from '../model/flours.js?v=23f1612e';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=23f1612e';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=23f1612e';
-import { lineChart } from '../lib/charts.js?v=23f1612e';
-import * as cloud from '../lib/cloud.js?v=23f1612e';
-import { tempField, tempDeltaField } from './common.js?v=23f1612e';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=23f1612e';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=24df1a08';
+import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=24df1a08';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=24df1a08';
+import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=24df1a08';
+import { scheduleStages } from '../model/protocol.js?v=24df1a08';
+import { convertYeast } from '../model/dough.js?v=24df1a08';
+import { overallScore } from '../model/recipes.js?v=24df1a08';
+import { SOURCES, FLOURS } from '../model/flours.js?v=24df1a08';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=24df1a08';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=24df1a08';
+import { lineChart } from '../lib/charts.js?v=24df1a08';
+import * as cloud from '../lib/cloud.js?v=24df1a08';
+import { tempField, tempDeltaField } from './common.js?v=24df1a08';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=24df1a08';
 
 let cloudUser = null;
 let cloudStatus = '';
@@ -65,8 +65,8 @@ function equipmentCard(ctx) {
       { class: 'row' },
       tempField({ label: 'Floor', valueC: s.current.schedule.deckTempC, unit: u, step: 5, onChange: (v) => update((st) => { st.current.schedule.deckTempC = v; }) }),
       tempField({ label: 'Dome', valueC: s.current.schedule.domeTempC, unit: u, step: 5, onChange: (v) => update((st) => { st.current.schedule.domeTempC = v; }) }),
-      numberField({ label: 'Bake time', value: s.current.schedule.bakeSec, min: 20, max: 600, step: 5, suffix: 'sec', onInput: (v) => update((st) => { st.current.schedule.bakeSec = v ?? 75; }) }),
-      numberField({ label: 'Preheat', value: s.current.schedule.preheatMin, min: 10, max: 180, step: 5, suffix: 'min', onInput: (v) => update((st) => { st.current.schedule.preheatMin = v ?? 45; }) })
+      numberField({ label: 'Bake time', value: s.current.schedule.bakeSec, min: 20, max: 600, step: 5, suffix: 'sec', onInput: (v) => update((st) => { st.current.schedule.bakeSec = v; }) }),
+      numberField({ label: 'Preheat', value: s.current.schedule.preheatMin, min: 10, max: 180, step: 5, suffix: 'min', onInput: (v) => update((st) => { st.current.schedule.preheatMin = v; }) })
     ),
 
     h('h3', { style: { fontSize: '.86rem', marginTop: '6px' } }, 'Mixer'),

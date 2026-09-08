@@ -136,6 +136,19 @@ npm test          # stamps the build, then runs the model tests
 npm run stamp     # cache busting only
 ```
 
+Two layers of testing. `npm test` covers the model: the dough maths, the
+fermentation model, the schedule solver, the schemas. `tests/qa-plan.md` covers
+what a person actually does with the app, and `tests/browser-qa.js` executes it
+in a real browser against the running build. Load the app, paste that file into
+the console and run `await canottoQA()`. It drives every number and text field
+the way a keyboard does, builds a recipe, files a bake, exports it and checks
+the arithmetic on screen. 88 checks, a few seconds.
+
+That split exists because nearly every defect in this app has been an
+interaction defect rather than a maths one: a field that fought the person
+typing in it, a screen that rebuilt itself under a keyboard, a button that
+stayed dead when its inputs moved. Unit tests could not have caught any of them.
+
 `npm run stamp` writes a content hash onto every relative import and onto the entry
 script and stylesheet, so a deploy is a new set of URLs and no browser can serve a
 half-old build. It is idempotent, and `npm test` runs it, so committing after a test run

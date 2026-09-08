@@ -40,8 +40,39 @@ export function card(title, subtitle, ...body) {
   );
 }
 
-/** Labelled number input that reports parsed values. */
-export function numberField({ label, value, min, max, step = 1, suffix, onInput, hint, id }) {
+/**
+ * Labelled number input.
+ *
+ * A half-typed number is not a number, and the field must not fight the person
+ * typing it. An empty box, a lone minus sign and "0." are all states on the way
+ * to a value, so nothing is committed until the text parses. Callers used to
+ * substitute a fallback for empty, which wrote that fallback straight back into
+ * the box: clearing a field left a digit behind that could not be deleted, and
+ * "0." could never become "0.05" because each keystroke round-tripped through
+ * the model and came back as "0".
+ *
+ * `allowEmpty` is for fields where blank is a real value, such as a measurement
+ * that was not taken. Those report null. Everywhere else, blank reports nothing
+ * and the last good value stays in the model until something valid replaces it.
+ *
+ * Bounds are applied when the field is left, not per keystroke, so typing 7 on
+ * the way to 70 is not clamped up to the minimum.
+ */
+export function numberField({ label, value, min, max, step = 1, suffix, onInput, hint, id, allowEmpty = false }) {
+  const commit = (raw, clamp) => {
+    if (raw === '') {
+      if (allowEmpty) onInput(null);
+      return;
+    }
+    let n = Number(raw);
+    if (!Number.isFinite(n)) return;
+    if (clamp) {
+      if (min !== undefined && min !== null) n = Math.max(Number(min), n);
+      if (max !== undefined && max !== null) n = Math.min(Number(max), n);
+    }
+    onInput(n);
+  };
+
   const input = h('input', {
     type: 'number',
     value: value ?? '',
@@ -50,7 +81,8 @@ export function numberField({ label, value, min, max, step = 1, suffix, onInput,
     step,
     id,
     dataset: { k: String(label) },
-    onInput: (e) => onInput(e.target.value === '' ? null : Number(e.target.value)),
+    onInput: (e) => commit(e.target.value, false),
+    onChange: (e) => commit(e.target.value, true),
   });
   return h(
     'label',

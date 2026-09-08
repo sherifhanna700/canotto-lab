@@ -1,14 +1,14 @@
 // Protocol: the schedule solved backwards from your launch time, and the
 // 19 steps with the measurements you take as you go.
 
-import { h, card, numberField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=23f1612e';
-import { update, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=23f1612e';
-import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=23f1612e';
-import { fermentUnits, ripeness, ripenessVerdict } from '../model/ferment.js?v=23f1612e';
-import { convertYeast } from '../model/dough.js?v=23f1612e';
-import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=23f1612e';
-import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=23f1612e';
-import { tempField } from './common.js?v=23f1612e';
+import { h, card, numberField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=24df1a08';
+import { update, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=24df1a08';
+import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=24df1a08';
+import { fermentUnits, ripeness, ripenessVerdict } from '../model/ferment.js?v=24df1a08';
+import { convertYeast } from '../model/dough.js?v=24df1a08';
+import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=24df1a08';
+import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=24df1a08';
+import { tempField } from './common.js?v=24df1a08';
 
 const METRIC_DEFS = {
   ambientTempC: { label: 'Ambient temperature', kind: 'temp', hint: 'Where the dough is sitting right now' },
@@ -79,7 +79,7 @@ function scheduleCard(ctx) {
           onInput: (e) => update((st) => { st.current.launchISO = e.target.value; }),
         }))
       ),
-      numberField({ label: 'Bake time', value: S.bakeSec, min: 20, max: 600, step: 5, suffix: 'sec', onInput: (v) => update((st) => { st.current.schedule.bakeSec = v ?? 75; }) })
+      numberField({ label: 'Bake time', value: S.bakeSec, min: 20, max: 600, step: 5, suffix: 'sec', onInput: (v) => update((st) => { st.current.schedule.bakeSec = v; }) })
     ),
     h(
       'div',
@@ -170,7 +170,7 @@ function metricField(ctx, key) {
 
   if (def.kind === 'temp') {
     const hint = def.target ? `target ${fmtTemp(def.target[0], u)} to ${fmtTemp(def.target[1], u)}` : def.hint;
-    const node = tempField({ label: def.label, valueC: val, unit: u, step: 1, hint, onChange: setVal });
+    const node = tempField({ allowEmpty: true, label: def.label, valueC: val, unit: u, step: 1, hint, onChange: setVal });
     if (def.target && Number.isFinite(val)) {
       const ok = val >= def.target[0] && val <= def.target[1];
       node.appendChild(h('span', {}, pill(ok ? 'On target' : val < def.target[0] ? 'Below target' : 'Above target', ok ? 'good' : 'warn')));

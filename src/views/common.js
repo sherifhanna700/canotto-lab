@@ -1,14 +1,15 @@
 // Shared view pieces.
 
-import { h, numberField, selectField, pill } from '../lib/ui.js?v=23f1612e';
-import { toDisplay, fromDisplay, deltaToDisplay, deltaFromDisplay, round } from '../model/units.js?v=23f1612e';
-import { SCORE_KEYS, overallScore } from '../model/recipes.js?v=23f1612e';
+import { h, numberField, selectField, pill } from '../lib/ui.js?v=24df1a08';
+import { toDisplay, fromDisplay, deltaToDisplay, deltaFromDisplay, round } from '../model/units.js?v=24df1a08';
+import { SCORE_KEYS, overallScore } from '../model/recipes.js?v=24df1a08';
 
 /** A temperature input that stores °C but shows whatever unit is selected. */
-export function tempField({ label, valueC, unit, onChange, hint, step = 1, min, max }) {
+export function tempField({ label, valueC, unit, onChange, hint, step = 1, min, max, allowEmpty = false }) {
   const shown = valueC === null || valueC === undefined ? '' : toDisplay(valueC, unit);
   return numberField({
     label,
+    allowEmpty,
     // Oven temperatures do not need a decimal; dough temperatures do.
     value: shown === '' ? '' : round(shown, Math.abs(shown) >= 100 ? 0 : 1),
     step,
@@ -25,10 +26,11 @@ export function tempField({ label, valueC, unit, onChange, hint, step = 1, min, 
  * A difference scales between units, it does not take the 32 degree offset,
  * so 9 °C of friction is 16 °F of friction, not 48 °F.
  */
-export function tempDeltaField({ label, valueC, unit, onChange, hint, step = 1 }) {
+export function tempDeltaField({ label, valueC, unit, onChange, hint, step = 1, allowEmpty = false }) {
   const shown = valueC === null || valueC === undefined ? '' : deltaToDisplay(valueC, unit);
   return numberField({
     label,
+    allowEmpty,
     value: shown === '' ? '' : round(shown, 1),
     step,
     suffix: `°${unit}`,
