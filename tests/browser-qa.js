@@ -45,6 +45,9 @@
 
   /** Type into a field the way a keyboard does: focus, then one key at a time. */
   async function typeInto(el, text, { clearFirst = true } = {}) {
+    // A field inside a closed foldout cannot be focused, and a hidden input is
+    // not something a person can type into. Open the way to it first.
+    for (let d = el.closest('details'); d; d = d.parentElement?.closest('details')) d.open = true;
     el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
     el.focus();
     if (clearFirst) {
@@ -289,6 +292,41 @@
       ? Number(evenly[1]) * Number(evenly[2])
       : (doseText.match(/[\d.]+/g) || []).map(Number).reduce((a, b) => a + b, 0);
     check('J12.3 doses sum to the bassinage', Math.abs(doseSum - bass) < 0.01, `${doseText} -> ${doseSum} vs ${bass}`);
+
+    /* ------------------------------- J15 -------------------------------- */
+    await goTab(1);
+    const targetField = $$('#main label.field').find((l) => l.querySelector('.field-label').textContent.trim() === 'Biga water temperature');
+    const hintText = targetField?.querySelector('.hint')?.textContent || '';
+    const bounds = (hintText.match(/-?\d+/g) || []).map(Number);
+    for (const [end, value] of [['low', bounds[0]], ['high', bounds[1]]]) {
+      const el = targetField.querySelector('input');
+      await typeInto(el, String(value));
+      const verdict = $$('#main label.field')
+        .find((l) => l.querySelector('.field-label').textContent.trim() === 'Biga water temperature')
+        ?.querySelector('.pill')?.textContent;
+      check(`J15.1 the ${end} end of "${hintText.trim()}" reads as on target`, verdict === 'On target', `${value} -> ${verdict}`);
+    }
+
+    // Enter must finish the field, not hand focus to whatever comes next.
+    const enterField = $$('#main input[type=number]')[0];
+    enterField.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    enterField.focus();
+    const scrollBefore = window.scrollY;
+    const ev = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    enterField.dispatchEvent(ev);
+    await sleep();
+    check('J15.3 Enter finishes the field and stays put',
+      ev.defaultPrevented && document.activeElement !== enterField && window.scrollY === scrollBefore,
+      `prevented ${ev.defaultPrevented}, focus left ${document.activeElement !== enterField}, scroll ${scrollBefore} -> ${window.scrollY}`);
+
+    // A foldout must survive a redraw, or it snaps shut mid-edit.
+    await goTab(0);
+    const fold = $$('#main details')[0];
+    fold.open = true;
+    const summary = fold.querySelector('summary').textContent;
+    await typeInto(byKey('Salt'), '2.9');
+    const still = $$('#main details').find((d) => d.querySelector('summary').textContent === summary);
+    check('J15.4 an open foldout stays open through a redraw', !!still?.open, `"${summary}" ${still?.open ? 'still open' : 'CLOSED'}`);
 
     /* ------------------------------- J13 -------------------------------- */
     await goTab(0);

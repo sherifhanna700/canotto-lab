@@ -1,17 +1,17 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe, isDirty, saveCurrent, discardCurrent } from './lib/store.js?v=589c615b';
-import { readRecipeLink } from './lib/share.js?v=589c615b';
-import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=589c615b';
-import { h, $, icon, clear, toast } from './lib/ui.js?v=589c615b';
-import { computeRecipe } from './model/dough.js?v=589c615b';
-import { solveSchedule, activeSteps } from './model/protocol.js?v=589c615b';
+import { load, subscribe, update, addRecipe, isDirty, saveCurrent, discardCurrent } from './lib/store.js?v=15b611c0';
+import { readRecipeLink } from './lib/share.js?v=15b611c0';
+import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=15b611c0';
+import { h, $, icon, clear, toast } from './lib/ui.js?v=15b611c0';
+import { computeRecipe } from './model/dough.js?v=15b611c0';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=15b611c0';
 
-import renderRecipe from './views/recipe.js?v=589c615b';
-import renderProtocol from './views/protocol.js?v=589c615b';
-import renderBake from './views/bake.js?v=589c615b';
-import renderLog from './views/log.js?v=589c615b';
-import renderSetup from './views/setup.js?v=589c615b';
+import renderRecipe from './views/recipe.js?v=15b611c0';
+import renderProtocol from './views/protocol.js?v=15b611c0';
+import renderBake from './views/bake.js?v=15b611c0';
+import renderLog from './views/log.js?v=15b611c0';
+import renderSetup from './views/setup.js?v=15b611c0';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
@@ -107,6 +107,25 @@ function captureFocus() {
     // Number inputs do not expose a selection in every browser.
   }
   return snap;
+}
+
+/*
+ * Foldouts stay open across a redraw.
+ *
+ * The screen is rebuilt from scratch each time, so a details element opened by
+ * the baker came back closed on the next keystroke, taking whatever they were
+ * reading with it. Remembered by summary text, which is stable and unique
+ * within a screen.
+ */
+function captureFoldouts(root) {
+  return new Set([...root.querySelectorAll('details[open]')].map((d) => d.querySelector('summary')?.textContent));
+}
+
+function restoreFoldouts(root, open) {
+  if (!open.size) return;
+  for (const d of root.querySelectorAll('details')) {
+    if (open.has(d.querySelector('summary')?.textContent)) d.open = true;
+  }
 }
 
 /** Disambiguate repeated labels, such as the Share field on each flour row. */
@@ -222,10 +241,22 @@ export function render() {
    * watching the gram table follow a hydration change is worth having and a
    * numeric keypad has no state to lose.
    */
-  if (typingIn && main.contains(typingIn)) return;
-  if (draggingSlider && main.contains(draggingSlider)) return;
+  /*
+   * Both suspensions are self-healing.
+   *
+   * They are lifted by focusout and pointerup, and if either never arrives,
+   * because the element was removed or the window lost focus, the app would
+   * stop redrawing altogether and look dead. So the guard also checks that the
+   * thing it is protecting is still there and still being interacted with.
+   */
+  if (typingIn && (!main.contains(typingIn) || document.activeElement !== typingIn)) typingIn = null;
+  if (draggingSlider && !main.contains(draggingSlider)) draggingSlider = null;
+
+  if (typingIn) return;
+  if (draggingSlider) return;
 
   const snap = captureFocus();
+  const openFoldouts = captureFoldouts(main);
   const ctx = context();
   renderTabs();
   renderProgress(ctx);
@@ -247,6 +278,7 @@ export function render() {
   main.replaceChildren(next);
 
   assignKeys(main);
+  restoreFoldouts(main, openFoldouts);
   restoreFocus(main, snap);
   renderSaveBar();
 }
@@ -359,6 +391,20 @@ window.addEventListener('error', (e) => {
 
 // Suspend redraws while a prose field has focus, and catch up on leaving it.
 // focusin and focusout are used because focus and blur do not bubble.
+/*
+ * Enter finishes a field rather than navigating away from it.
+ *
+ * With no form to submit, the browser was free to hand Enter to the next
+ * focusable control, which scrolled the page to somewhere unrelated. Blurring
+ * commits the value, closes the keyboard, and leaves the page where it is.
+ */
+$('#main').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.target.tagName === 'TEXTAREA') return;
+  if (!['INPUT', 'SELECT'].includes(e.target.tagName)) return;
+  e.preventDefault();
+  e.target.blur();
+});
+
 $('#main').addEventListener('focusin', (e) => {
   if (isTextEntry(e.target)) typingIn = e.target;
 });

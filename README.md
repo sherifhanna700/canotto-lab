@@ -148,7 +148,7 @@ what a person actually does with the app, and `tests/browser-qa.js` executes it
 in a real browser against the running build. Load the app, paste that file into
 the console and run `await canottoQA()`. It drives every number and text field
 the way a keyboard does, drags the sliders, builds a recipe, files a bake,
-exports it and checks the arithmetic on screen. 90 checks, a few seconds.
+exports it and checks the arithmetic on screen. 96 checks, a few seconds.
 
 That split exists because nearly every defect in this app has been an
 interaction defect rather than a maths one: a field that fought the person

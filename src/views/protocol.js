@@ -1,14 +1,14 @@
 // Protocol: the schedule solved backwards from your launch time, and the
 // 19 steps with the measurements you take as you go.
 
-import { h, card, numberField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=589c615b';
-import { update, editCurrent, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=589c615b';
-import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=589c615b';
-import { fermentUnits, ripeness, ripenessVerdict } from '../model/ferment.js?v=589c615b';
-import { convertYeast } from '../model/dough.js?v=589c615b';
-import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=589c615b';
-import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=589c615b';
-import { tempField, } from './common.js?v=589c615b';
+import { h, card, numberField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=15b611c0';
+import { update, editCurrent, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=15b611c0';
+import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=15b611c0';
+import { fermentUnits, ripeness, ripenessVerdict } from '../model/ferment.js?v=15b611c0';
+import { convertYeast } from '../model/dough.js?v=15b611c0';
+import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=15b611c0';
+import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=15b611c0';
+import { tempField, } from './common.js?v=15b611c0';
 
 const METRIC_DEFS = {
   ambientTempC: { label: 'Ambient temperature', kind: 'temp', hint: 'Where the dough is sitting right now' },
@@ -184,8 +184,19 @@ function metricField(ctx, key) {
     const hint = def.target ? `target ${fmtTemp(def.target[0], u)} to ${fmtTemp(def.target[1], u)}` : def.hint;
     const node = tempField({ allowEmpty: true, label: def.label, valueC: val, unit: u, step: 1, hint, onChange: setVal });
     if (def.target && Number.isFinite(val)) {
-      const ok = val >= def.target[0] && val <= def.target[1];
-      node.appendChild(h('span', {}, pill(ok ? 'On target' : val < def.target[0] ? 'Below target' : 'Above target', ok ? 'good' : 'warn')));
+      /*
+       * Judge against the numbers on screen, not the ones underneath.
+       *
+       * Targets are stored in Celsius. 16 °C prints as 61 °F but is really
+       * 60.8, so entering the 61 the app itself asked for came back as above
+       * target. Rounding the bounds the same way they are displayed means the
+       * label and the verdict agree.
+       */
+      const lo = Math.round(toDisplay(def.target[0], u));
+      const hi = Math.round(toDisplay(def.target[1], u));
+      const shown = Math.round(toDisplay(val, u));
+      const ok = shown >= lo && shown <= hi;
+      node.appendChild(h('span', {}, pill(ok ? 'On target' : shown < lo ? 'Below target' : 'Above target', ok ? 'good' : 'warn')));
     }
     return node;
   }

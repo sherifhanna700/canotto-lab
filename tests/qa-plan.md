@@ -104,6 +104,16 @@ can be opened, played with, and walked away from without harm.
 1. Everything survives a reload.
 2. Impossible saved values are repaired on load rather than shown.
 
+## J15. Targets and the keyboard
+
+1. A value the app itself prints as the target reads as on target. The bounds
+   are stored in Celsius and shown in the baker's unit, so the verdict must be
+   judged against the rounded numbers on screen, not the exact ones beneath.
+2. Both ends of every target range are inclusive.
+3. Enter finishes a field: it commits, closes the keyboard, and leaves the page
+   where it was rather than jumping to the next control.
+4. A foldout the baker has opened stays open through a redraw.
+
 ## J13. Sliders
 
 1. A slider leaves vertical gestures to the page. A swipe to scroll that starts
