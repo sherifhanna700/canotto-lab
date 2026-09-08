@@ -94,8 +94,16 @@
      * help: the app holds its state in memory from load, so a dirty session
      * would produce failures that look like regressions and are not.
      */
+    /*
+     * Read what the app is actually showing, not what is in storage. The app
+     * holds its state in memory from load, so clearing storage without a
+     * reload leaves it running on the old data and every check downstream
+     * fails for the wrong reason.
+     */
+    await goTab(0);
+    const openingRows = $$('#main .item-title').length;
     const opening = stored();
-    if (opening && (opening.recipes.length > 1 || opening.bakes.length)) {
+    if (openingRows > 1 || (opening && opening.bakes.length)) {
       return {
         passed: 0,
         failed: 1,
