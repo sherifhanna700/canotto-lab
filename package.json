@@ -5,8 +5,9 @@
   "type": "module",
   "description": "Plan, run and compare contemporary canotto pizza doughs.",
   "scripts": {
-    "test": "node tools/stamp.mjs && node tests/run.mjs",
+    "test": "node tools/stamp.mjs && node tests/run.mjs && node tests/audit.mjs",
     "serve": "python3 -m http.server 8080",
-    "stamp": "node tools/stamp.mjs"
+    "stamp": "node tools/stamp.mjs",
+    "audit": "node tests/audit.mjs"
   }
 }

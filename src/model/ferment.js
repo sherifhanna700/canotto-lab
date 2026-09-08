@@ -102,8 +102,67 @@ export function ripenessVerdict(ratio) {
 }
 
 /**
- * Desired dough temperature solver.
- * Three-factor for a direct dough, four-factor when a preferment goes in cold.
+ * Specific heat, kJ per kg per K. Water carries more than twice the heat of
+ * flour for the same mass, which is exactly why a mass-weighted average is not
+ * good enough here.
+ */
+export const SPECIFIC_HEAT = { water: 4.18, flour: 1.8, other: 2.0 };
+
+/** Above this, water starts doing damage on contact. */
+export const MAX_MIX_WATER_C = 45;
+
+/**
+ * Mix water temperature, by heat balance.
+ *
+ * The usual three- and four-factor rules add and subtract temperatures as if
+ * every component weighed the same and carried the same heat. For a direct
+ * dough that is close enough. For a biga canotto it is not: the biga is most
+ * of the mass, it comes out of the fridge, and the water added at the final
+ * mix is a fifth of it. The rule of thumb answered 39 °C for a dough it cannot
+ * actually reach, which is worse than no answer.
+ *
+ * This weighs each component by mass and specific heat, and says plainly when
+ * the target cannot be met.
+ */
+export function mixWater({ weigh, prefermentTempC, flourTempC, frictionC = 9, ddtC, maxWaterTempC = MAX_MIX_WATER_C }) {
+  const { water: cw, flour: cf, other: co } = SPECIFIC_HEAT;
+
+  // Heat capacity of everything already in the bowl, and of the water going in.
+  const inBowl = [
+    { c: weigh.flour.biga * cf, t: prefermentTempC },
+    { c: weigh.water.biga * cw, t: prefermentTempC },
+    { c: weigh.flour.final * cf, t: flourTempC },
+    { c: (weigh.salt + weigh.oil) * co, t: flourTempC },
+  ];
+  const addedWaterCapacity = weigh.water.final * cw;
+  const totalCapacity = inBowl.reduce((sum, x) => sum + x.c, 0) + addedWaterCapacity;
+  const heldHeat = inBowl.reduce((sum, x) => sum + x.c * x.t, 0);
+
+  /** Where the dough lands for a given water temperature. */
+  const doughAt = (waterC) => (heldHeat + addedWaterCapacity * waterC) / totalCapacity + frictionC;
+
+  if (addedWaterCapacity <= 0) {
+    return { reachable: false, requiredC: NaN, useC: NaN, doughAt, landsAtC: doughAt(0), noWater: true };
+  }
+
+  const requiredC = (totalCapacity * (ddtC - frictionC) - heldHeat) / addedWaterCapacity;
+  const reachable = requiredC <= maxWaterTempC && requiredC >= 0;
+  const useC = Math.max(0, Math.min(requiredC, maxWaterTempC));
+
+  return {
+    reachable,
+    requiredC,
+    useC,
+    landsAtC: doughAt(useC),
+    doughAt,
+    tooCold: requiredC > maxWaterTempC,
+    tooWarm: requiredC < 0,
+  };
+}
+
+/**
+ * The old three- and four-factor rule, kept because it is what most recipes
+ * quote and it is a reasonable check for a direct dough.
  */
 export function waterTempFor({ ddtC, flourTempC, roomTempC, frictionC = 9, prefermentTempC = null }) {
   const factors = prefermentTempC === null ? 3 : 4;

@@ -142,7 +142,7 @@ npm test          # stamps the build, then runs the model tests
 npm run stamp     # cache busting only
 ```
 
-Two layers of testing. `npm test` covers the model: the dough maths, the
+Three layers of testing. `npm test` covers the model: the dough maths, the
 fermentation model, the schedule solver, the schemas. `tests/qa-plan.md` covers
 what a person actually does with the app, and `tests/browser-qa.js` executes it
 in a real browser against the running build. Load the app, paste that file into
@@ -150,10 +150,19 @@ the console and run `await canottoQA()`. It drives every number and text field
 the way a keyboard does, drags the sliders, builds a recipe, files a bake,
 exports it and checks the arithmetic on screen. 96 checks, a few seconds.
 
-That split exists because nearly every defect in this app has been an
-interaction defect rather than a maths one: a field that fought the person
-typing in it, a screen that rebuilt itself under a keyboard, a button that
-stayed dead when its inputs moved. Unit tests could not have caught any of them.
+`npm run audit` is the third. The unit tests check that the maths does what it
+was written to do; the audit checks that what it does could be true at all,
+across the range of doughs someone might build. No negative water, no step
+scheduled after the bake, no weights that fail to sum to the batch, no advice
+that cannot be followed. Where it can, it verifies an answer from first
+principles rather than asking the same function twice.
+
+That split exists because the defects have come in three kinds. Interaction
+faults: a field that fought the person typing in it, a screen that rebuilt
+itself under a keyboard, a button that stayed dead when its inputs moved.
+Presentation faults: figures rounded one way for display and another for
+comparison. And one that was neither, where the maths was faithful to the
+textbook and still physically wrong, which is what the audit exists to catch.
 
 `npm run stamp` writes a content hash onto every relative import and onto the entry
 script and stylesheet, so a deploy is a new set of URLs and no browser can serve a
@@ -170,7 +179,7 @@ src/model/            pure logic, no DOM
   units.js            temperature and mass formatting
   dough.js            baker's percentage engine
   flours.js           flour library, blend maths, W bands
-  ferment.js          the fermentation model
+  ferment.js          the fermentation model and the mix water heat balance
   advisor.js          flour to schedule proposals
   protocol.js         the 19 steps and the schedule solver
   recipes.js          named recipes and scoring
@@ -183,6 +192,9 @@ schema/               published JSON Schemas for the exported data
 tools/stamp.mjs       cache busting
 tools/validate-schema.mjs  the subset validator the tests use
 tests/run.mjs         model tests
+tests/audit.mjs       sanity sweep over the model's outputs
+tests/qa-plan.md      what a person does with the app
+tests/browser-qa.js   that plan, executed in a browser
 ```
 
 The model layer has no DOM dependency, which is why it can be tested in Node and why the
