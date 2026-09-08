@@ -15,18 +15,20 @@ https://sherifhanna700.github.io/canotto-lab/schema/
 Three layers, each built on the one below, so nothing is described twice.
 
 ```
-common          shared pieces: a temperature, a percentage, a score,
-   |            a flour entry, the header every file carries
-   |
-   +-- dough        \  the two halves of a recipe
-   +-- protocol     /
-   |     |
-   |     +-- recipe        one named recipe
-   |     +-- bake          one logged bake
-   |           |
-   +-----------+-- recipes    a set of recipes
-               +-- log        a bake log
-               +-- export     a full backup
+common
+  |   the pieces every schema uses: a temperature,
+  |   a percentage, a score, a flour entry, and the
+  |   header on every exported file
+  |
+  +-- dough      the two halves
+  +-- protocol   of a recipe
+  |     |
+  |     +-- recipe   one named recipe
+  |     +-- bake     one logged bake
+  |           |
+  +-----------+-- recipes   a set of recipes
+              +-- log       a bake log
+              +-- export    a full backup
 ```
 
 `common` is never validated against directly. The three documents at the bottom
