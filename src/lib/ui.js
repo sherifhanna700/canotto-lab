@@ -94,11 +94,11 @@ export function sliderField({ label, value, min, max, step = 1, onInput, format 
   return h('label', { class: 'field slider' }, h('span', { class: 'field-label' }, label, out), input);
 }
 
-export function textField({ label, value, onInput, placeholder, rows }) {
+export function textField({ label, value, onInput, placeholder, rows, autocapitalize }) {
   const key = { k: String(label) };
   const input = rows
-    ? h('textarea', { rows, placeholder, dataset: key, onInput: (e) => onInput(e.target.value) }, value || '')
-    : h('input', { type: 'text', value: value || '', placeholder, dataset: key, onInput: (e) => onInput(e.target.value) });
+    ? h('textarea', { rows, placeholder, dataset: key, autocapitalize, onInput: (e) => onInput(e.target.value) }, value || '')
+    : h('input', { type: 'text', value: value || '', placeholder, dataset: key, autocapitalize, onInput: (e) => onInput(e.target.value) });
   return h('label', { class: 'field' }, h('span', { class: 'field-label' }, label), h('span', { class: 'field-input' }, input));
 }
 

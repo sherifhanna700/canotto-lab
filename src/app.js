@@ -1,17 +1,17 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe } from './lib/store.js?v=1c325d9e';
-import { readRecipeLink } from './lib/share.js?v=1c325d9e';
-import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=1c325d9e';
-import { h, $, icon } from './lib/ui.js?v=1c325d9e';
-import { computeRecipe } from './model/dough.js?v=1c325d9e';
-import { solveSchedule, activeSteps } from './model/protocol.js?v=1c325d9e';
+import { load, subscribe, update, addRecipe } from './lib/store.js?v=181f24c3';
+import { readRecipeLink } from './lib/share.js?v=181f24c3';
+import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=181f24c3';
+import { h, $, icon } from './lib/ui.js?v=181f24c3';
+import { computeRecipe } from './model/dough.js?v=181f24c3';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=181f24c3';
 
-import renderRecipe from './views/recipe.js?v=1c325d9e';
-import renderProtocol from './views/protocol.js?v=1c325d9e';
-import renderBake from './views/bake.js?v=1c325d9e';
-import renderLog from './views/log.js?v=1c325d9e';
-import renderSetup from './views/setup.js?v=1c325d9e';
+import renderRecipe from './views/recipe.js?v=181f24c3';
+import renderProtocol from './views/protocol.js?v=181f24c3';
+import renderBake from './views/bake.js?v=181f24c3';
+import renderLog from './views/log.js?v=181f24c3';
+import renderSetup from './views/setup.js?v=181f24c3';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
@@ -79,6 +79,20 @@ export function go(tabId) {
  * lands and the rest go nowhere: typing 68 stored 6. Each field carries a
  * stable key, and the caret is put back where it was.
  */
+/**
+ * Is this a field where the keyboard carries state we must not destroy?
+ *
+ * Text entry on a phone keeps shift, auto-capitalisation and any in-progress
+ * composition against the element itself. Replacing the element throws all of
+ * that away, which is why a capital letter would not stick: the node it was
+ * typed into no longer existed by the time the next key arrived.
+ */
+function isTextEntry(el) {
+  if (!el) return false;
+  if (el.tagName === 'TEXTAREA') return true;
+  return el.tagName === 'INPUT' && ['text', 'search', 'email', 'url'].includes(el.type);
+}
+
 function captureFocus() {
   const el = document.activeElement;
   if (!el || !el.dataset?.key) return null;
@@ -174,7 +188,29 @@ function renderProgress(ctx) {
   $('#progress-fill').style.width = `${steps.length ? (done / steps.length) * 100 : 0}%`;
 }
 
+/**
+ * The prose field currently being typed into, if any.
+ *
+ * Tracked explicitly rather than read from document.activeElement at render
+ * time, because focus moves at its own pace: during a focusout the browser
+ * still reports the old element as focused, so an inferred check skipped the
+ * very redraw it was meant to trigger.
+ */
+let typingIn = null;
+
 export function render() {
+  const main = $('#main');
+
+  /*
+   * Never rebuild the screen underneath someone typing prose.
+   *
+   * The model has already been updated, so nothing is lost; only the redraw
+   * waits until they leave the field. Number fields still redraw live, because
+   * watching the gram table follow a hydration change is worth having and a
+   * numeric keypad has no state to lose.
+   */
+  if (typingIn && main.contains(typingIn)) return;
+
   const snap = captureFocus();
   const ctx = context();
   renderTabs();
@@ -186,7 +222,6 @@ export function render() {
   // Build off-document, then swap in one mutation. Replacing children one at a
   // time lets the browser paint a half-built screen, and leaves it juggling
   // raster tiles for content that is on its way out.
-  const main = $('#main');
   const next = document.createDocumentFragment();
   const tab = TABS.find((t) => t.id === activeTab);
   try {
@@ -261,6 +296,18 @@ if (foot) foot.textContent = `${foot.textContent} Build ${BUILD}.`;
 // otherwise look like a button that simply does nothing.
 window.addEventListener('error', (e) => {
   console.error('Canotto Lab:', e.message);
+});
+
+// Suspend redraws while a prose field has focus, and catch up on leaving it.
+// focusin and focusout are used because focus and blur do not bubble.
+$('#main').addEventListener('focusin', (e) => {
+  if (isTextEntry(e.target)) typingIn = e.target;
+});
+
+$('#main').addEventListener('focusout', (e) => {
+  if (e.target !== typingIn) return;
+  typingIn = null;
+  render();
 });
 
 subscribe(() => render());

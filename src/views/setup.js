@@ -1,20 +1,20 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=1c325d9e';
-import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=1c325d9e';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=1c325d9e';
-import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=1c325d9e';
-import { scheduleStages } from '../model/protocol.js?v=1c325d9e';
-import { convertYeast } from '../model/dough.js?v=1c325d9e';
-import { overallScore } from '../model/recipes.js?v=1c325d9e';
-import { SOURCES, FLOURS } from '../model/flours.js?v=1c325d9e';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=1c325d9e';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=1c325d9e';
-import { lineChart } from '../lib/charts.js?v=1c325d9e';
-import * as cloud from '../lib/cloud.js?v=1c325d9e';
-import { tempField, tempDeltaField } from './common.js?v=1c325d9e';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=1c325d9e';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=181f24c3';
+import { update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=181f24c3';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=181f24c3';
+import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=181f24c3';
+import { scheduleStages } from '../model/protocol.js?v=181f24c3';
+import { convertYeast } from '../model/dough.js?v=181f24c3';
+import { overallScore } from '../model/recipes.js?v=181f24c3';
+import { SOURCES, FLOURS } from '../model/flours.js?v=181f24c3';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=181f24c3';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=181f24c3';
+import { lineChart } from '../lib/charts.js?v=181f24c3';
+import * as cloud from '../lib/cloud.js?v=181f24c3';
+import { tempField, tempDeltaField } from './common.js?v=181f24c3';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=181f24c3';
 
 let cloudUser = null;
 let cloudStatus = '';
@@ -57,8 +57,8 @@ function equipmentCard(ctx) {
     h(
       'div',
       { class: 'row' },
-      textField({ label: 'Make', value: E.ovenMake, placeholder: 'Gozney, Ooni, Alfa…', onInput: (v) => setEq({ ovenMake: v }) }),
-      textField({ label: 'Model', value: E.ovenModel, placeholder: 'Dome S1, Koda 16…', onInput: (v) => setEq({ ovenModel: v }) })
+      textField({ label: 'Make', value: E.ovenMake, placeholder: 'Gozney, Ooni, Alfa…', autocapitalize: 'words', onInput: (v) => setEq({ ovenMake: v }) }),
+      textField({ label: 'Model', value: E.ovenModel, placeholder: 'Dome S1, Koda 16…', autocapitalize: 'words', onInput: (v) => setEq({ ovenModel: v }) })
     ),
     h(
       'div',
@@ -83,8 +83,8 @@ function equipmentCard(ctx) {
     h(
       'div',
       { class: 'row' },
-      textField({ label: 'Make', value: E.mixerMake, placeholder: 'Famag, Sunmix…', onInput: (v) => setEq({ mixerMake: v }) }),
-      textField({ label: 'Model', value: E.mixerModel, placeholder: 'IM-5S, Sun 6…', onInput: (v) => setEq({ mixerModel: v }) })
+      textField({ label: 'Make', value: E.mixerMake, placeholder: 'Famag, Sunmix…', autocapitalize: 'words', onInput: (v) => setEq({ mixerMake: v }) }),
+      textField({ label: 'Model', value: E.mixerModel, placeholder: 'IM-5S, Sun 6…', autocapitalize: 'words', onInput: (v) => setEq({ mixerModel: v }) })
     ),
     tempDeltaField({
       label: 'Friction allowance',

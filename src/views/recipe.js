@@ -5,19 +5,19 @@
 // Edits save straight onto the selected recipe, so there is no save step and
 // the name in the list is always the name in the field.
 
-import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=1c325d9e';
-import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download, exportRecipesJSON, exportRecipeJSON } from '../lib/store.js?v=1c325d9e';
-import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=1c325d9e';
-import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=1c325d9e';
-import { scheduleStages, solveSchedule } from '../model/protocol.js?v=1c325d9e';
-import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, waterTempFor } from '../model/ferment.js?v=1c325d9e';
-import { suggestPlan, reviewPlan, defaultLeadHours } from '../model/advisor.js?v=1c325d9e';
-import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js?v=1c325d9e';
-import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=1c325d9e';
-import { recipeLink, copyText } from '../lib/share.js?v=1c325d9e';
-import { findMixer, mixerLabel } from '../model/equipment.js?v=1c325d9e';
-import { tempField, tempDeltaField, ratingBadge, stars } from './common.js?v=1c325d9e';
-import { go } from '../app.js?v=1c325d9e';
+import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=181f24c3';
+import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download, exportRecipesJSON, exportRecipeJSON } from '../lib/store.js?v=181f24c3';
+import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=181f24c3';
+import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=181f24c3';
+import { scheduleStages, solveSchedule } from '../model/protocol.js?v=181f24c3';
+import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, waterTempFor } from '../model/ferment.js?v=181f24c3';
+import { suggestPlan, reviewPlan, defaultLeadHours } from '../model/advisor.js?v=181f24c3';
+import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js?v=181f24c3';
+import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=181f24c3';
+import { recipeLink, copyText } from '../lib/share.js?v=181f24c3';
+import { findMixer, mixerLabel } from '../model/equipment.js?v=181f24c3';
+import { tempField, tempDeltaField, ratingBadge, stars } from './common.js?v=181f24c3';
+import { go } from '../app.js?v=181f24c3';
 
 const setRecipe = (patch) => editCurrent((c) => Object.assign(c.recipe, patch));
 const setSchedule = (patch) => editCurrent((c) => Object.assign(c.schedule, patch));
@@ -104,7 +104,7 @@ function createCard(ctx) {
     'Tell it what you have. It works out the ratios, the timings and the protocol.',
 
     h('h3', { style: { fontSize: '.86rem' } }, '1. Name it'),
-    textField({ label: 'Recipe name', value: d.name, placeholder: `${blendLabel(d.flours)}, ${Math.round(lead)} hour`, onInput: (v) => setDraft({ name: v }) }),
+    textField({ label: 'Recipe name', value: d.name, autocapitalize: 'sentences', placeholder: `${blendLabel(d.flours)}, ${Math.round(lead)} hour`, onInput: (v) => setDraft({ name: v }) }),
 
     h('h3', { style: { fontSize: '.86rem', marginTop: '4px' } }, '2. Pick the flour'),
     ...flourRows,
@@ -341,7 +341,7 @@ function inputsCard(ctx) {
   return card(
     'Inputs',
     'What you have and what you want. Everything below this card is worked out from these.',
-    textField({ label: 'Recipe name', value: s.current.title, onInput: (v) => editCurrent((cc) => { cc.title = v; }) }),
+    textField({ label: 'Recipe name', value: s.current.title, autocapitalize: 'sentences', onInput: (v) => editCurrent((cc) => { cc.title = v; }) }),
     ...flourRows,
     h(
       'div',
