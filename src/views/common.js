@@ -1,8 +1,8 @@
 // Shared view pieces.
 
-import { h, numberField, selectField, pill } from '../lib/ui.js?v=14919de0';
-import { toDisplay, fromDisplay, deltaToDisplay, deltaFromDisplay, round } from '../model/units.js?v=14919de0';
-import { SCORE_KEYS, overallScore } from '../model/recipes.js?v=14919de0';
+import { h, numberField, selectField, pill } from '../lib/ui.js?v=f38a4426';
+import { toDisplay, fromDisplay, deltaToDisplay, deltaFromDisplay, round } from '../model/units.js?v=f38a4426';
+import { SCORE_KEYS, overallScore } from '../model/recipes.js?v=f38a4426';
 
 /** A temperature input that stores °C but shows whatever unit is selected. */
 export function tempField({ label, valueC, unit, onChange, hint, step = 1, min, max, allowEmpty = false }) {

@@ -221,6 +221,26 @@
     await sleep(150);
     check('J7.1 times follow the launch time', firstTime() !== t0, `${t0} -> ${firstTime()}`);
 
+    // A mobile date picker commits with change, not input. Both must work.
+    const t1 = firstTime();
+    launch.value = '2026-10-03T12:30';
+    launch.dispatchEvent(new Event('change', { bubbles: true }));
+    await sleep();
+    check('J7.1 a date picker commit is honoured', firstTime() !== t1, `${t1} -> ${firstTime()}`);
+
+    // And the phases drive the start time.
+    await goTab(0);
+    const proof = byKey('Cold proof');
+    const startBefore = () => { const c = $$('#main .stat').find((x) => x.querySelector('.stat-label').textContent === 'Start mixing'); return c?.querySelector('.stat-value').textContent; };
+    await typeInto(proof, String(Number(proof.value) - 24));
+    await goTab(1);
+    const startAfter = startBefore();
+    await goTab(0);
+    await typeInto(byKey('Cold proof'), String(Number(byKey('Cold proof').value) + 24));
+    await goTab(1);
+    check('J7.2 shortening the cold proof moves the first mix later',
+      startAfter !== startBefore(), `${startAfter} with 24 h less, ${startBefore()} with it back`);
+
     const beforeChecks = $('#progress-text').textContent;
     $('#main .step-check').click();
     await sleep(150);

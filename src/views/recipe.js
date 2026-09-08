@@ -5,19 +5,19 @@
 // Edits save straight onto the selected recipe, so there is no save step and
 // the name in the list is always the name in the field.
 
-import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=14919de0';
-import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download, exportRecipesJSON, exportRecipeJSON } from '../lib/store.js?v=14919de0';
-import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=14919de0';
-import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=14919de0';
-import { scheduleStages, solveSchedule } from '../model/protocol.js?v=14919de0';
-import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, waterTempFor } from '../model/ferment.js?v=14919de0';
-import { suggestPlan, reviewPlan, defaultLeadHours } from '../model/advisor.js?v=14919de0';
-import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js?v=14919de0';
-import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=14919de0';
-import { recipeLink, copyText } from '../lib/share.js?v=14919de0';
-import { findMixer, mixerLabel } from '../model/equipment.js?v=14919de0';
-import { tempField, tempDeltaField, ratingBadge, stars } from './common.js?v=14919de0';
-import { go } from '../app.js?v=14919de0';
+import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=f38a4426';
+import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download, exportRecipesJSON, exportRecipeJSON } from '../lib/store.js?v=f38a4426';
+import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=f38a4426';
+import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=f38a4426';
+import { scheduleStages, solveSchedule } from '../model/protocol.js?v=f38a4426';
+import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, waterTempFor } from '../model/ferment.js?v=f38a4426';
+import { suggestPlan, reviewPlan, defaultLeadHours } from '../model/advisor.js?v=f38a4426';
+import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js?v=f38a4426';
+import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=f38a4426';
+import { recipeLink, copyText } from '../lib/share.js?v=f38a4426';
+import { findMixer, mixerLabel } from '../model/equipment.js?v=f38a4426';
+import { tempField, tempDeltaField, ratingBadge, stars } from './common.js?v=f38a4426';
+import { go } from '../app.js?v=f38a4426';
 
 const setRecipe = (patch) => editCurrent((c) => Object.assign(c.recipe, patch));
 const setSchedule = (patch) => editCurrent((c) => Object.assign(c.schedule, patch));

@@ -1,14 +1,14 @@
 // Protocol: the schedule solved backwards from your launch time, and the
 // 19 steps with the measurements you take as you go.
 
-import { h, card, numberField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=14919de0';
-import { update, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=14919de0';
-import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=14919de0';
-import { fermentUnits, ripeness, ripenessVerdict } from '../model/ferment.js?v=14919de0';
-import { convertYeast } from '../model/dough.js?v=14919de0';
-import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=14919de0';
-import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=14919de0';
-import { tempField } from './common.js?v=14919de0';
+import { h, card, numberField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=f38a4426';
+import { update, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=f38a4426';
+import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=f38a4426';
+import { fermentUnits, ripeness, ripenessVerdict } from '../model/ferment.js?v=f38a4426';
+import { convertYeast } from '../model/dough.js?v=f38a4426';
+import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=f38a4426';
+import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=f38a4426';
+import { tempField } from './common.js?v=f38a4426';
 
 const METRIC_DEFS = {
   ambientTempC: { label: 'Ambient temperature', kind: 'temp', hint: 'Where the dough is sitting right now' },
@@ -35,6 +35,13 @@ function launchDate(ctx) {
   const d = new Date(ctx.s.current.launchISO);
   return Number.isNaN(d.getTime()) ? new Date() : d;
 }
+
+const setLaunch = (value) => {
+  if (!value) return;
+  update((st) => {
+    st.current.launchISO = value;
+  });
+};
 
 function scheduleCard(ctx) {
   const { s, u, S, sched } = ctx;
@@ -76,7 +83,12 @@ function scheduleCard(ctx) {
         h('span', { class: 'field-input' }, h('input', {
           type: 'datetime-local',
           value: s.current.launchISO,
-          onInput: (e) => update((st) => { st.current.launchISO = e.target.value; }),
+          dataset: { k: 'Launch the first pizza' },
+          // Both events, deliberately. Typing a date fires input, but a mobile
+          // date picker commits with change and may never fire input at all,
+          // which left the whole schedule sitting on the old launch time.
+          onInput: (e) => setLaunch(e.target.value),
+          onChange: (e) => setLaunch(e.target.value),
         }))
       ),
       numberField({ label: 'Bake time', value: S.bakeSec, min: 20, max: 600, step: 5, suffix: 'sec', onInput: (v) => update((st) => { st.current.schedule.bakeSec = v; }) })
