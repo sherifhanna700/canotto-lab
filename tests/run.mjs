@@ -426,7 +426,7 @@ test('a temperature difference scales without the freezing offset', () => {
 /* -------------------------- published schemas --------------------------- */
 
 const schemas = await loadSchemas(new URL('../schema', import.meta.url).pathname);
-const check = (data, file) => validate(data, schemas[file], schemas);
+const check = (data, file) => validate(data, schemas[file], schemas, '$', schemas[file].$id);
 
 /** A bake shaped exactly as the app files one. */
 function sampleBake() {
@@ -450,6 +450,7 @@ function sampleBake() {
 }
 
 const SCHEMA_FILES = [
+  'common.schema.json',
   'dough.schema.json',
   'protocol.schema.json',
   'recipe.schema.json',
@@ -533,6 +534,33 @@ test('an export envelope validates, and names its own schema', () => {
   const errors = check(file, 'export.schema.json');
   assert.deepEqual(errors, [], errors.join('\n'));
   assert.ok(file.$schema.endsWith('/export.schema.json'), 'an export should say what it is');
+});
+
+test('the schemas compose rather than repeat themselves', async () => {
+  const { readFileSync } = await import('node:fs');
+  const dir = new URL('../schema', import.meta.url).pathname;
+  for (const name of SCHEMA_FILES) {
+    if (name === 'common.schema.json') continue;
+    const text = readFileSync(`${dir}/${name}`, 'utf8');
+    assert.ok(text.includes('common.schema.json'), `${name} should build on the shared definitions`);
+  }
+  // The file header is defined once and composed, not pasted into each document.
+  for (const name of ['log.schema.json', 'recipes.schema.json', 'export.schema.json']) {
+    const doc = schemas[name];
+    assert.ok(Array.isArray(doc.allOf), `${name} should compose the envelope with allOf`);
+    assert.ok(doc.allOf.some((s) => String(s.$ref || '').endsWith('#/$defs/envelope')), `${name} should reference the shared envelope`);
+    assert.equal(readFileSync(`${dir}/${name}`, 'utf8').includes('"exportedAt"'), false, `${name} should not redeclare the header`);
+  }
+});
+
+test('a document schema pins its own identity, so a log cannot pass as a backup', () => {
+  const wrong = {
+    $schema: `${SCHEMA_BASE}/export.schema.json`,
+    app: 'Canotto Lab',
+    exportedAt: new Date().toISOString(),
+    bakes: [sampleBake()],
+  };
+  assert.ok(check(wrong, 'log.schema.json').length, 'a file claiming to be a backup should not validate as a log');
 });
 
 test('the schemas actually reject malformed data', () => {

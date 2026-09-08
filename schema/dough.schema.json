@@ -5,42 +5,116 @@
   "description": "The dough itself, as baker's percentages against total flour, plus the batch size and the flour blend.",
   "type": "object",
   "properties": {
-    "method": { "type": "string", "enum": ["biga"], "description": "Only biga is supported. The field exists so a reader can tell." },
-    "balls": { "type": "integer", "minimum": 1, "description": "How many dough balls." },
-    "ballWeight": { "type": "number", "minimum": 1, "description": "Weight of one ball, in grams." },
-    "frozenBalls": { "type": "integer", "minimum": 0, "description": "How many of them go to the freezer. Above zero, the freeze buffer is added to the inoculation." },
-    "wastePct": { "type": "number", "minimum": 0, "description": "Extra dough mixed to cover losses." },
-    "hydrationPct": { "type": "number", "minimum": 0, "description": "Total water as a percentage of total flour." },
-    "saltPct": { "type": "number", "minimum": 0 },
-    "oilPct": { "type": "number", "minimum": 0 },
-    "sugarPct": { "type": "number", "minimum": 0 },
-    "maltPct": { "type": "number", "minimum": 0, "description": "Diastatic malt." },
-    "yeastType": { "type": "string", "enum": ["idy", "ady", "fresh"], "description": "Instant dry, active dry, or fresh. Relative potency is 1 : 1.25 : 3." },
-    "baseYeastPct": { "type": "number", "minimum": 0, "description": "Inoculation before any freeze buffer, in the chosen yeast type." },
-    "freezeBufferPct": { "type": "number", "minimum": 0, "description": "Added to the inoculation only when frozenBalls is above zero, to cover cells lost to freezing." },
-    "prefermentFlourPct": { "type": "number", "minimum": 0, "maximum": 100, "description": "Share of total flour that goes into the biga." },
-    "prefermentHydrationPct": { "type": "number", "minimum": 0, "description": "Water in the biga as a percentage of biga flour. Traditionally 44 to 45." },
-    "prefermentYeastShare": { "type": "number", "minimum": 0, "maximum": 1, "description": "Fraction of the total yeast that goes into the biga rather than the final mix." },
-    "saltWashShare": { "type": "number", "minimum": 0, "maximum": 1, "description": "Fraction of the final mix water held back to wash the salt in." },
-    "bassinageDoses": { "type": "integer", "minimum": 1, "description": "How many additions the bassinage water is split into." },
+    "method": {
+      "type": "string",
+      "enum": [
+        "biga"
+      ],
+      "description": "Only biga is supported. The field exists so a reader can tell."
+    },
+    "balls": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "How many dough balls."
+    },
+    "ballWeight": {
+      "type": "number",
+      "minimum": 1,
+      "description": "Weight of one ball, in grams."
+    },
+    "frozenBalls": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "How many of them go to the freezer. Above zero, the freeze buffer is added to the inoculation."
+    },
+    "wastePct": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/percent",
+      "description": "Extra dough mixed to cover losses."
+    },
+    "hydrationPct": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/percent",
+      "description": "Total water as a percentage of total flour."
+    },
+    "saltPct": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/percent",
+      "description": ""
+    },
+    "oilPct": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/percent",
+      "description": ""
+    },
+    "sugarPct": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/percent",
+      "description": ""
+    },
+    "maltPct": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/percent",
+      "description": "Diastatic malt."
+    },
+    "yeastType": {
+      "type": "string",
+      "enum": [
+        "idy",
+        "ady",
+        "fresh"
+      ],
+      "description": "Instant dry, active dry, or fresh. Relative potency is 1 : 1.25 : 3."
+    },
+    "baseYeastPct": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/percent",
+      "description": "Inoculation before any freeze buffer, in the chosen yeast type."
+    },
+    "freezeBufferPct": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/percent",
+      "description": "Added to the inoculation only when frozenBalls is above zero, to cover cells lost to freezing."
+    },
+    "prefermentFlourPct": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Share of total flour that goes into the biga."
+    },
+    "prefermentHydrationPct": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Water in the biga as a percentage of biga flour. Traditionally 44 to 45."
+    },
+    "prefermentYeastShare": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Fraction of the total yeast that goes into the biga rather than the final mix."
+    },
+    "saltWashShare": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Fraction of the final mix water held back to wash the salt in."
+    },
+    "bassinageDoses": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "How many additions the bassinage water is split into."
+    },
     "flours": {
       "type": "array",
       "minItems": 1,
       "description": "The blend. Shares are percentages and should total 100.",
       "items": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string", "description": "Identifier from the app's flour library, such as caputo-cuoco." },
-          "name": { "type": "string", "description": "Free text, for a flour that is not in the library." },
-          "pct": { "type": "number", "minimum": 0, "maximum": 100 },
-          "protein": { "type": "number", "description": "Percentage. Only needed for a flour outside the library." },
-          "w": { "type": ["number", "null"], "description": "Chopin alveograph strength. Null where the mill publishes none." },
-          "stage": { "type": "string", "enum": ["blend", "biga", "final"], "description": "Where this flour goes: split proportionally, into the biga first, or held back for the final mix." }
-        },
-        "required": ["pct"]
+        "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/flourEntry"
       }
     }
   },
-  "required": ["balls", "ballWeight", "hydrationPct", "saltPct", "yeastType", "baseYeastPct", "prefermentFlourPct", "prefermentHydrationPct", "flours"],
+  "required": [
+    "balls",
+    "ballWeight",
+    "hydrationPct",
+    "saltPct",
+    "yeastType",
+    "baseYeastPct",
+    "prefermentFlourPct",
+    "prefermentHydrationPct",
+    "flours"
+  ],
   "additionalProperties": true
 }

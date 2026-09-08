@@ -1,36 +1,75 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sherifhanna700.github.io/canotto-lab/schema/export.schema.json",
-  "title": "Canotto Lab export",
-  "description": "What the app downloads. A full backup carries everything; a recipes or log download carries only that collection.",
-  "type": "object",
-  "properties": {
-    "$schema": { "type": "string", "description": "Points back at this file, so an export says what it is." },
-    "app": { "type": "string" },
-    "exportedAt": { "type": "string", "format": "date-time" },
-    "version": { "type": "integer" },
-    "recipes": { "type": "array", "items": { "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/recipe.schema.json" } },
-    "bakes": { "type": "array", "items": { "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/bake.schema.json" } },
-    "settings": {
+  "title": "Canotto Lab full backup",
+  "description": "Everything at once: the recipe library, the bake log and the baker's settings. A restore replaces the lot.",
+  "allOf": [
+    {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/envelope"
+    },
+    {
       "type": "object",
-      "description": "Display and model preferences. Not needed to read the data.",
       "properties": {
-        "unit": { "type": "string", "enum": ["C", "F"], "description": "Display only. Stored temperatures are always Celsius." },
-        "model": {
+        "$schema": {
+          "const": "https://sherifhanna700.github.io/canotto-lab/schema/export.schema.json"
+        },
+        "version": {
+          "type": "integer"
+        },
+        "recipes": {
+          "type": "array",
+          "items": {
+            "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/recipe.schema.json"
+          }
+        },
+        "bakes": {
+          "type": "array",
+          "items": {
+            "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/bake.schema.json"
+          }
+        },
+        "settings": {
           "type": "object",
-          "description": "Constants behind the fermentation model.",
+          "description": "Display and model preferences. Not needed to read the data.",
           "properties": {
-            "refTempC": { "type": "number", "description": "One fermentation unit is one hour at this temperature." },
-            "q10Warm": { "type": "number", "description": "Rate multiplier per 10 degrees, at and above the cold break." },
-            "q10Cold": { "type": "number", "description": "Steeper multiplier below it, because a fridge slows dough more than one Q10 predicts." },
-            "coldBreakC": { "type": "number" },
-            "k": { "type": "number", "description": "Inoculation times fermentation units at ripeness. Anchored to the house protocol and recalibratable from a bake log." }
+            "unit": {
+              "type": "string",
+              "enum": [
+                "C",
+                "F"
+              ],
+              "description": "Display only. Stored temperatures are always Celsius."
+            },
+            "model": {
+              "type": "object",
+              "description": "Constants behind the fermentation model.",
+              "properties": {
+                "refTempC": {
+                  "type": "number",
+                  "description": "One fermentation unit is one hour at this temperature."
+                },
+                "q10Warm": {
+                  "type": "number",
+                  "description": "Rate multiplier per 10 degrees, at and above the cold break."
+                },
+                "q10Cold": {
+                  "type": "number",
+                  "description": "Steeper multiplier below it, because a fridge slows dough more than one Q10 predicts."
+                },
+                "coldBreakC": {
+                  "type": "number"
+                },
+                "k": {
+                  "type": "number",
+                  "description": "Inoculation times fermentation units at ripeness. Anchored to the house protocol and recalibratable from a bake log."
+                }
+              },
+              "additionalProperties": true
+            }
           },
           "additionalProperties": true
         }
-      },
-      "additionalProperties": true
+      }
     }
-  },
-  "additionalProperties": true
+  ]
 }

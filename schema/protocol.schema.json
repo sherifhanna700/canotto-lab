@@ -5,31 +5,111 @@
   "description": "The timings and temperatures of a biga canotto dough. Every duration is a parameter, and the 19-step protocol is solved backwards from the moment the first pizza goes on the deck. Temperatures are always degrees Celsius, whatever the app is displaying.",
   "type": "object",
   "properties": {
-    "bigaMixMin": { "type": "number", "minimum": 0, "description": "Dissolving the yeast and the coarse cluster mix, in minutes." },
-    "bigaRestHours": { "type": "number", "minimum": 0, "description": "Ambient rest before the biga goes cold." },
-    "bigaRoomTempC": { "type": "number", "description": "Temperature of that ambient rest." },
-    "bigaColdHours": { "type": "number", "minimum": 0, "description": "Cold hold for the biga before the final mix." },
-    "bigaFridgeTempC": { "type": "number", "description": "Temperature of the biga cold hold." },
-    "finalMixMin": { "type": "number", "minimum": 0, "description": "Final mix, from tearing the biga to the tub." },
-    "benchRest1Min": { "type": "number", "minimum": 0, "description": "Rest before the first coil fold." },
-    "benchRest2Min": { "type": "number", "minimum": 0, "description": "Rest before the second coil fold." },
-    "oilRestMin": { "type": "number", "minimum": 0, "description": "Rest under the oil veil before balling." },
-    "ballingMin": { "type": "number", "minimum": 0, "description": "Time taken to divide and ball." },
-    "benchTempC": { "type": "number", "description": "Temperature through the mix and bench work." },
-    "coldProofHours": { "type": "number", "minimum": 0, "description": "The balls' cold proof. Usually the longest phase." },
-    "fridgeTempC": { "type": "number", "description": "Cold proof temperature. The single biggest lever on timing." },
-    "temperHours": { "type": "number", "minimum": 0, "description": "Counter temper before the bake." },
-    "roomTempC": { "type": "number", "description": "Temperature of the counter temper." },
-    "preheatMin": { "type": "number", "minimum": 0, "description": "Oven heat soak." },
-    "stretchMin": { "type": "number", "minimum": 0, "description": "Opening the ball, before launch." },
-    "bakeSec": { "type": "number", "minimum": 0, "description": "Bake time." },
-    "deckTempC": { "type": "number", "description": "Target floor temperature." },
-    "domeTempC": { "type": "number", "description": "Target dome temperature." },
-    "ddtC": { "type": "number", "description": "Desired dough temperature at the end of the final mix." },
-    "freezeFlashMin": { "type": "number", "minimum": 0, "description": "Uncovered flash freeze, for balls going to the freezer." },
-    "thawFridgeHours": { "type": "number", "minimum": 0, "description": "Slow fridge defrost for frozen balls." },
-    "frozenTemperHours": { "type": "number", "minimum": 0, "description": "Counter temper for thawed balls, longer than for fresh." }
+    "bigaMixMin": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/minutes",
+      "description": "Dissolving the yeast and the coarse cluster mix, in minutes."
+    },
+    "bigaRestHours": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/hours",
+      "description": "Ambient rest before the biga goes cold."
+    },
+    "bigaRoomTempC": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/celsius",
+      "description": "Temperature of that ambient rest."
+    },
+    "bigaColdHours": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/hours",
+      "description": "Cold hold for the biga before the final mix."
+    },
+    "bigaFridgeTempC": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/celsius",
+      "description": "Temperature of the biga cold hold."
+    },
+    "finalMixMin": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/minutes",
+      "description": "Final mix, from tearing the biga to the tub."
+    },
+    "benchRest1Min": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/minutes",
+      "description": "Rest before the first coil fold."
+    },
+    "benchRest2Min": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/minutes",
+      "description": "Rest before the second coil fold."
+    },
+    "oilRestMin": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/minutes",
+      "description": "Rest under the oil veil before balling."
+    },
+    "ballingMin": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/minutes",
+      "description": "Time taken to divide and ball."
+    },
+    "benchTempC": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/celsius",
+      "description": "Temperature through the mix and bench work."
+    },
+    "coldProofHours": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/hours",
+      "description": "The balls' cold proof. Usually the longest phase."
+    },
+    "fridgeTempC": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/celsius",
+      "description": "Cold proof temperature. The single biggest lever on timing."
+    },
+    "temperHours": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/hours",
+      "description": "Counter temper before the bake."
+    },
+    "roomTempC": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/celsius",
+      "description": "Temperature of the counter temper."
+    },
+    "preheatMin": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/minutes",
+      "description": "Oven heat soak."
+    },
+    "stretchMin": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/minutes",
+      "description": "Opening the ball, before launch."
+    },
+    "bakeSec": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/seconds",
+      "description": "Bake time."
+    },
+    "deckTempC": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/celsius",
+      "description": "Target floor temperature."
+    },
+    "domeTempC": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/celsius",
+      "description": "Target dome temperature."
+    },
+    "ddtC": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/celsius",
+      "description": "Desired dough temperature at the end of the final mix."
+    },
+    "freezeFlashMin": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/minutes",
+      "description": "Uncovered flash freeze, for balls going to the freezer."
+    },
+    "thawFridgeHours": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/hours",
+      "description": "Slow fridge defrost for frozen balls."
+    },
+    "frozenTemperHours": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/hours",
+      "description": "Counter temper for thawed balls, longer than for fresh."
+    }
   },
-  "required": ["bigaRestHours", "bigaColdHours", "coldProofHours", "temperHours", "fridgeTempC", "roomTempC", "bakeSec"],
+  "required": [
+    "bigaRestHours",
+    "bigaColdHours",
+    "coldProofHours",
+    "temperHours",
+    "fridgeTempC",
+    "roomTempC",
+    "bakeSec"
+  ],
   "additionalProperties": true
 }

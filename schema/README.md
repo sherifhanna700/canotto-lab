@@ -10,8 +10,32 @@ Schemas are [JSON Schema 2020-12](https://json-schema.org/) and live at:
 https://sherifhanna700.github.io/canotto-lab/schema/
 ```
 
+### How they fit together
+
+Three layers, each built on the one below, so nothing is described twice.
+
+```
+common          shared pieces: a temperature, a percentage, a score,
+   |            a flour entry, the header every file carries
+   |
+   +-- dough        \  the two halves of a recipe
+   +-- protocol     /
+   |     |
+   |     +-- recipe        one named recipe
+   |     +-- bake          one logged bake
+   |           |
+   +-----------+-- recipes    a set of recipes
+               +-- log        a bake log
+               +-- export     a full backup
+```
+
+`common` is never validated against directly. The three documents at the bottom
+compose its header with `allOf` and add their own payload, and each pins its own
+`$schema` value, so a log cannot quietly pass as a backup.
+
 | File | What it describes |
 |---|---|
+| `common.schema.json` | Shared building blocks. Referenced, never written |
 | `dough.schema.json` | The dough: baker's percentages, batch size, flour blend |
 | `protocol.schema.json` | The timings and temperatures the dough is made to |
 | `recipe.schema.json` | A named recipe: a dough plus a protocol |
@@ -87,3 +111,18 @@ compares bakes on. The constants are in `settings.model`.
   ]
 }
 ```
+
+## Getting them
+
+They are in the repository that publishes this site, under `schema/`, and served
+from the same URL:
+
+```sh
+curl -O https://sherifhanna700.github.io/canotto-lab/schema/log.schema.json
+
+git clone https://github.com/sherifhanna700/canotto-lab
+# schemas are in schema/
+```
+
+Each `$id` is the published URL, so a validator that fetches references will
+resolve them on its own.

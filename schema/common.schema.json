@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json",
+  "title": "Canotto Lab shared definitions",
+  "description": "The pieces the other schemas are built from. Nothing validates against this file directly; it exists so a temperature, a score or a file header is described once rather than in every schema that uses one.",
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "description": "Stable within one baker's data. Not globally unique, so do not treat it as a key across people."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 with a zone."
+    },
+    "localDateTime": {
+      "type": "string",
+      "description": "A wall-clock moment in the baker's own timezone, such as 2026-09-11T17:00. Deliberately without a zone: a bake happens at five in the afternoon wherever you are."
+    },
+    "celsius": {
+      "type": "number",
+      "description": "Degrees Celsius. Always, whatever unit the app is displaying."
+    },
+    "celsiusOrNull": {
+      "type": ["number", "null"],
+      "description": "Degrees Celsius, or null where it was not measured."
+    },
+    "percent": {
+      "type": "number",
+      "minimum": 0,
+      "description": "A baker's percentage against total flour, unless stated otherwise."
+    },
+    "hours": { "type": "number", "minimum": 0 },
+    "minutes": { "type": "number", "minimum": 0 },
+    "seconds": { "type": "number", "minimum": 0 },
+    "score": {
+      "type": ["number", "null"],
+      "minimum": 1,
+      "maximum": 5,
+      "description": "One to five, or null for not judged. Null is not the same as bad: the overall score is the mean of whichever were given, so a bake judged on two axes is not penalised against one judged on five."
+    },
+    "flourEntry": {
+      "type": "object",
+      "description": "One flour in a blend. Shares are percentages and should total 100 across the blend.",
+      "properties": {
+        "id": { "type": "string", "description": "Identifier from the app's flour library, such as caputo-cuoco." },
+        "name": { "type": "string", "description": "Free text, for a flour that is not in the library." },
+        "pct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "protein": { "type": "number", "description": "Percentage. Only needed for a flour outside the library." },
+        "w": { "type": ["number", "null"], "description": "Chopin alveograph strength. Null where the mill publishes none." },
+        "stage": {
+          "type": "string",
+          "enum": ["blend", "biga", "final"],
+          "description": "Where this flour goes: split proportionally, into the biga first, or held back for the final mix."
+        }
+      },
+      "required": ["pct"]
+    },
+    "envelope": {
+      "type": "object",
+      "description": "The header on every file the app writes. A document schema composes this with allOf and adds its own payload.",
+      "properties": {
+        "$schema": { "type": "string", "description": "The schema this file follows, so a reader can tell what it has without being told." },
+        "app": { "type": "string" },
+        "exportedAt": { "$ref": "#/$defs/timestamp" }
+      }
+    }
+  }
+}

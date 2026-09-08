@@ -5,28 +5,80 @@
   "description": "One logged bake. It carries its own copy of the dough and protocol, so a bake stays truthful about what was actually made even after the recipe it came from is edited.",
   "type": "object",
   "properties": {
-    "id": { "type": "string" },
-    "createdAt": { "type": "string", "format": "date-time" },
-    "updatedAt": { "type": "string", "format": "date-time" },
-    "bakedAt": { "type": "string", "description": "When the first pizza went on the deck. Local time, not necessarily with a zone." },
-    "recipeId": { "type": ["string", "null"], "description": "The recipe this run came from, if it still exists." },
-    "recipeName": { "type": "string" },
-    "title": { "type": "string" },
-    "planned": { "type": "boolean", "description": "True for a bake queued but not yet made. Planned bakes are excluded from analysis." },
-    "notes": { "type": "string" },
-    "issues": { "type": "array", "items": { "type": "string" }, "description": "Fault identifiers from the troubleshooting list, such as gumline or rim-dense." },
-    "recipe": { "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/dough.schema.json" },
-    "schedule": { "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/protocol.schema.json" },
+    "id": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/identifier"
+    },
+    "createdAt": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/timestamp"
+    },
+    "updatedAt": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/timestamp"
+    },
+    "bakedAt": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/localDateTime",
+      "description": "When the first pizza went on the deck. Local time, not necessarily with a zone."
+    },
+    "recipeId": {
+      "oneOf": [
+        {
+          "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/identifier"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The recipe this run came from, if it still exists."
+    },
+    "recipeName": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "planned": {
+      "type": "boolean",
+      "description": "True for a bake queued but not yet made. Planned bakes are excluded from analysis."
+    },
+    "notes": {
+      "type": "string"
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Fault identifiers from the troubleshooting list, such as gumline or rim-dense."
+    },
+    "recipe": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/dough.schema.json"
+    },
+    "schedule": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/protocol.schema.json"
+    },
     "equipment": {
       "type": "object",
       "description": "What it was made and baked with.",
       "properties": {
-        "ovenId": { "type": "string", "description": "Oven type: gas-portable, gas-deck, wood, electric-pizza, home-steel or custom." },
-        "ovenMake": { "type": "string" },
-        "ovenModel": { "type": "string" },
-        "mixerId": { "type": "string", "description": "Mixer type: hand, spiral, planetary, fork, processor or custom. Sets the friction allowance." },
-        "mixerMake": { "type": "string" },
-        "mixerModel": { "type": "string" }
+        "ovenId": {
+          "type": "string",
+          "description": "Oven type: gas-portable, gas-deck, wood, electric-pizza, home-steel or custom."
+        },
+        "ovenMake": {
+          "type": "string"
+        },
+        "ovenModel": {
+          "type": "string"
+        },
+        "mixerId": {
+          "type": "string",
+          "description": "Mixer type: hand, spiral, planetary, fork, processor or custom. Sets the friction allowance."
+        },
+        "mixerMake": {
+          "type": "string"
+        },
+        "mixerModel": {
+          "type": "string"
+        }
       },
       "additionalProperties": true
     },
@@ -34,16 +86,55 @@
       "type": "object",
       "description": "Measured on the day, as opposed to planned. Null where it was not recorded. Temperatures in degrees Celsius.",
       "properties": {
-        "ambientTempC": { "type": ["number", "null"], "description": "Air temperature where the baking happened. Matters most for outdoor ovens." },
-        "humidityPct": { "type": ["number", "null"] },
-        "bigaWaterTempC": { "type": ["number", "null"] },
-        "fdtC": { "type": ["number", "null"], "description": "Final dough temperature at the end of the mix." },
-        "fridgeTempC": { "type": ["number", "null"], "description": "Measured, which is often not what the dial says." },
-        "coldHoldHours": { "type": ["number", "null"] },
-        "coreTempC": { "type": ["number", "null"], "description": "Core of the ball at launch." },
-        "deckTempC": { "type": ["number", "null"] },
-        "domeTempC": { "type": ["number", "null"] },
-        "bakeSec": { "type": ["number", "null"] }
+        "ambientTempC": {
+          "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/celsiusOrNull",
+          "description": "Air temperature where the baking happened. Matters most for outdoor ovens."
+        },
+        "humidityPct": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "bigaWaterTempC": {
+          "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/celsiusOrNull",
+          "description": ""
+        },
+        "fdtC": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Final dough temperature at the end of the mix."
+        },
+        "fridgeTempC": {
+          "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/celsiusOrNull",
+          "description": "Measured, which is often not what the dial says."
+        },
+        "coldHoldHours": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "coreTempC": {
+          "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/celsiusOrNull",
+          "description": "Core of the ball at launch."
+        },
+        "deckTempC": {
+          "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/celsiusOrNull",
+          "description": ""
+        },
+        "domeTempC": {
+          "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/celsiusOrNull",
+          "description": ""
+        },
+        "bakeSec": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
       },
       "additionalProperties": true
     },
@@ -51,15 +142,36 @@
       "type": "object",
       "description": "One to five, or null where not judged. The overall score is the mean of whichever were given.",
       "properties": {
-        "canotto": { "type": ["number", "null"], "minimum": 1, "maximum": 5, "description": "Rim height. 1 flat, 5 massive." },
-        "honeycomb": { "type": ["number", "null"], "minimum": 1, "maximum": 5, "description": "1 gummy, 5 pure open web." },
-        "blistering": { "type": ["number", "null"], "minimum": 1, "maximum": 5, "description": "1 scorched or pale, 5 micro leopard." },
-        "flavour": { "type": ["number", "null"], "minimum": 1, "maximum": 5 },
-        "base": { "type": ["number", "null"], "minimum": 1, "maximum": 5, "description": "Crispness. 1 soggy, 5 crisp and dry." }
+        "canotto": {
+          "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/score",
+          "description": "Rim height. 1 flat, 5 massive."
+        },
+        "honeycomb": {
+          "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/score",
+          "description": "1 gummy, 5 pure open web."
+        },
+        "blistering": {
+          "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/score",
+          "description": "1 scorched or pale, 5 micro leopard."
+        },
+        "flavour": {
+          "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/score",
+          "description": ""
+        },
+        "base": {
+          "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/score",
+          "description": "Crispness. 1 soggy, 5 crisp and dry."
+        }
       },
       "additionalProperties": true
     }
   },
-  "required": ["id", "bakedAt", "recipe", "schedule", "scores"],
+  "required": [
+    "id",
+    "bakedAt",
+    "recipe",
+    "schedule",
+    "scores"
+  ],
   "additionalProperties": true
 }

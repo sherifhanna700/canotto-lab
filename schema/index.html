@@ -34,11 +34,29 @@
   <h1>Canotto Lab data formats</h1>
   <p class="lede">Everything the app exports is plain JSON, and every file names the schema it follows. If you want to build something on this data, or feed it your own, these are the shapes.</p>
 
-  <p>Schemas are <a href="https://json-schema.org/">JSON Schema 2020-12</a>.</p>
+  <p>Schemas are <a href="https://json-schema.org/">JSON Schema 2020-12</a>, served from this URL and versioned in the
+     <a href="https://github.com/sherifhanna700/canotto-lab/tree/main/schema">repository that publishes this site</a>.</p>
+
+  <h2>How they fit together</h2>
+  <p>Three layers, each built on the one below, so nothing is described twice.</p>
+<pre>common          shared pieces: a temperature, a percentage, a score,
+   |            a flour entry, the header every file carries
+   |
+   +-- dough        \  the two halves of a recipe
+   +-- protocol     /
+   |     |
+   |     +-- recipe        one named recipe
+   |     +-- bake          one logged bake
+   |           |
+   +-----------+-- recipes    a set of recipes
+               +-- log        a bake log
+               +-- export     a full backup</pre>
+  <p><code>common</code> is never validated against directly. The three documents at the bottom compose its header with <code>allOf</code> and add their own payload, and each pins its own <code>$schema</code> value, so a log cannot quietly pass as a backup.</p>
 
   <table>
     <thead><tr><th>Schema</th><th>What it describes</th></tr></thead>
     <tbody>
+      <tr><td><a href="common.schema.json">common</a></td><td>Shared building blocks. Referenced, never written</td></tr>
       <tr><td><a href="dough.schema.json">dough</a></td><td>The dough: baker's percentages, batch size, flour blend</td></tr>
       <tr><td><a href="protocol.schema.json">protocol</a></td><td>The timings and temperatures the dough is made to</td></tr>
       <tr><td><a href="recipe.schema.json">recipe</a></td><td>A named recipe: a dough plus a protocol</td></tr>
@@ -97,7 +115,15 @@
   ]
 }</pre>
 
-  <footer><a href="../">Back to Canotto Lab</a> · <a href="https://github.com/sherifhanna700/canotto-lab">Source</a></footer>
+  <h2>Getting them</h2>
+  <p>Fetch them from this URL, or take them from the repository:</p>
+<pre>curl -O https://sherifhanna700.github.io/canotto-lab/schema/log.schema.json
+
+git clone https://github.com/sherifhanna700/canotto-lab
+# schemas are in schema/</pre>
+  <p>Each <code>$id</code> is the URL above, so a validator that fetches references will resolve them on its own.</p>
+
+  <footer><a href="../">Back to Canotto Lab</a> · <a href="https://github.com/sherifhanna700/canotto-lab">Source</a> · <a href="https://github.com/sherifhanna700/canotto-lab/tree/main/schema">Schemas on GitHub</a></footer>
 </main>
 </body>
 </html>

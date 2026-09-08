@@ -104,9 +104,19 @@ Everything the app exports is plain JSON, and every file names the schema it
 follows. The log exports as JSON or as CSV with the derived figures already
 worked out. Recipes export singly or as a set.
 
-Schemas are JSON Schema 2020-12 and published alongside the app at
-[`/schema/`](https://sherifhanna700.github.io/canotto-lab/schema/), one per
-document: `dough`, `protocol`, `recipe`, `recipes`, `bake`, `log` and `export`.
+Schemas are JSON Schema 2020-12. They live in [`schema/`](schema/) in this
+repository and are served from
+[`/schema/`](https://sherifhanna700.github.io/canotto-lab/schema/), which is
+also each one's `$id`, so a validator that fetches references resolves them by
+itself.
+
+They are layered rather than parallel. `common` holds the pieces every schema
+uses: a temperature, a percentage, a score, a flour entry, the header on every
+exported file. `dough` and `protocol` are the two halves of a recipe. `recipe`
+and `bake` compose those. `recipes`, `log` and `export` are the documents the
+app actually writes, and each composes the shared header with `allOf` and pins
+its own `$schema` value, so a log cannot pass as a backup.
+
 The index there covers the things
 worth knowing before reading the data, chiefly that temperatures are always
 Celsius, that a bake carries its own copy of the dough and protocol so it stays
