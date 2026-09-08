@@ -58,7 +58,7 @@ export function card(title, subtitle, ...body) {
  * Bounds are applied when the field is left, not per keystroke, so typing 7 on
  * the way to 70 is not clamped up to the minimum.
  */
-export function numberField({ label, value, min, max, step = 1, suffix, onInput, hint, id, allowEmpty = false }) {
+export function numberField({ label, value, min, max, step = 1, suffix, onInput, hint, hintTone, id, allowEmpty = false }) {
   const commit = (raw, clamp) => {
     if (raw === '') {
       if (allowEmpty) onInput(null);
@@ -89,7 +89,7 @@ export function numberField({ label, value, min, max, step = 1, suffix, onInput,
     { class: 'field' },
     h('span', { class: 'field-label' }, label),
     h('span', { class: 'field-input' }, input, suffix ? h('span', { class: 'suffix' }, suffix) : null),
-    hint ? h('span', { class: 'hint' }, hint) : null
+    hint ? h('span', { class: `hint${hintTone ? ` ${hintTone}` : ''}` }, hint) : null
   );
 }
 

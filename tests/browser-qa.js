@@ -442,8 +442,14 @@
     const phases = () => cards().find((c) => /^Phases/.test(c.querySelector('h2, h3')?.textContent || ''));
     const phaseStat = (name) => $$('.stat', phases())
       .find((x) => x.querySelector('.stat-label')?.textContent === name);
-    const proofVerdict = () => phaseStat('Cold proof')?.querySelector('.stat-sub')?.textContent.trim();
-    const wants = () => phaseStat('This flour wants')?.querySelector('.stat-value')?.textContent.trim();
+    /*
+     * The cold proof field carries its own verdict and target, because it is
+     * the one input with a right answer. Read it off the field, not off a
+     * stat card, so this checks what the field actually says.
+     */
+    const proofHint = () => labelled('Cold proof', false)?.querySelector('.hint')?.textContent.trim() || '';
+    const proofVerdict = () => proofHint().split('\u00b7')[0].trim();
+    const wants = () => (proofHint().split('\u00b7')[1] || '').replace(/wants/, '').trim();
     const adviceNote = () => $$('#main .note')
       .map((n) => n.textContent)
       .find((t) => /wants|maturation units/.test(t)) || '';

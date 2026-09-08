@@ -208,7 +208,11 @@ main { max-width: 1080px; margin: 0 auto; padding: 16px 14px 40px; display: grid
 .field textarea { resize: vertical; line-height: 1.5; }
 .field input:focus, .field select:focus, .field textarea:focus { outline: 2px solid var(--primary); outline-offset: 1px; border-color: transparent; }
 .field .suffix { font-size: .78rem; color: var(--on-surface-variant); white-space: nowrap; }
-.field .hint { font-size: .7rem; color: var(--on-surface-variant); }
+.field .hint { font-size: .7rem; color: var(--on-surface-variant); line-height: 1.4; }
+/* A field with a right answer says so under itself, in the verdict's colour. */
+.field .hint.good { color: var(--good); }
+.field .hint.warn { color: var(--warn); }
+.field .hint.bad { color: var(--bad); }
 .field.slider output { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--primary); }
 
 input[type="range"] {
@@ -268,7 +272,7 @@ input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; border-radius
 .stat-value:not(:has(*)) { font-size: clamp(.95rem, 3.4vw, 1.22rem); }
 .stat-sub { font-size: .7rem; color: var(--on-surface-variant); }
 
-.note { margin: 0; font-size: .78rem; padding: 9px 12px; border-radius: 11px; background: var(--surface-low); color: var(--on-surface-variant); border-left: 3px solid var(--outline); }
+.note { margin: 0; font-size: .78rem; line-height: 1.5; padding: 11px 14px; border-radius: 11px; background: var(--surface-low); color: var(--on-surface-variant); border-left: 3px solid var(--outline); }
 .note.good { background: var(--good-bg); color: var(--good); border-color: var(--good); }
 .note.warn { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
 .note.bad { background: var(--bad-bg); color: var(--bad); border-color: var(--bad); }

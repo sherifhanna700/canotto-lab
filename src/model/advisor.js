@@ -16,9 +16,9 @@
 // The phase proportions come from the house protocol, so a stronger flour
 // stretches that schedule and a weaker one shortens it.
 
-import { maturationUnits, fermentUnits, maturationRateAt, yeastForFU, DEFAULT_MODEL } from './ferment.js?v=71e6a25b';
-import { maturationCeilingForW, hydrationRangeForW, findFlour } from './flours.js?v=71e6a25b';
-import { DEFAULT_SCHEDULE } from './protocol.js?v=71e6a25b';
+import { maturationUnits, fermentUnits, maturationRateAt, yeastForFU, DEFAULT_MODEL } from './ferment.js?v=82c337ea';
+import { maturationCeilingForW, hydrationRangeForW, findFlour } from './flours.js?v=82c337ea';
+import { DEFAULT_SCHEDULE } from './protocol.js?v=82c337ea';
 
 /** Share of total maturation time each phase takes, from the house protocol. */
 const TIME_SHARES = { bigaRest: 0.043, bigaCold: 0.192, coldProof: 0.72, temper: 0.045 };
@@ -267,25 +267,25 @@ export function reviewPlan({ blend, stages, schedule, idyPct, reference = HOUSE_
   if (Number.isFinite(ceiling)) {
     const load = mu / ceiling;
     if (load > 1.15) {
-      notes.push({ tone: 'bad', text: `This asks ${mu.toFixed(0)} units of maturation from a flour good for about ${ceiling}. The enzymes will have gone too far: expect a slack dough that tears when you open it.` });
+      notes.push({ key: 'maturation', tone: 'bad', text: `This asks ${mu.toFixed(0)} units of maturation from a flour good for about ${ceiling}. The enzymes will have gone too far: expect a slack dough that tears when you open it.` });
     } else if (load > 0.98) {
-      notes.push({ tone: 'warn', text: `Maturation is at the top of what W ${blend.w} can take. It will work, with no margin if the fridge runs warm.` });
+      notes.push({ key: 'maturation', tone: 'warn', text: `Maturation is at the top of what W ${blend.w} can take. It will work, with no margin if the fridge runs warm.` });
     } else if (load < 0.5) {
-      notes.push({ tone: 'warn', text: 'This flour can take about twice this much maturation. A longer cold proof would buy flavour and extensibility you are leaving behind.' });
+      notes.push({ key: 'maturation', tone: 'warn', text: 'This flour can take about twice this much maturation. A longer cold proof would buy flavour and extensibility you are leaving behind.' });
     } else {
-      notes.push({ tone: 'good', text: `Maturation is at ${(load * 100).toFixed(0)}% of what this blend can take, which is a comfortable place to be.` });
+      notes.push({ key: 'maturation', tone: 'good', text: `Maturation is at ${(load * 100).toFixed(0)}% of what this blend can take, which is a comfortable place to be.` });
     }
   }
 
   const suggested = yeastForFU(fu, { refYeastPct: reference.yeastPct, refFU: reference.fu });
   if (Number.isFinite(suggested) && Number.isFinite(idyPct) && idyPct > 0) {
     const ratio = idyPct / suggested;
-    if (ratio > 1.25) notes.push({ tone: 'warn', text: `Against ${reference.label}, this carries ${(ratio * 100 - 100).toFixed(0)}% more yeast than the timing needs. Nearer ${suggested.toFixed(3)}%.` });
-    else if (ratio < 0.75) notes.push({ tone: 'warn', text: `Against ${reference.label}, this carries ${(100 - ratio * 100).toFixed(0)}% less yeast than the timing needs. Nearer ${suggested.toFixed(3)}%.` });
+    if (ratio > 1.25) notes.push({ key: 'yeast', tone: 'warn', text: `Against ${reference.label}, this carries ${(ratio * 100 - 100).toFixed(0)}% more yeast than the timing needs. Nearer ${suggested.toFixed(3)}%.` });
+    else if (ratio < 0.75) notes.push({ key: 'yeast', tone: 'warn', text: `Against ${reference.label}, this carries ${(100 - ratio * 100).toFixed(0)}% less yeast than the timing needs. Nearer ${suggested.toFixed(3)}%.` });
   }
 
   if (Number.isFinite(blend?.w) && blend.w < 260) {
-    notes.push({ tone: 'warn', text: `W ${blend.w} is soft for a biga. Blend in a stronger flour, or keep the maturation short.` });
+    notes.push({ key: 'soft-flour', tone: 'warn', text: `W ${blend.w} is soft for a biga. Blend in a stronger flour, or keep the maturation short.` });
   }
 
   return { fu, mu, ceiling, window: coldProofWindow({ blend, schedule, model }), notes };

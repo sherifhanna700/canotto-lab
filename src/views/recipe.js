@@ -5,19 +5,19 @@
 // Edits save straight onto the selected recipe, so there is no save step and
 // the name in the list is always the name in the field.
 
-import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=71e6a25b';
-import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download, exportRecipesJSON, exportRecipeJSON } from '../lib/store.js?v=71e6a25b';
-import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=71e6a25b';
-import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=71e6a25b';
-import { scheduleStages, solveSchedule } from '../model/protocol.js?v=71e6a25b';
-import { fermentUnits, maturationUnits, stageBreakdown, yeastForFU, doughTempFrom, doughTempVerdict, frictionFrom } from '../model/ferment.js?v=71e6a25b';
-import { suggestPlan, reviewPlan, defaultLeadHours, coldProofWindow, coldProofVerdict, hoursForMaturation, HOUSE_REFERENCE } from '../model/advisor.js?v=71e6a25b';
-import { recipeFromBlend, deriveRecipe, recipeRating, overallScore } from '../model/recipes.js?v=71e6a25b';
-import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=71e6a25b';
-import { recipeLink, copyText } from '../lib/share.js?v=71e6a25b';
-import { findMixer, mixerLabel } from '../model/equipment.js?v=71e6a25b';
-import { tempField, tempDeltaField, ratingBadge, stars, } from './common.js?v=71e6a25b';
-import { go } from '../app.js?v=71e6a25b';
+import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=82c337ea';
+import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download, exportRecipesJSON, exportRecipeJSON } from '../lib/store.js?v=82c337ea';
+import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=82c337ea';
+import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=82c337ea';
+import { scheduleStages, solveSchedule } from '../model/protocol.js?v=82c337ea';
+import { fermentUnits, maturationUnits, stageBreakdown, yeastForFU, doughTempFrom, doughTempVerdict, frictionFrom } from '../model/ferment.js?v=82c337ea';
+import { suggestPlan, reviewPlan, defaultLeadHours, coldProofWindow, coldProofVerdict, hoursForMaturation, HOUSE_REFERENCE } from '../model/advisor.js?v=82c337ea';
+import { recipeFromBlend, deriveRecipe, recipeRating, overallScore } from '../model/recipes.js?v=82c337ea';
+import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=82c337ea';
+import { recipeLink, copyText } from '../lib/share.js?v=82c337ea';
+import { findMixer, mixerLabel } from '../model/equipment.js?v=82c337ea';
+import { tempField, tempDeltaField, ratingBadge, stars, } from './common.js?v=82c337ea';
+import { go } from '../app.js?v=82c337ea';
 
 const setRecipe = (patch) => editCurrent((c) => Object.assign(c.recipe, patch));
 const setSchedule = (patch) => editCurrent((c) => Object.assign(c.schedule, patch));
@@ -484,42 +484,51 @@ function timingCard(ctx) {
       { class: 'row' },
       numberField({ label: 'Biga ambient rest', value: S.bigaRestHours, min: 0, max: 24, step: 0.25, suffix: 'h', onInput: (v) => setSchedule({ bigaRestHours: v }) }),
       numberField({ label: 'Biga cold hold', value: S.bigaColdHours, min: 0, max: 48, step: 1, suffix: 'h', onInput: (v) => setSchedule({ bigaColdHours: v }) }),
-      numberField({ label: 'Cold proof', value: S.coldProofHours, min: 1, max: 240, step: 1, suffix: 'h', onInput: (v) => setSchedule({ coldProofHours: v }) }),
+      numberField({
+        label: 'Cold proof',
+        value: S.coldProofHours,
+        min: 1,
+        max: 240,
+        step: 1,
+        suffix: 'h',
+        // The one field with a right answer, so it carries its own target.
+        hint: proofTarget(review.window),
+        hintTone: review.window ? coldProofVerdict(review.window).tone : undefined,
+        onInput: (v) => setSchedule({ coldProofHours: v }),
+      }),
       numberField({ label: 'Counter temper', value: S.temperHours, min: 0, max: 12, step: 0.25, suffix: 'h', onInput: (v) => setSchedule({ temperHours: v }) })
+    ),
+
+    h(
+      'div',
+      { class: 'stats' },
+      stat('Maturation', `${mu.toFixed(0)} MU`, window ? `of about ${window.ceiling} this flour can take` : 'no strength figure for this flour'),
+      stat('Fermentation', `${fu.toFixed(1)} FU`, 'yeast work')
     ),
 
     window
       ? h(
           'div',
           {},
-          h(
-            'div',
-            { class: 'stats' },
-            stat('Cold proof', fmtDuration(window.actual), verdict.label),
-            stat('This flour wants', window.crowded ? `up to ${Math.round(window.high)} h` : `${Math.round(window.low)}\u2013${Math.round(window.high)} h`, `at ${fmtTemp(window.fridgeTempC, u)}`),
-            stat('Maturation', `${mu.toFixed(0)} MU`, `of about ${window.ceiling} this flour can take`),
-            stat('Fermentation', `${fu.toFixed(1)} FU`, 'yeast work')
-          ),
           h('p', { class: `note ${verdict.tone}` }, coldProofWords(verdict, window, c, u)),
           verdict.key !== 'on'
             ? h('div', { class: 'row tight' }, h('button', { class: 'btn tonal small', onClick: () => { setSchedule({ coldProofHours: Math.round(window.ideal) }); toast(`Cold proof set to ${Math.round(window.ideal)} hours`); } }, icon('schedule'), `Set it to ${Math.round(window.ideal)} h`))
             : null
         )
-      : h(
-          'div',
-          { class: 'stats' },
-          stat('Maturation', `${mu.toFixed(0)} MU`, 'no strength figure for this flour'),
-          stat('Fermentation', `${fu.toFixed(1)} FU`, 'yeast work')
-        ),
+      : null,
 
-    ...review.notes.filter((n) => n.tone !== 'good' && !/maturation is at/i.test(n.text)).map((n) => h('p', { class: `note ${n.tone}` }, n.text)),
+    // The maturation and yeast notes are both said better above, in the
+    // verdict banner and the yeast paragraph. Only what neither covers is left.
+    ...review.notes.filter((n) => n.key !== 'yeast' && !(window && n.key === 'maturation')).map((n) => h('p', { class: `note ${n.tone}` }, n.text)),
 
     Number.isFinite(need)
       ? h(
           'div',
           {},
-          h('p', { class: 'note neutral' }, `At ${idy.toFixed(3)}% instant dry before any freeze buffer, this schedule carries ${describeYeast(idy, need)}. Scaled from ${reference.label}, which used ${reference.yeastPct.toFixed(3)}% across ${reference.fu.toFixed(1)} FU.`),
-          Math.abs(idy - need) / need > 0.05
+          // One threshold for the sentence and the button, so the app never
+          // says the yeast is fine while offering to change it.
+          h('p', { class: `note ${yeastIsOff(idy, need) ? 'warn' : 'neutral'}` }, `At ${idy.toFixed(3)}% instant dry before any freeze buffer, this schedule carries ${describeYeast(idy, need)}. Scaled from ${reference.label}, which used ${reference.yeastPct.toFixed(3)}% across ${reference.fu.toFixed(1)} FU.`),
+          yeastIsOff(idy, need)
             ? h('div', { class: 'row tight' }, h('button', { class: 'btn tonal small', onClick: () => { setRecipe({ baseYeastPct: round(convertYeast(need, 'idy', s.current.recipe.yeastType), 3) }); toast('Yeast scaled to this schedule'); } }, icon('auto_fix_high'), `Scale yeast to ${need.toFixed(3)}%`))
             : null
         )
@@ -545,6 +554,23 @@ function timingCard(ctx) {
     ),
     waterFoldout(ctx)
   );
+}
+
+/**
+ * What the Cold proof field is aiming at, said on the field itself. The
+ * fridge temperature is already in the card's own description, so it is left
+ * out here to keep this to one line on a phone.
+ */
+function proofTarget(w) {
+  if (!w) return 'No strength figure for this flour, so no target';
+  const range = w.crowded ? `up to ${Math.round(w.high)} h` : `${Math.round(w.low)}\u2013${Math.round(w.high)} h`;
+  return `${coldProofVerdict(w).label} \u00b7 wants ${range}`;
+}
+
+/** Far enough from the scaled figure to be worth saying and worth a button. */
+function yeastIsOff(have, need) {
+  const ratio = have / need;
+  return ratio > 1.25 || ratio < 0.8;
 }
 
 function describeYeast(have, need) {
