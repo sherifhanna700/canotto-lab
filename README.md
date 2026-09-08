@@ -69,6 +69,13 @@ carry a biga canotto schedule, plus semola and whole grain as blending component
 - [Biga preferment guide](https://www.pizzablab.com/the-encyclopizza/biga-preferment/)
 - [Caputo Nuvola](https://thepizzaheaven.com/caputo-nuvola/) and [mastering canotto pizza](https://thepizzaheaven.com/mastering-canotto-pizza/)
 
+Two things in this app are **not** taken from a source, and are marked as such
+in the code. The Q10 coefficients in the fermentation model, and the specific
+heat of flour used in the dough temperature calculation. Water's specific heat
+is exact; flour's is the usual approximation. Both are starting points the app
+can replace with a figure worked back from your own bakes, which is the point
+of logging them.
+
 The fermentation model is a Q10 rate law with a steeper coefficient in the cold range. Its
 constant K is anchored to the house protocol, which ripens on 0.10% instant dry yeast
 across 24.2 FU. Score a few bakes 4 or better and the app will refit K to your own

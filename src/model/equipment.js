@@ -17,13 +17,22 @@ export const OVENS = [
   { id: 'custom', label: 'Something else', deckC: 450, domeC: 490, bakeSec: 90, flame: true, notes: 'Record the make and model and set the temperatures yourself.' },
 ];
 
+/*
+ * Friction is how much the mixing itself warms the dough.
+ *
+ * Published starting points: hand kneading 1 to 3 °C, stand mixers 8 to 16 °C,
+ * with 12 °C the usual recommendation before you have measured your own. See
+ * pizzablab's friction factor guide, linked from the app's sources. These are
+ * starting points only, and the app can replace them with a figure worked back
+ * from a dough you have actually measured.
+ */
 export const MIXERS = [
-  { id: 'hand', label: 'By hand', frictionC: 1, notes: 'Almost no friction heat. Water temperature does nearly all the work.' },
-  { id: 'spiral', label: 'Spiral mixer', frictionC: 9, notes: 'The usual choice for this style. Gentle on gluten, moderate heat.' },
-  { id: 'planetary', label: 'Planetary / stand mixer', frictionC: 13, notes: 'Heats the dough faster than a spiral. Watch the temperature.' },
-  { id: 'fork', label: 'Fork mixer', frictionC: 6, notes: 'Very gentle, slow, and cool running.' },
-  { id: 'processor', label: 'Food processor', frictionC: 17, notes: 'Very fast and very hot. Use ice water.' },
-  { id: 'custom', label: 'Something else', frictionC: 9, notes: 'Set the friction allowance yourself once you have measured a mix or two.' },
+  { id: 'hand', label: 'By hand', frictionC: 2, notes: 'Barely warms the dough. Published range is 1 to 3 °C.' },
+  { id: 'spiral', label: 'Spiral mixer', frictionC: 10, notes: 'The usual choice for this style. Gentle on gluten, and cooler running than a planetary.' },
+  { id: 'planetary', label: 'Planetary / stand mixer', frictionC: 14, notes: 'Works the dough harder and warms it faster. Towards the top of the 8 to 16 °C range.' },
+  { id: 'fork', label: 'Fork mixer', frictionC: 8, notes: 'Slow and cool running.' },
+  { id: 'processor', label: 'Food processor', frictionC: 16, notes: 'Very fast and very hot.' },
+  { id: 'custom', label: 'Something else', frictionC: 12, notes: 'The published default for a mixer. Measure one dough and the app will work out your own.' },
 ];
 
 export const DEFAULT_EQUIPMENT = {

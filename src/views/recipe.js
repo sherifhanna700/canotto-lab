@@ -5,19 +5,19 @@
 // Edits save straight onto the selected recipe, so there is no save step and
 // the name in the list is always the name in the field.
 
-import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=8a97ff6a';
-import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download, exportRecipesJSON, exportRecipeJSON } from '../lib/store.js?v=8a97ff6a';
-import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=8a97ff6a';
-import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=8a97ff6a';
-import { scheduleStages, solveSchedule } from '../model/protocol.js?v=8a97ff6a';
-import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, mixWater } from '../model/ferment.js?v=8a97ff6a';
-import { suggestPlan, reviewPlan, defaultLeadHours } from '../model/advisor.js?v=8a97ff6a';
-import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js?v=8a97ff6a';
-import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=8a97ff6a';
-import { recipeLink, copyText } from '../lib/share.js?v=8a97ff6a';
-import { findMixer, mixerLabel } from '../model/equipment.js?v=8a97ff6a';
-import { tempField, tempDeltaField, ratingBadge, stars, } from './common.js?v=8a97ff6a';
-import { go } from '../app.js?v=8a97ff6a';
+import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=6cbf375d';
+import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download, exportRecipesJSON, exportRecipeJSON } from '../lib/store.js?v=6cbf375d';
+import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=6cbf375d';
+import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=6cbf375d';
+import { scheduleStages, solveSchedule } from '../model/protocol.js?v=6cbf375d';
+import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, doughTempFrom, doughTempVerdict, frictionFrom } from '../model/ferment.js?v=6cbf375d';
+import { suggestPlan, reviewPlan, defaultLeadHours } from '../model/advisor.js?v=6cbf375d';
+import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js?v=6cbf375d';
+import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=6cbf375d';
+import { recipeLink, copyText } from '../lib/share.js?v=6cbf375d';
+import { findMixer, mixerLabel } from '../model/equipment.js?v=6cbf375d';
+import { tempField, tempDeltaField, ratingBadge, stars, } from './common.js?v=6cbf375d';
+import { go } from '../app.js?v=6cbf375d';
 
 const setRecipe = (patch) => editCurrent((c) => Object.assign(c.recipe, patch));
 const setSchedule = (patch) => editCurrent((c) => Object.assign(c.schedule, patch));
@@ -520,42 +520,88 @@ function waterFoldout(ctx) {
   const mixer = findMixer(E.mixerId);
   const flourTempC = w.flourTempC ?? S.roomTempC;
   const frictionC = w.frictionC ?? mixer.frictionC;
-  const result = mixWater({
+  const waterTempC = w.mixWaterTempC ?? 1;
+
+  const landsAtC = doughTempFrom({
     weigh: c.weigh,
     prefermentTempC: S.fridgeTempC,
     flourTempC,
+    waterTempC,
     frictionC,
-    ddtC: S.ddtC,
   });
+  const stopC = S.ddtC + 1.7;
+  const verdict = doughTempVerdict(landsAtC, S.ddtC, stopC);
 
-  const verdict = result.reachable
-    ? h('p', { class: 'note good' }, `Use water at ${fmtTemp(result.useC, u, 1)}. The dough lands at ${fmtTemp(S.ddtC, u)}, and you stop mixing at ${fmtTemp(S.ddtC + 1.7, u)}.`)
-    : result.tooCold
-      ? h(
-          'p',
-          { class: 'note warn' },
-          `Hitting ${fmtTemp(S.ddtC, u)} would take water at ${fmtTemp(result.requiredC, u)}, which is hot enough to damage the dough. Use water at ${fmtTemp(result.useC, u, 1)} and it lands at ${fmtTemp(result.landsAtC, u, 1)} instead. The biga is ${fmtGrams(c.weigh.bigaMass)} out of ${fmtGrams(c.totalDough)} and it is cold, so the mix water cannot lift it much. Let the biga sit out before the final mix if you want to get closer.`
-        )
-      : h('p', { class: 'note warn' }, `This dough is already warmer than ${fmtTemp(S.ddtC, u)} before any water goes in. Use the coldest water you have, or ice, and expect to land above target.`);
+  // A dough already measured is worth more than any published friction figure.
+  const measured = [...s.bakes]
+    .filter((b) => !b.planned && Number.isFinite(b.actuals?.fdtC))
+    .sort((a, b) => String(b.bakedAt).localeCompare(String(a.bakedAt)))[0];
+  const measuredFriction = measured
+    ? frictionFrom({
+        weigh: computeRecipe(measured.recipe).weigh,
+        prefermentTempC: measured.schedule.fridgeTempC,
+        flourTempC: measured.actuals.bigaWaterTempC ?? measured.schedule.roomTempC,
+        waterTempC,
+        measuredDoughC: measured.actuals.fdtC,
+      })
+    : null;
 
   return h(
     'details',
     { class: 'foldout' },
-    h('summary', {}, 'Mix water temperature'),
+    h('summary', {}, 'Mix water and where the dough lands'),
     h(
       'div',
       { class: 'row' },
-      tempField({ label: 'Target dough temperature', valueC: S.ddtC, unit: u, step: 0.5, onChange: (v) => setSchedule({ ddtC: v }) }),
+      tempField({ label: 'Mix water', valueC: waterTempC, unit: u, step: 1, hint: 'Ice water keeps the mix cold while the gluten builds', onChange: (v) => update((st) => { st.current.water = { ...st.current.water, mixWaterTempC: v }; }) }),
       tempField({ label: 'Flour temperature', valueC: flourTempC, unit: u, onChange: (v) => update((st) => { st.current.water = { ...st.current.water, flourTempC: v }; }) }),
-      tempDeltaField({ label: 'Friction allowance', valueC: frictionC, unit: u, step: 1, hint: `${mixerLabel(E)} default is ${fmtTempDelta(mixer.frictionC, u)}`, onChange: (v) => update((st) => { st.current.water = { ...st.current.water, frictionC: v }; }) })
+      tempDeltaField({ label: 'Friction allowance', valueC: frictionC, unit: u, step: 1, hint: `${mixerLabel(E)} starts at ${fmtTempDelta(mixer.frictionC, u)}`, onChange: (v) => update((st) => { st.current.water = { ...st.current.water, frictionC: v }; }) })
     ),
-    verdict,
+    h(
+      'div',
+      { class: 'stats' },
+      stat('Dough lands at', fmtTemp(landsAtC, u, 1), verdict.label),
+      stat('Target', fmtTemp(S.ddtC, u), 'a ceiling, not something to reach for'),
+      stat('Hard stop', fmtTemp(stopC, u), 'stop mixing here whatever the clock says')
+    ),
+    h('p', { class: `note ${verdict.tone}` }, verdictWords(verdict, landsAtC, S, u, c)),
+    measuredFriction !== null && Number.isFinite(measuredFriction)
+      ? h(
+          'div',
+          {},
+          h(
+            'p',
+            { class: 'note neutral' },
+            `Your last logged bake finished at ${fmtTemp(measured.actuals.fdtC, u, 1)}. Worked back, your mixer added ${fmtTempDelta(measuredFriction, u)}.` +
+              (measuredFriction > 16
+                ? ' That is above the 8 to 16 °C usually published for a mixer, so either yours works the dough unusually hard, or the biga had warmed before it went in. Either way your own figure beats the published one.'
+                : measuredFriction < 1
+                  ? ' That is lower than published figures for any mixer, which usually means the dough was measured some time after mixing stopped.'
+                  : '')
+          ),
+          h('button', { class: 'btn tonal small', onClick: () => { update((st) => { st.current.water = { ...st.current.water, frictionC: measuredFriction }; }); toast('Friction taken from your own dough'); } }, icon('tune'), 'Use my measured friction')
+        )
+      : h('p', { class: 'note neutral' }, 'Record the final dough temperature on the Protocol screen once, and this stops relying on a published figure and starts using your own mixer.'),
     h(
       'p',
       { class: 'hint', style: { fontSize: '.72rem' } },
-      `Worked out by heat balance across the whole mix: ${fmtGrams(c.weigh.bigaMass)} of biga at ${fmtTemp(S.fridgeTempC, u)}, ${fmtGrams(c.weigh.water.final)} of water, and the friction of the mixer. Not the three-factor rule, which assumes every part weighs the same and is wrong for a dough that is mostly cold biga.`
+      `Heat balance over the whole mix: ${fmtGrams(c.weigh.bigaMass)} of biga at ${fmtTemp(S.fridgeTempC, u)}, ${fmtGrams(c.weigh.water.final)} of water, and whatever the mixer adds. Not the three-factor rule, which treats every component as the same mass and the same heat, and is wrong whenever the preferment dominates the dough.`
     )
   );
+}
+
+function verdictWords(verdict, landsAtC, S, u, c) {
+  const cold = `The biga is ${fmtGrams(c.weigh.bigaMass)} of ${fmtGrams(c.totalDough)} and it comes out of the fridge, so it sets the starting temperature and the mixer is the only thing that raises it.`;
+  switch (verdict.key) {
+    case 'over':
+      return `This finishes at ${fmtTemp(landsAtC, u, 1)}, past the stop. Colder water, or a shorter mix. ${cold}`;
+    case 'warm':
+      return `This finishes at ${fmtTemp(landsAtC, u, 1)}, above the target but under the stop. Colder water will bring it down. ${cold}`;
+    case 'cold':
+      return `This finishes at ${fmtTemp(landsAtC, u, 1)}, well under the target. That is normal for a fridge-cold biga and is not a fault: a cold finish protects the gluten, and the cold proof does the fermenting. Warmer water would raise it, at the cost of the thing the cold biga was for. ${cold}`;
+    default:
+      return `This finishes at ${fmtTemp(landsAtC, u, 1)}, inside the window and under the stop. ${cold}`;
+  }
 }
 
 /* ------------------------------- what to weigh -------------------------- */

@@ -19,6 +19,7 @@ export const SOURCES = [
   { id: 'pizzaplan', label: 'Pizza flour comparison: W-value and protein', url: 'https://pizzaplan.app/en/flour-brands/' },
   { id: 'hgh', label: 'Pizza flour guide: W-value, protein and the right mix', url: 'https://www.housegardenhobby.com/pizza-flour-guide/' },
   { id: 'pizzablab', label: 'Biga preferment guide', url: 'https://www.pizzablab.com/the-encyclopizza/biga-preferment/' },
+  { id: 'pizzablab-friction', label: 'Friction factor: heat generated during dough mixing', url: 'https://www.pizzablab.com/learning-and-resources/mixing-kneading/friction-factor-in-dough-making/' },
   { id: 'pizzaheaven-nuvola', label: 'Caputo Nuvola: the best flour for airy crust', url: 'https://thepizzaheaven.com/caputo-nuvola/' },
   { id: 'pizzaheaven-canotto', label: 'Mastering canotto pizza', url: 'https://thepizzaheaven.com/mastering-canotto-pizza/' },
 ];

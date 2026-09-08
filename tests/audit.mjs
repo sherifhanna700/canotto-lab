@@ -17,7 +17,7 @@
  */
 import { computeRecipe } from '../src/model/dough.js';
 import { DEFAULT_SCHEDULE, scheduleStages, solveSchedule, STEPS } from '../src/model/protocol.js';
-import { fermentUnits, ripeness, yeastForFU, mixWater, rateAt } from '../src/model/ferment.js';
+import { fermentUnits, ripeness, yeastForFU, doughTempFrom, frictionFrom, rateAt } from '../src/model/ferment.js';
 import { suggestPlan } from '../src/model/advisor.js';
 import { blendStats, FLOURS } from '../src/model/flours.js';
 import { cToF } from '../src/model/units.js';
@@ -69,26 +69,29 @@ for (const roomTempC of rooms) {
   }
 }
 
-// Mix water across the same range
+// Where the dough lands, across the same range
 for (const fridgeTempC of fridges)
 for (const roomTempC of rooms)
-for (const prefermentFlourPct of prefFlour) {
+for (const prefermentFlourPct of prefFlour)
+for (const waterC of [0, 10, 21])
+for (const frictionC of [2, 10, 16]) {
   const c = computeRecipe({ prefermentFlourPct });
-  const r = mixWater({ weigh: c.weigh, prefermentTempC: fridgeTempC, flourTempC: roomTempC, frictionC: 9, ddtC: 23.3 });
-  const where = `mix water, biga ${prefermentFlourPct}% at ${Math.round(cToF(fridgeTempC))} F, flour ${Math.round(cToF(roomTempC))} F`;
-  if (!Number.isFinite(r.useC)) flag(where, 'water temperature is not a number');
-  if (r.useC < 0 || r.useC > 45) flag(where, `recommends water at ${r.useC.toFixed(1)} C`);
-  if (r.reachable && Math.abs(r.landsAtC - 23.3) > 0.2) flag(where, `claims reachable but lands at ${r.landsAtC.toFixed(1)} C`);
+  const where = `dough temp, biga ${prefermentFlourPct}% at ${Math.round(cToF(fridgeTempC))} F, water ${Math.round(cToF(waterC))} F, friction ${frictionC} C`;
+  const lands = doughTempFrom({ weigh: c.weigh, prefermentTempC: fridgeTempC, flourTempC: roomTempC, waterTempC: waterC, frictionC });
+  if (!Number.isFinite(lands)) flag(where, 'landing temperature is not a number');
 
-  /*
-   * Verify the recommendation independently, from first principles, rather
-   * than trusting the same function that produced it. This is the check that
-   * would have caught the three-factor rule recommending 39 C for a dough that
-   * lands nowhere near the target.
-   */
-  const lands = landingTemp(c.weigh, fridgeTempC, roomTempC, 9, r.useC);
-  if (Math.abs(lands - r.landsAtC) > 0.05) flag(where, `says the dough lands at ${r.landsAtC.toFixed(1)} C, independent balance says ${lands.toFixed(1)} C`);
-  if (r.reachable && Math.abs(lands - 23.3) > 0.2) flag(where, `recommends ${r.useC.toFixed(1)} C water for a ${(23.3).toFixed(1)} C target, which actually lands at ${lands.toFixed(1)} C`);
+  // Independent balance, longhand, rather than asking the same function twice.
+  const check = landingTemp(c.weigh, fridgeTempC, roomTempC, frictionC, waterC);
+  if (Math.abs(lands - check) > 0.05) flag(where, `says ${lands.toFixed(1)} C, independent balance says ${check.toFixed(1)} C`);
+
+  // It cannot land outside the range of what went in, plus the friction.
+  const ins = [fridgeTempC, roomTempC, waterC];
+  if (lands < Math.min(...ins) + frictionC - 0.01) flag(where, `lands at ${lands.toFixed(1)} C, colder than everything that went in`);
+  if (lands > Math.max(...ins) + frictionC + 0.01) flag(where, `lands at ${lands.toFixed(1)} C, warmer than everything that went in`);
+
+  // Friction worked back from a measured dough must return what went in.
+  const back = frictionFrom({ weigh: c.weigh, prefermentTempC: fridgeTempC, flourTempC: roomTempC, waterTempC: waterC, measuredDoughC: lands });
+  if (Math.abs(back - frictionC) > 0.01) flag(where, `friction round-trip gives ${back.toFixed(2)} C, not ${frictionC}`);
 }
 
 /** An independent heat balance, written out longhand on purpose. */
