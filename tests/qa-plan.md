@@ -88,6 +88,14 @@ The field must not fight the person typing. For every number field on every tab:
 1. Everything survives a reload.
 2. Impossible saved values are repaired on load rather than shown.
 
+## J13. Sliders
+
+1. A slider leaves vertical gestures to the page. A swipe to scroll that starts
+   on the track must scroll, not drag the thumb.
+2. A redraw triggered by something else while a drag is in progress must not
+   replace the slider or move the thumb.
+3. Releasing commits the value and lets the rest of the screen catch up.
+
 ## J12. Arithmetic on screen
 
 1. Water columns add up: biga plus final mix equals total.

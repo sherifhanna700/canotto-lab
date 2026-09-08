@@ -1,17 +1,17 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe } from './lib/store.js?v=24df1a08';
-import { readRecipeLink } from './lib/share.js?v=24df1a08';
-import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=24df1a08';
-import { h, $, icon } from './lib/ui.js?v=24df1a08';
-import { computeRecipe } from './model/dough.js?v=24df1a08';
-import { solveSchedule, activeSteps } from './model/protocol.js?v=24df1a08';
+import { load, subscribe, update, addRecipe } from './lib/store.js?v=14919de0';
+import { readRecipeLink } from './lib/share.js?v=14919de0';
+import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=14919de0';
+import { h, $, icon } from './lib/ui.js?v=14919de0';
+import { computeRecipe } from './model/dough.js?v=14919de0';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=14919de0';
 
-import renderRecipe from './views/recipe.js?v=24df1a08';
-import renderProtocol from './views/protocol.js?v=24df1a08';
-import renderBake from './views/bake.js?v=24df1a08';
-import renderLog from './views/log.js?v=24df1a08';
-import renderSetup from './views/setup.js?v=24df1a08';
+import renderRecipe from './views/recipe.js?v=14919de0';
+import renderProtocol from './views/protocol.js?v=14919de0';
+import renderBake from './views/bake.js?v=14919de0';
+import renderLog from './views/log.js?v=14919de0';
+import renderSetup from './views/setup.js?v=14919de0';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
@@ -201,6 +201,16 @@ function renderProgress(ctx) {
  */
 let typingIn = null;
 
+/**
+ * The slider currently under a finger or a pointer, if any.
+ *
+ * A drag is a pointer interaction rather than a focus one, so it needs its own
+ * guard. Rebuilding the screen mid-drag replaces the very element being
+ * dragged: the thumb snaps back to the stored value and the gesture is lost,
+ * because the finger is now on a node that is no longer in the page.
+ */
+let draggingSlider = null;
+
 export function render() {
   const main = $('#main');
 
@@ -213,6 +223,7 @@ export function render() {
    * numeric keypad has no state to lose.
    */
   if (typingIn && main.contains(typingIn)) return;
+  if (draggingSlider && main.contains(draggingSlider)) return;
 
   const snap = captureFocus();
   const ctx = context();
@@ -306,6 +317,21 @@ window.addEventListener('error', (e) => {
 $('#main').addEventListener('focusin', (e) => {
   if (isTextEntry(e.target)) typingIn = e.target;
 });
+
+const isSlider = (el) => el?.tagName === 'INPUT' && el.type === 'range';
+
+$('#main').addEventListener('pointerdown', (e) => {
+  if (isSlider(e.target)) draggingSlider = e.target;
+});
+
+// On the window, because a drag routinely ends with the pointer somewhere else.
+for (const end of ['pointerup', 'pointercancel']) {
+  window.addEventListener(end, () => {
+    if (!draggingSlider) return;
+    draggingSlider = null;
+    render();
+  });
+}
 
 $('#main').addEventListener('focusout', (e) => {
   if (e.target !== typingIn) return;

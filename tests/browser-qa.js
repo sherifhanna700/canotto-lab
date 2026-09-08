@@ -248,6 +248,35 @@
       : (doseText.match(/[\d.]+/g) || []).map(Number).reduce((a, b) => a + b, 0);
     check('J12.3 doses sum to the bassinage', Math.abs(doseSum - bass) < 0.01, `${doseText} -> ${doseSum} vs ${bass}`);
 
+    /* ------------------------------- J13 -------------------------------- */
+    await goTab(0);
+    const slider = $$('#main input[type=range]').find((e) => e.dataset.k === 'Hydration');
+    check('J13.1 sliders leave vertical gestures to the page',
+      getComputedStyle(slider).touchAction.includes('pan-y'),
+      `touch-action: ${getComputedStyle(slider).touchAction}`);
+
+    // Mid-drag, something else asks for a redraw. The thumb must not move.
+    slider.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    slider.value = String(Number(slider.value) + 4);
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    const held = slider.value;
+    const other = byKey('Recipe name');
+    other.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    other.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await sleep();
+    const stillThere = $$('#main input[type=range]').find((e) => e.dataset.k === 'Hydration');
+    check('J13.2 a redraw mid-drag does not move the thumb',
+      stillThere === slider && stillThere.value === held,
+      `element ${stillThere === slider ? 'kept' : 'REPLACED'}, thumb ${held} -> ${stillThere?.value}`);
+
+    // Releasing commits and lets the screen catch up.
+    slider.dispatchEvent(new Event('change', { bubbles: true }));
+    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    await sleep();
+    check('J13.3 releasing commits the value',
+      Number(stored().current.recipe.hydrationPct) === Number(held),
+      `model ${stored().current.recipe.hydrationPct}, thumb ${held}`);
+
     /* -------------------------------- J8 -------------------------------- */
     await goTab(2);
     const ambient = labelled('Ambient temperature')?.querySelector('input');
