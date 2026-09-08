@@ -127,3 +127,26 @@ can be opened, played with, and walked away from without harm.
 1. Water columns add up: biga plus final mix equals total.
 2. Bassinage plus salt wash equals the final mix water.
 3. The bassinage doses sum to the bassinage.
+
+## J16. Duration advice
+
+The reason the app exists: telling the pizzaiolo whether a cold proof is too
+long or too short for the flour they picked and the fridge they own. Every step
+here is done from the Recipe tab with the house protocol loaded.
+
+1. At 37 °F on Caputo Cuoco, a 66 hour cold proof reads "About right", and the
+   window quoted is roughly 27 to 72 hours.
+2. Raising the fridge to 43 °F and changing nothing else flips the same 66 hours
+   to a too-long verdict, because enzymes run faster in a warmer fridge.
+3. Dropping the fridge to 34 °F widens the window instead.
+4. Switching to a stronger flour at a fixed fridge temperature lengthens the
+   window; switching to a weaker one shortens it.
+5. On a flour too weak to carry a 24 hour biga and a long cold proof, the app
+   says so in those terms rather than quoting a window starting at zero.
+6. A short cold proof, say 8 hours, is called short.
+7. The button offering a duration sets exactly that duration, and the verdict
+   then reads "About right".
+8. The phase table shows both clocks, and the cold proof line carries far more
+   maturation units than fermentation units.
+9. Inoculation is reported before the freeze buffer, and the scaling button is
+   absent when the yeast already suits the schedule.

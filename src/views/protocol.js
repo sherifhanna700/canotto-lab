@@ -1,14 +1,14 @@
 // Protocol: the schedule solved backwards from your launch time, and the
 // 19 steps with the measurements you take as you go.
 
-import { h, card, numberField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=6cbf375d';
-import { update, editCurrent, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=6cbf375d';
-import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=6cbf375d';
-import { fermentUnits, ripeness, ripenessVerdict } from '../model/ferment.js?v=6cbf375d';
-import { convertYeast } from '../model/dough.js?v=6cbf375d';
-import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=6cbf375d';
-import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=6cbf375d';
-import { tempField, } from './common.js?v=6cbf375d';
+import { h, card, numberField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=71e6a25b';
+import { update, editCurrent, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=71e6a25b';
+import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=71e6a25b';
+import { fermentUnits, maturationUnits } from '../model/ferment.js?v=71e6a25b';
+import { convertYeast } from '../model/dough.js?v=71e6a25b';
+import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=71e6a25b';
+import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=71e6a25b';
+import { tempField, } from './common.js?v=71e6a25b';
 
 const METRIC_DEFS = {
   ambientTempC: { label: 'Ambient temperature', kind: 'temp', hint: 'Where the dough is sitting right now' },
@@ -48,8 +48,7 @@ function scheduleCard(ctx) {
   const launch = launchDate(ctx);
   const stages = scheduleStages(S);
   const fu = fermentUnits(stages, ctx.model);
-  const idy = convertYeast(s.current.recipe.baseYeastPct, s.current.recipe.yeastType, 'idy');
-  const verdict = ripenessVerdict(ripeness(stages, idy, ctx.model));
+  const mu = maturationUnits(stages, ctx.model);
   const m = sched.marks;
 
   const segs = [
@@ -98,7 +97,8 @@ function scheduleCard(ctx) {
       { class: 'stats' },
       stat('Start mixing', fmtDateTime(clockAt(launch, m.bigaStart)), 'the biga goes together here'),
       stat('Total lead time', fmtDuration(sched.totalMin / 60), 'first mix to launch'),
-      stat('Fermentation', `${fu.toFixed(1)} FU`, verdict.label),
+      stat('Fermentation', `${fu.toFixed(1)} FU`, 'yeast work'),
+      stat('Maturation', `${mu.toFixed(0)} MU`, 'enzyme work'),
       stat('Balls', `${ctx.c.freshBalls} fresh${ctx.c.recipe.frozenBalls ? ` · ${ctx.c.recipe.frozenBalls} frozen` : ''}`, `${ctx.c.recipe.ballWeight} g each`)
     ),
     segs.length ? timelineChart({ segments: segs }) : null

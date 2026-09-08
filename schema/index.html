@@ -96,7 +96,7 @@
   <div class="note"><strong>Flour shares are percentages that should total 100.</strong> A flour either has an <code>id</code> from the app's library or a <code>name</code> of its own. <code>w</code> is the Chopin alveograph value and is null where the mill publishes none.</div>
 
   <h2>Comparing two bakes</h2>
-  <p>The fermentation model is not needed to read the data, but it is what makes two schedules comparable. One fermentation unit is one hour at 20 °C. Rate follows a Q10 law, doubling roughly every 10 °C, with a steeper coefficient below 15 °C because a fridge slows dough more than a single Q10 predicts. Sum <code>hours × rate(temperature)</code> across the phases and you have the number the app ranks bakes on. The constants are in <code>settings.model</code>.</p>
+  <p>The model is not needed to read the data, but it is what makes two schedules comparable, and it has two halves. One <strong>fermentation unit</strong> is one hour of yeast work at 20 °C, on a Q10 law that doubles roughly every 10 °C and steepens below 15 °C because a fridge slows yeast more than a single Q10 predicts. One <strong>maturation unit</strong> is one hour of enzyme work at the same reference, on its own gentler Q10, because a flour's amylase and protease keep working in the cold long after the yeast has all but stopped. Sum <code>hours × rate(temperature)</code> across the phases for each. Yeast quantities scale against the first; a flour's W value bounds the second, which is what decides whether a cold proof is the right length. The constants are in <code>settings.model</code>.</p>
 
   <h2>Example</h2>
 <pre>{

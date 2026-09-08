@@ -1,20 +1,20 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=6cbf375d';
-import { editCurrent, update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=6cbf375d';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=6cbf375d';
-import { DEFAULT_MODEL, calibrateK, rateAt, fermentUnits } from '../model/ferment.js?v=6cbf375d';
-import { scheduleStages } from '../model/protocol.js?v=6cbf375d';
-import { convertYeast } from '../model/dough.js?v=6cbf375d';
-import { overallScore } from '../model/recipes.js?v=6cbf375d';
-import { SOURCES, FLOURS } from '../model/flours.js?v=6cbf375d';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=6cbf375d';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=6cbf375d';
-import { lineChart } from '../lib/charts.js?v=6cbf375d';
-import * as cloud from '../lib/cloud.js?v=6cbf375d';
-import { tempField, tempDeltaField, } from './common.js?v=6cbf375d';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=6cbf375d';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=71e6a25b';
+import { editCurrent, update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=71e6a25b';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=71e6a25b';
+import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=71e6a25b';
+import { scheduleStages } from '../model/protocol.js?v=71e6a25b';
+import { convertYeast } from '../model/dough.js?v=71e6a25b';
+import { overallScore } from '../model/recipes.js?v=71e6a25b';
+import { SOURCES, FLOURS } from '../model/flours.js?v=71e6a25b';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=71e6a25b';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=71e6a25b';
+import { lineChart } from '../lib/charts.js?v=71e6a25b';
+import * as cloud from '../lib/cloud.js?v=71e6a25b';
+import { tempField, tempDeltaField, } from './common.js?v=71e6a25b';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=71e6a25b';
 
 let cloudUser = null;
 let cloudStatus = '';
@@ -253,36 +253,33 @@ function calibrationCard(ctx) {
   const { s, u } = ctx;
   const m = s.settings.model;
 
-  const samples = s.bakes
-    .filter((b) => !b.planned && (overallScore(b.scores) ?? 0) >= 4)
-    .map((b) => ({
-      fu: fermentUnits(scheduleStages(b.schedule), m),
-      idyPct: convertYeast(b.recipe.baseYeastPct, b.recipe.yeastType, 'idy'),
-    }));
-  const fitted = calibrateK(samples);
-
-  const curve = [];
-  for (let t = -2; t <= 40; t += 1) curve.push({ x: toDisplay(t, u), y: rateAt(t, m) });
+  const yeast = [];
+  const enzyme = [];
+  for (let t = -2; t <= 40; t += 1) {
+    yeast.push({ x: toDisplay(t, u), y: rateAt(t, m) });
+    enzyme.push({ x: toDisplay(t, u), y: maturationRateAt(t, m) });
+  }
+  const fridge = s.current.schedule.fridgeTempC;
 
   return card(
-    'Fermentation model',
-    'The constants behind fermentation units. Defaults are anchored to the house protocol; tune them to your kitchen.',
+    'The two clocks',
+    'Yeast and enzymes both slow down in the cold, but not by the same amount. That gap is the whole reason a cold proof works, and these constants set its size.',
+    lineChart({
+      series: [{ points: yeast, label: 'yeast' }, { points: enzyme, label: 'enzymes' }],
+      xLabel: `Temperature (\u00b0${u})`,
+      yLabel: `Rate at ${fmtTemp(20, u)} = 1`,
+      height: 220,
+      markers: [{ x: toDisplay(fridge, u), label: 'your fridge' }],
+    }),
+    h('p', { class: 'note neutral' }, `At ${fmtTemp(fridge, u)} your yeast runs at ${(rateAt(fridge, m) * 100).toFixed(0)}% of its 20 \u00b0C rate while the flour\u2019s enzymes keep ${(maturationRateAt(fridge, m) * 100).toFixed(0)}%. The dough goes on maturing long after it has stopped rising, which is why a cold proof can be too long as well as too short.`),
     h(
       'div',
       { class: 'row' },
-      numberField({ label: 'K (yeast × FU at ripeness)', value: m.k, min: 0.5, max: 8, step: 0.01, onInput: (v) => update((st) => { st.settings.model.k = v ?? DEFAULT_MODEL.k; }) }),
-      numberField({ label: 'Q10 above 15 °C', value: m.q10Warm, min: 1.4, max: 4, step: 0.1, onInput: (v) => update((st) => { st.settings.model.q10Warm = v ?? DEFAULT_MODEL.q10Warm; }) }),
-      numberField({ label: 'Q10 below 15 °C', value: m.q10Cold, min: 1.4, max: 6, step: 0.1, onInput: (v) => update((st) => { st.settings.model.q10Cold = v ?? DEFAULT_MODEL.q10Cold; }) })
+      numberField({ label: 'Yeast Q10 above 15 \u00b0C', value: m.q10Warm, min: 1.4, max: 4, step: 0.1, onInput: (v) => update((st) => { st.settings.model.q10Warm = v ?? DEFAULT_MODEL.q10Warm; }) }),
+      numberField({ label: 'Yeast Q10 below 15 \u00b0C', value: m.q10Cold, min: 1.4, max: 8, step: 0.1, onInput: (v) => update((st) => { st.settings.model.q10Cold = v ?? DEFAULT_MODEL.q10Cold; }) }),
+      numberField({ label: 'Enzyme Q10', value: m.q10Enzyme, min: 1.1, max: 3, step: 0.05, onInput: (v) => update((st) => { st.settings.model.q10Enzyme = v ?? DEFAULT_MODEL.q10Enzyme; }) })
     ),
-    lineChart({ series: [{ points: curve }], xLabel: `Temperature (°${u})`, yLabel: 'Relative rate', height: 220, markers: [{ x: toDisplay(s.current.schedule.fridgeTempC, u), label: 'your fridge' }] }),
-    fitted
-      ? h(
-          'div',
-          {},
-          h('p', { class: 'note good' }, `${samples.length} bakes scored 4 or better. Fitted against those, K would be ${fitted.toFixed(2)} rather than the current ${m.k}.`),
-          h('button', { class: 'btn tonal small', onClick: () => { update((st) => { st.settings.model.k = round(fitted, 2); }); toast('Model calibrated to your bakes'); } }, icon('tune'), 'Use my bakes')
-        )
-      : h('p', { class: 'note neutral' }, 'Score a few bakes 4 or better and the model can be fitted to your own results instead of the shipped default.'),
+    h('p', { class: 'hint', style: { fontSize: '.75rem' } }, 'Defaults are set so the curves pass through published figures: yeast at roughly a tenth of room rate at 4 \u00b0C, enzyme activity holding just under half. Change them only if your own bakes say otherwise.'),
     h('button', { class: 'btn ghost small', onClick: () => { update((st) => { st.settings.model = { ...DEFAULT_MODEL }; }); toast('Model reset'); } }, icon('restart_alt'), 'Reset to defaults')
   );
 }
@@ -305,9 +302,10 @@ function sourcesCard() {
       'details',
       { class: 'foldout' },
       h('summary', {}, 'How the fermentation model works'),
-      h('p', { style: { fontSize: '.83rem', margin: '0 0 8px' } }, 'One fermentation unit is one hour at 20 °C. Rate follows a Q10 law, doubling roughly every 10 °C, with a steeper coefficient below 15 °C because a fridge slows dough more than a single Q10 predicts.'),
-      h('p', { style: { fontSize: '.83rem', margin: '0 0 8px' } }, 'Ripeness assumes yeast and time trade off inversely: halve the yeast and you need about twice the fermentation units. The constant tying them together is anchored to the house protocol, which ripens on 0.10% instant dry yeast across 24.2 units.'),
-      h('p', { style: { fontSize: '.83rem', margin: 0 } }, 'The freeze buffer is deliberately left out of the ripeness reading. Extra yeast added to cover freeze mortality replaces cells that will die, it does not add fermentation.')
+      h('p', { style: { fontSize: '.83rem', margin: '0 0 8px' } }, 'A fermentation unit is one hour of yeast work at 20 °C, and a maturation unit is one hour of enzyme work at the same temperature. Both follow a Q10 law. The yeast curve steepens below 15 °C because a fridge slows dough more than a single coefficient predicts; the enzyme curve does not.'),
+      h('p', { style: { fontSize: '.83rem', margin: '0 0 8px' } }, 'Duration comes from maturation. A flour\u2019s W value is a budget for how much enzyme work its gluten can absorb before it goes slack, so the stronger the flour the longer it will take a cold proof. That is what sets the suggested window, and what makes 66 hours right at one fridge temperature and too long at another.'),
+      h('p', { style: { fontSize: '.83rem', margin: '0 0 8px' } }, 'Yeast comes from fermentation. Halve the yeast and you need about twice the fermentation units, so the app scales your inoculation from a bake that already worked rather than from a constant it invented.'),
+      h('p', { style: { fontSize: '.83rem', margin: 0 } }, 'The freeze buffer is left out of both readings. Extra yeast added to cover freeze mortality replaces cells that will die, it does not add fermentation.')
     ),
     h('p', { class: 'note neutral' }, 'W values vary by lot and mills revise their specs. Treat every figure as a starting point and let your own bake log overrule it.')
   );

@@ -81,7 +81,7 @@ export const DIAGNOSTICS = [
     category: 'CRUMB',
     title: 'Bready, tight crumb instead of an open honeycomb',
     cause: 'Under-fermented, or the gas was degassed out of the rim while opening.',
-    fix: 'Raise the fermentation load. Check the ripeness reading on the Ferment panel before blaming your hands.',
+    fix: 'Raise the fermentation load. Check the fermentation reading on the Recipe panel before blaming your hands.',
     detect: (b) => n(b.scores?.honeycomb) !== null && b.scores.honeycomb <= 2,
   },
   {

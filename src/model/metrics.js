@@ -3,13 +3,14 @@
 // Compare and Lab both work off this list, so adding a field here makes it
 // available as an axis, a grouping and a correlation candidate everywhere.
 
-import { computeRecipe } from './dough.js?v=6cbf375d';
-import { scheduleStages } from './protocol.js?v=6cbf375d';
-import { fermentUnits, ripeness } from './ferment.js?v=6cbf375d';
-import { convertYeast } from './dough.js?v=6cbf375d';
-import { overallScore, SCORE_KEYS } from './recipes.js?v=6cbf375d';
-import { toDisplay } from './units.js?v=6cbf375d';
-import { ovenLabel, mixerLabel } from './equipment.js?v=6cbf375d';
+import { computeRecipe } from './dough.js?v=71e6a25b';
+import { scheduleStages } from './protocol.js?v=71e6a25b';
+import { fermentUnits, maturationUnits } from './ferment.js?v=71e6a25b';
+import { convertYeast } from './dough.js?v=71e6a25b';
+import { overallScore, SCORE_KEYS } from './recipes.js?v=71e6a25b';
+import { maturationCeilingForW } from './flours.js?v=71e6a25b';
+import { toDisplay } from './units.js?v=71e6a25b';
+import { ovenLabel, mixerLabel } from './equipment.js?v=71e6a25b';
 
 /** Inputs: things you chose. */
 export const FACTORS = [
@@ -18,7 +19,8 @@ export const FACTORS = [
   { key: 'coldProofHours', label: 'Cold proof', unit: 'h', get: (b) => b.schedule.coldProofHours },
   { key: 'fridgeTempC', label: 'Cold ferment temperature', unit: '°', temp: true, get: (b) => b.actuals?.fridgeTempC ?? b.schedule.fridgeTempC },
   { key: 'yeastPct', label: 'Inoculation', unit: '%', get: (b, d) => d.c.yeastPct },
-  { key: 'ripeness', label: 'Ripeness', unit: '×', get: (b, d) => d.ripeness },
+  { key: 'maturationUnits', label: 'Maturation load', unit: 'MU', get: (b, d) => d.mu },
+  { key: 'maturationPct', label: 'Share of the flour\u2019s budget used', unit: '%', get: (b, d) => d.maturationPct },
   { key: 'flourW', label: 'Flour strength', unit: 'W', get: (b, d) => d.c.blend.w },
   { key: 'flourProtein', label: 'Flour protein', unit: '%', get: (b, d) => d.c.blend.protein },
   { key: 'prefermentFlourPct', label: 'Preferment share of flour', unit: '%', get: (b) => b.recipe.prefermentFlourPct },
@@ -65,7 +67,9 @@ export function derive(bake, model) {
   const stages = scheduleStages(bake.schedule);
   const fu = fermentUnits(stages, model);
   const idy = convertYeast(bake.recipe.baseYeastPct, bake.recipe.yeastType, 'idy');
-  return { c, stages, fu, ripeness: ripeness(stages, idy, model) };
+  const mu = maturationUnits(stages, model);
+  const ceiling = maturationCeilingForW(c.blend?.w);
+  return { c, stages, fu, idy, mu, maturationPct: ceiling ? (mu / ceiling) * 100 : null };
 }
 
 export function findFactor(key) {

@@ -409,6 +409,127 @@
       new Set(themes).size >= 2 && getComputedStyle(document.documentElement).colorScheme === document.documentElement.dataset.theme,
       themes.join(' -> '));
 
+    /* ------------------------------- J16 -------------------------------- */
+    /*
+     * The advice the app exists to give. Everything here is read off the
+     * screen, because the point is what the pizzaiolo is told, not what the
+     * model computes.
+     */
+    await goTab(0);
+    const setNum = async (label, v) => {
+      const el = labelled(label, false)?.querySelector('input[type=number]');
+      if (!el) return false;
+      el.value = String(v);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+      await sleep();
+      return true;
+    };
+    const setFlour = async (match) => {
+      const sel = $$('#main select').find((x) => [...x.options].some((o) => match.test(o.text)));
+      if (!sel) return false;
+      sel.value = [...sel.options].find((o) => match.test(o.text)).value;
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+      await sleep();
+      return true;
+    };
+    /*
+     * Scope every reading to the Phases card. "Cold proof" also appears as a
+     * stat label on the Inputs card, and reading that one silently answers a
+     * different question.
+     */
+    const phases = () => cards().find((c) => /^Phases/.test(c.querySelector('h2, h3')?.textContent || ''));
+    const phaseStat = (name) => $$('.stat', phases())
+      .find((x) => x.querySelector('.stat-label')?.textContent === name);
+    const proofVerdict = () => phaseStat('Cold proof')?.querySelector('.stat-sub')?.textContent.trim();
+    const wants = () => phaseStat('This flour wants')?.querySelector('.stat-value')?.textContent.trim();
+    const adviceNote = () => $$('#main .note')
+      .map((n) => n.textContent)
+      .find((t) => /wants|maturation units/.test(t)) || '';
+
+    /*
+     * Earlier journeys leave the recipe forked and the schedule deliberately
+     * mangled, so start from known ground using the app's own Restore.
+     */
+    /*
+     * J2 types into every number field it can find, and the fermentation
+     * constants on Setup are number fields, so the model itself needs putting
+     * back before any of the advice below means anything.
+     */
+    await goTab(4);
+    button('Reset to defaults')?.click();
+    await sleep();
+    await goTab(0);
+    button('Restore')?.click();
+    await sleep();
+    $$('.modal-actions button').find((b) => b.textContent.trim() === 'Restore')?.click();
+    await sleep();
+    check('J16.0 the house protocol restores as shipped',
+      /W 310/.test(statValue('Strength') || '') && Number(labelled('Cold proof', false)?.querySelector('input').value) === 66,
+      `${statValue('Strength')}, ${labelled('Cold proof', false)?.querySelector('input').value} h`);
+    check('J16.0b the fermentation model is back to defaults',
+      Math.abs(stored().settings.model.q10Enzyme - 1.65) < 0.001,
+      `enzyme Q10 ${stored().settings.model.q10Enzyme}`);
+    const at37 = proofVerdict();
+    const window37 = wants();
+    check('J16.1 66 h at 37 F on Cuoco is about right', at37 === 'About right', `${window37} -> ${at37}`);
+
+    await setNum('Cold ferment temperature', 43);
+    const at43 = proofVerdict();
+    check('J16.2 the same 66 h at 43 F is called too long',
+      /long/i.test(at43 || ''), `${wants()} -> ${at43}`);
+
+    await setNum('Cold ferment temperature', 34);
+    const hoursIn = (t) => (t || '').match(/\d+/g)?.map(Number) || [];
+    const cold34 = hoursIn(wants());
+    await setNum('Cold ferment temperature', 37);
+    const cold37 = hoursIn(window37);
+    check('J16.3 a colder fridge widens the window',
+      cold34[cold34.length - 1] > cold37[cold37.length - 1],
+      `34 F: ${cold34.join('-')} vs 37 F: ${cold37.join('-')}`);
+
+    await setFlour(/Polselli Super|Super/);
+    const strongWindow = hoursIn(wants());
+    await setFlour(/Nuvola/);
+    const weakWindow = hoursIn(wants());
+    check('J16.4 flour strength moves the window',
+      strongWindow[strongWindow.length - 1] > weakWindow[weakWindow.length - 1],
+      `strong ${strongWindow.join('-')} vs weak ${weakWindow.join('-')}`);
+
+    check('J16.5 a flour too weak for the biga is told so in those terms',
+      /maturation units .* can take/.test(adviceNote()) && !/wants 0 to/.test(adviceNote()),
+      adviceNote().slice(0, 90));
+
+    await setFlour(/Cuoco/);
+    await setNum('Cold proof', 8);
+    check('J16.6 8 h is called short', /short/i.test(proofVerdict() || ''), `${wants()} -> ${proofVerdict()}`);
+
+    const fixBtn = button('Set it to');
+    const asked = Number((fixBtn?.textContent.match(/\d+/) || [0])[0]);
+    fixBtn?.click();
+    await sleep();
+    const proofNow = Number(labelled('Cold proof', false)?.querySelector('input').value);
+    check('J16.7 taking the suggestion satisfies the app',
+      asked > 0 && proofNow === asked && proofVerdict() === 'About right',
+      `set ${asked} h, field reads ${proofNow}, verdict ${proofVerdict()}`);
+
+    const phaseFold = $$('#main details').find((d) => /Phase by phase/.test(d.textContent));
+    if (phaseFold) phaseFold.open = true;
+    await sleep();
+    const proofRow = $$('#main tbody tr').find((r) => /Cold proof/.test(r.children[0]?.textContent));
+    const rowFU = Number(proofRow?.children[4]?.textContent);
+    const rowMU = Number(proofRow?.children[5]?.textContent);
+    check('J16.8 the cold proof matures far more than it ferments',
+      rowMU > rowFU * 3, `${rowFU} FU against ${rowMU} MU`);
+
+    check('J16.9 inoculation is quoted before the freeze buffer',
+      /instant dry before any freeze buffer/.test($$('#main .note').map((n) => n.textContent).join(' ')),
+      '');
+
+    await setNum('Cold proof', 66);
+    await setNum('Cold ferment temperature', 37);
+
     /* ------------------------------- J11 -------------------------------- */
     const snapshot = stored();
     check('J11.1 state persisted', !!snapshot && snapshot.recipes.length >= 2 && snapshot.bakes.length === 1,

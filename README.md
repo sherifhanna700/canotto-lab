@@ -31,9 +31,22 @@ schedule is measured against.
 
 Every recipe carries the average score of the bakes filed against it.
 
-Fermentation is the heart of it. Every phase reduces to *fermentation units*, one FU being
-an hour at 20 °C. That is what makes two schedules comparable: 66 hours at 37 °F and
-18 hours at 65 °F are not the same amount of fermentation, and the app says so. The cold
+Two clocks run in a cold-fermented dough, and confusing them is why so much cold-proof
+advice contradicts itself. Yeast makes the gas, and it nearly stops in a fridge: at 4 °C it
+works at roughly a tenth of its room rate. The flour's own enzymes soften the gluten and
+free up sugar, and they keep close to half their room rate down there. The gap between the
+two curves is the entire reason a cold proof exists.
+
+So the app tracks both. A *fermentation unit* is an hour of yeast work at 20 °C and sets
+how much yeast a schedule needs. A *maturation unit* is an hour of enzyme work at 20 °C
+and sets how long the dough can stay in the fridge. A flour's W value is a budget for
+maturation: strong flour absorbs more enzyme work before the gluten goes slack, which is
+why W 330 will carry a proof that would ruin W 260.
+
+That is what lets the app answer the question it was built for. Given your flour, your
+fridge temperature and the rest of your schedule, it says whether your cold proof is too
+long, too short, or about right, and offers the duration it would pick. The same 66 hours
+reads as fine at 37 °F and too long at 43 °F, because the enzymes ran faster. The cold
 ferment temperature is a first-class knob, because for most people it is fixed by the
 fridge they own and everything else has to bend around it.
 

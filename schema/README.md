@@ -86,12 +86,19 @@ alveograph value and is null where the mill publishes none.
 
 ## Reading a bake without the app
 
-The fermentation model is not needed to read the data, but it is what makes two
-schedules comparable. One fermentation unit is one hour at 20 °C. Rate follows a
-Q10 law, doubling roughly every 10 °C, with a steeper coefficient below 15 °C
-because a fridge slows dough more than a single Q10 predicts. Sum
-`hours × rate(temperature)` across the phases and you have the number the app
-compares bakes on. The constants are in `settings.model`.
+The model is not needed to read the data, but it is what makes two schedules
+comparable, and it has two halves.
+
+One fermentation unit is one hour of yeast work at 20 °C. Rate follows a Q10 law,
+doubling roughly every 10 °C, with a steeper coefficient below 15 °C because a
+fridge slows yeast more than a single Q10 predicts. Sum `hours × rate(temperature)`
+across the phases and you have the figure yeast quantities scale against.
+
+One maturation unit is one hour of enzyme work at the same reference, on its own
+gentler Q10, because a flour's amylase and protease keep working in the cold long
+after the yeast has all but stopped. Sum it the same way. A flour's W value bounds
+how many maturation units its gluten can absorb, so this sum is what decides
+whether a cold proof is the right length. The constants are in `settings.model`.
 
 ## Example
 

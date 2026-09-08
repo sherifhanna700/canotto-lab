@@ -2,10 +2,10 @@
 
 import assert from 'node:assert/strict';
 import { computeRecipe, allocateFlours, convertYeast, DEFAULT_RECIPE, effectiveYeastPct } from '../src/model/dough.js';
-import { blendStats, hydrationRangeForW, estimateW, fuCeilingForW, bandForW, FLOURS } from '../src/model/flours.js';
-import { rateAt, fermentUnits, yeastForFU, ripeness, ripenessVerdict, waterTempFor, calibrateK, DEFAULT_MODEL } from '../src/model/ferment.js';
+import { blendStats, hydrationRangeForW, estimateW, maturationCeilingForW, bandForW, FLOURS } from '../src/model/flours.js';
+import { rateAt, maturationRateAt, fermentUnits, maturationUnits, yeastForFU, waterTempFor, DEFAULT_MODEL } from '../src/model/ferment.js';
 import { solveSchedule, scheduleStages, STEPS, activeSteps, DEFAULT_SCHEDULE } from '../src/model/protocol.js';
-import { suggestPlan, reviewPlan, defaultLeadHours, strengthBand } from '../src/model/advisor.js';
+import { suggestPlan, reviewPlan, defaultLeadHours, strengthBand, coldProofWindow, coldProofVerdict, hoursForMaturation, HOUSE_REFERENCE, MATURATION_TARGET } from '../src/model/advisor.js';
 import { recipeFromBlend, overallScore, recipeRating, starterRecipes, houseRecipe } from '../src/model/recipes.js';
 import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIXERS } from '../src/model/equipment.js';
 import { diagnose } from '../src/model/diagnostics.js';
@@ -166,11 +166,19 @@ test('fermentation units add up across stages', () => {
   near(fu, 5, 1e-9, 'five hours at the reference temperature');
 });
 
-test('the house schedule lands in the ripeness window at its own inoculation', () => {
-  const stages = scheduleStages(DEFAULT_SCHEDULE);
-  const r = ripeness(stages, 0.1);
-  near(r, 1, 0.1, 'house protocol ripeness');
-  assert.equal(ripenessVerdict(r).key, 'on');
+test('yeast slows far more than enzymes do in the cold', () => {
+  // The published figures this model is anchored to: yeast drops to roughly a
+  // tenth of its room rate at fridge temperature while the flour's own enzymes
+  // keep just under half. The gap is what a cold proof exists to exploit.
+  near(rateAt(4), 0.1, 0.03, 'yeast rate at 4 C');
+  near(maturationRateAt(4), 0.45, 0.06, 'enzyme rate at 4 C');
+  assert.ok(maturationRateAt(4) > rateAt(4) * 3, 'enzymes outrun yeast in the fridge');
+});
+
+test('maturation units accumulate through a cold proof that barely ferments', () => {
+  const stage = [{ hours: 48, tempC: 4 }];
+  assert.ok(fermentUnits(stage) < 6, 'little yeast work happens at 4 C');
+  assert.ok(maturationUnits(stage) > 18, 'but plenty of enzyme work does');
 });
 
 test('a colder fridge needs more time for the same fermentation', () => {
@@ -179,17 +187,60 @@ test('a colder fridge needs more time for the same fermentation', () => {
   assert.ok(warm > cold, 'warmer fridge ferments further in the same time');
 });
 
-test('required yeast falls as the schedule lengthens', () => {
-  assert.ok(yeastForFU(40) < yeastForFU(10));
+test('yeast and time trade off inversely against a reference bake', () => {
+  const ref = HOUSE_REFERENCE;
+  near(yeastForFU(ref.fu, { refYeastPct: ref.yeastPct, refFU: ref.fu }), ref.yeastPct, 1e-9, 'the reference reproduces itself');
+  assert.ok(yeastForFU(ref.fu * 2, { refYeastPct: ref.yeastPct, refFU: ref.fu }) < ref.yeastPct, 'twice the units, less yeast');
+});
+
+test('a stronger flour can absorb a longer cold proof', () => {
+  assert.ok(maturationCeilingForW(340) > maturationCeilingForW(260), 'W buys maturation headroom');
+});
+
+/* --------------------- the cold proof window verdict --------------------- */
+
+const cuoco = { flours: [{ id: 'caputo-cuoco', pct: 100 }], w: 310 };
+const windowFor = (fridgeTempC, coldProofHours) => {
+  const schedule = { ...DEFAULT_SCHEDULE, fridgeTempC, coldProofHours };
+  return coldProofWindow({ blend: cuoco, schedule });
+};
+
+test('the same cold proof reads differently at different fridge temperatures', () => {
+  // This is the behaviour the app exists to provide: 66 hours is right in a
+  // 37 F fridge and too long in a 43 F one, because the enzymes run faster.
+  assert.equal(coldProofVerdict(windowFor(2.8, 66)).key, 'on', '66 h at 37 F');
+  assert.equal(coldProofVerdict(windowFor(6.1, 66)).key, 'long', '66 h at 43 F');
+  assert.ok(windowFor(6.1, 66).high < windowFor(2.8, 66).high, 'a warmer fridge shortens the window');
+});
+
+test('the window moves with flour strength as well as temperature', () => {
+  const weak = coldProofWindow({ blend: { flours: [{ id: 'caputo-nuvola', pct: 100 }], w: 270 }, schedule: { ...DEFAULT_SCHEDULE, coldProofHours: 66 } });
+  const strong = coldProofWindow({ blend: { flours: [{ id: 'polselli-super', pct: 100 }], w: 330 }, schedule: { ...DEFAULT_SCHEDULE, coldProofHours: 66 } });
+  assert.ok(strong.high > weak.high, 'stronger flour tolerates longer');
+  assert.equal(coldProofVerdict(strong).key, 'on', '66 h suits a W 330 flour');
+  assert.ok(coldProofVerdict(weak).key.endsWith('long'), '66 h is too long for a W 270 flour');
+});
+
+test('a short cold proof is called short', () => {
+  assert.ok(coldProofVerdict(windowFor(2.8, 8)).key.endsWith('short'), '8 h is not enough');
+});
+
+test('the suggested duration always lands inside its own window', () => {
+  for (const f of FLOURS.filter((x) => Number.isFinite(x.w))) {
+    for (const fridgeTempC of [1.7, 2.8, 4.4, 6.1]) {
+      const blend = { flours: [{ id: f.id, pct: 100 }], w: f.w };
+      const w = coldProofWindow({ blend, schedule: { ...DEFAULT_SCHEDULE, fridgeTempC, coldProofHours: 24 } });
+      if (!w) continue;
+      const check = coldProofWindow({ blend, schedule: { ...DEFAULT_SCHEDULE, fridgeTempC, coldProofHours: w.ideal } });
+      assert.equal(coldProofVerdict(check).key, 'on', `${f.name} at ${fridgeTempC} C: its own suggestion should read as on target`);
+      assert.ok(w.ideal >= 0 && w.ideal < 400, `${f.name}: suggestion within reach`);
+    }
+  }
 });
 
 test('water temperature solver uses three or four factors as appropriate', () => {
   near(waterTempFor({ ddtC: 24, flourTempC: 20, roomTempC: 20, frictionC: 8 }), 24 * 3 - 48, 1e-9, 'three factor');
   near(waterTempFor({ ddtC: 24, flourTempC: 20, roomTempC: 20, frictionC: 8, prefermentTempC: 4 }), 24 * 4 - 52, 1e-9, 'four factor');
-});
-
-test('calibration takes the median of the samples', () => {
-  near(calibrateK([{ fu: 10, idyPct: 0.2 }, { fu: 20, idyPct: 0.2 }, { fu: 30, idyPct: 0.2 }]), 4, 1e-9, 'median K');
 });
 
 /* ------------------------------- protocol ------------------------------- */

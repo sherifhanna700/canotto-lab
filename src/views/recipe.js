@@ -5,19 +5,19 @@
 // Edits save straight onto the selected recipe, so there is no save step and
 // the name in the list is always the name in the field.
 
-import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=6cbf375d';
-import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download, exportRecipesJSON, exportRecipeJSON } from '../lib/store.js?v=6cbf375d';
-import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=6cbf375d';
-import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=6cbf375d';
-import { scheduleStages, solveSchedule } from '../model/protocol.js?v=6cbf375d';
-import { fermentUnits, stageBreakdown, yeastForFU, ripeness, ripenessVerdict, doughTempFrom, doughTempVerdict, frictionFrom } from '../model/ferment.js?v=6cbf375d';
-import { suggestPlan, reviewPlan, defaultLeadHours } from '../model/advisor.js?v=6cbf375d';
-import { recipeFromBlend, deriveRecipe, recipeRating } from '../model/recipes.js?v=6cbf375d';
-import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=6cbf375d';
-import { recipeLink, copyText } from '../lib/share.js?v=6cbf375d';
-import { findMixer, mixerLabel } from '../model/equipment.js?v=6cbf375d';
-import { tempField, tempDeltaField, ratingBadge, stars, } from './common.js?v=6cbf375d';
-import { go } from '../app.js?v=6cbf375d';
+import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=71e6a25b';
+import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download, exportRecipesJSON, exportRecipeJSON } from '../lib/store.js?v=71e6a25b';
+import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=71e6a25b';
+import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=71e6a25b';
+import { scheduleStages, solveSchedule } from '../model/protocol.js?v=71e6a25b';
+import { fermentUnits, maturationUnits, stageBreakdown, yeastForFU, doughTempFrom, doughTempVerdict, frictionFrom } from '../model/ferment.js?v=71e6a25b';
+import { suggestPlan, reviewPlan, defaultLeadHours, coldProofWindow, coldProofVerdict, hoursForMaturation, HOUSE_REFERENCE } from '../model/advisor.js?v=71e6a25b';
+import { recipeFromBlend, deriveRecipe, recipeRating, overallScore } from '../model/recipes.js?v=71e6a25b';
+import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=71e6a25b';
+import { recipeLink, copyText } from '../lib/share.js?v=71e6a25b';
+import { findMixer, mixerLabel } from '../model/equipment.js?v=71e6a25b';
+import { tempField, tempDeltaField, ratingBadge, stars, } from './common.js?v=71e6a25b';
+import { go } from '../app.js?v=71e6a25b';
 
 const setRecipe = (patch) => editCurrent((c) => Object.assign(c.recipe, patch));
 const setSchedule = (patch) => editCurrent((c) => Object.assign(c.schedule, patch));
@@ -452,39 +452,79 @@ function doughCard(ctx) {
 
 /* ------------------------------ time and temp --------------------------- */
 
+/** The bake this app scales yeast from: the baker's own best, or the house. */
+function referenceFor(s) {
+  const scored = s.bakes
+    .filter((b) => !b.planned && overallScore(b.scores) !== null && Number(b.recipe?.baseYeastPct) > 0)
+    .sort((a, b) => overallScore(b.scores) - overallScore(a.scores))[0];
+  if (!scored) return HOUSE_REFERENCE;
+  const fu = fermentUnits(scheduleStages(scored.schedule));
+  const idy = convertYeast(scored.recipe.baseYeastPct, scored.recipe.yeastType, 'idy');
+  if (!(fu > 0) || !(idy > 0)) return HOUSE_REFERENCE;
+  return { label: `your best bake, ${scored.title || scored.recipeName}`, yeastPct: idy, fu };
+}
+
 function timingCard(ctx) {
   const { s, u, S, c } = ctx;
   const stages = scheduleStages(S);
   const fu = fermentUnits(stages, ctx.model);
+  const mu = maturationUnits(stages, ctx.model);
   const idy = convertYeast(s.current.recipe.baseYeastPct, s.current.recipe.yeastType, 'idy');
-  const ratio = ripeness(stages, idy, ctx.model);
-  const verdict = ripenessVerdict(ratio);
-  const need = yeastForFU(fu, ctx.model);
-  const review = reviewPlan({ blend: c.blend, stages, idyPct: idy, model: ctx.model });
+  const reference = referenceFor(s);
+  const review = reviewPlan({ blend: c.blend, stages, schedule: S, idyPct: idy, reference, model: ctx.model });
+  const window = review.window;
+  const verdict = coldProofVerdict(window);
+  const need = yeastForFU(fu, { refYeastPct: reference.yeastPct, refFU: reference.fu });
 
   return card(
     'Phases',
-    `Each phase reduces to fermentation units at your temperatures, so two schedules can be compared directly. Cold phases run at ${fmtTemp(S.fridgeTempC, u)}.`,
+    `How long each phase runs, and what that adds up to at your temperatures. Cold phases run at ${fmtTemp(S.fridgeTempC, u)}.`,
     h(
       'div',
       { class: 'row' },
       numberField({ label: 'Biga ambient rest', value: S.bigaRestHours, min: 0, max: 24, step: 0.25, suffix: 'h', onInput: (v) => setSchedule({ bigaRestHours: v }) }),
       numberField({ label: 'Biga cold hold', value: S.bigaColdHours, min: 0, max: 48, step: 1, suffix: 'h', onInput: (v) => setSchedule({ bigaColdHours: v }) }),
-      numberField({ label: 'Cold proof', value: S.coldProofHours, min: 1, max: 168, step: 1, suffix: 'h', onInput: (v) => setSchedule({ coldProofHours: v }) }),
+      numberField({ label: 'Cold proof', value: S.coldProofHours, min: 1, max: 240, step: 1, suffix: 'h', onInput: (v) => setSchedule({ coldProofHours: v }) }),
       numberField({ label: 'Counter temper', value: S.temperHours, min: 0, max: 12, step: 0.25, suffix: 'h', onInput: (v) => setSchedule({ temperHours: v }) })
     ),
-    h(
-      'div',
-      { class: 'stats' },
-      stat('Fermentation load', `${fu.toFixed(1)} FU`, `ceiling ${c.fuCeiling ?? '—'} FU`),
-      stat('Ripeness', Number.isFinite(ratio) ? `${(ratio * 100).toFixed(0)}%` : '—', verdict.label),
-      stat('Total lead time', fmtDuration((ctx.sched.totalMin || 0) / 60), 'first mix to launch')
-    ),
-    h('p', { class: `note ${verdict.tone}` }, verdictText(verdict, ratio, need, s.current.recipe)),
-    ...review.notes.filter((n) => n.tone !== 'good').map((n) => h('p', { class: `note ${n.tone}` }, n.text)),
+
+    window
+      ? h(
+          'div',
+          {},
+          h(
+            'div',
+            { class: 'stats' },
+            stat('Cold proof', fmtDuration(window.actual), verdict.label),
+            stat('This flour wants', window.crowded ? `up to ${Math.round(window.high)} h` : `${Math.round(window.low)}\u2013${Math.round(window.high)} h`, `at ${fmtTemp(window.fridgeTempC, u)}`),
+            stat('Maturation', `${mu.toFixed(0)} MU`, `of about ${window.ceiling} this flour can take`),
+            stat('Fermentation', `${fu.toFixed(1)} FU`, 'yeast work')
+          ),
+          h('p', { class: `note ${verdict.tone}` }, coldProofWords(verdict, window, c, u)),
+          verdict.key !== 'on'
+            ? h('div', { class: 'row tight' }, h('button', { class: 'btn tonal small', onClick: () => { setSchedule({ coldProofHours: Math.round(window.ideal) }); toast(`Cold proof set to ${Math.round(window.ideal)} hours`); } }, icon('schedule'), `Set it to ${Math.round(window.ideal)} h`))
+            : null
+        )
+      : h(
+          'div',
+          { class: 'stats' },
+          stat('Maturation', `${mu.toFixed(0)} MU`, 'no strength figure for this flour'),
+          stat('Fermentation', `${fu.toFixed(1)} FU`, 'yeast work')
+        ),
+
+    ...review.notes.filter((n) => n.tone !== 'good' && !/maturation is at/i.test(n.text)).map((n) => h('p', { class: `note ${n.tone}` }, n.text)),
+
     Number.isFinite(need)
-      ? h('div', { class: 'row tight' }, h('button', { class: 'btn tonal small', onClick: () => { setRecipe({ baseYeastPct: round(convertYeast(need, 'idy', s.current.recipe.yeastType), 3) }); toast('Yeast matched to the schedule'); } }, icon('auto_fix_high'), 'Match yeast to this schedule'))
+      ? h(
+          'div',
+          {},
+          h('p', { class: 'note neutral' }, `At ${idy.toFixed(3)}% instant dry before any freeze buffer, this schedule carries ${describeYeast(idy, need)}. Scaled from ${reference.label}, which used ${reference.yeastPct.toFixed(3)}% across ${reference.fu.toFixed(1)} FU.`),
+          Math.abs(idy - need) / need > 0.05
+            ? h('div', { class: 'row tight' }, h('button', { class: 'btn tonal small', onClick: () => { setRecipe({ baseYeastPct: round(convertYeast(need, 'idy', s.current.recipe.yeastType), 3) }); toast('Yeast scaled to this schedule'); } }, icon('auto_fix_high'), `Scale yeast to ${need.toFixed(3)}%`))
+            : null
+        )
       : null,
+
     h(
       'details',
       { class: 'foldout' },
@@ -495,23 +535,42 @@ function timingCard(ctx) {
         h(
           'table',
           {},
-          h('thead', {}, h('tr', {}, h('th', {}, 'Phase'), h('th', { class: 'num' }, 'Hours'), h('th', { class: 'num' }, 'Temp'), h('th', { class: 'num' }, 'Rate'), h('th', { class: 'num' }, 'FU'))),
+          h('thead', {}, h('tr', {}, h('th', {}, 'Phase'), h('th', { class: 'num' }, 'Hours'), h('th', { class: 'num' }, 'Temp'), h('th', { class: 'num' }, 'Yeast'), h('th', { class: 'num' }, 'FU'), h('th', { class: 'num' }, 'MU'))),
           h('tbody', {}, ...stageBreakdown(stages, ctx.model).map((b) =>
-            h('tr', {}, h('td', {}, b.name), h('td', { class: 'num' }, fmtDuration(b.hours)), h('td', { class: 'num' }, fmtTemp(b.tempC, u)), h('td', { class: 'num' }, `${(b.rate * 100).toFixed(0)}%`), h('td', { class: 'num' }, b.fu.toFixed(1)))
+            h('tr', {}, h('td', {}, b.name), h('td', { class: 'num' }, fmtDuration(b.hours)), h('td', { class: 'num' }, fmtTemp(b.tempC, u)), h('td', { class: 'num' }, `${(b.rate * 100).toFixed(0)}%`), h('td', { class: 'num' }, b.fu.toFixed(1)), h('td', { class: 'num' }, b.mu.toFixed(1)))
           ))
         )
-      )
+      ),
+      h('p', { class: 'hint', style: { fontSize: '.72rem' } }, 'Two clocks run at once. Yeast makes the gas and nearly stops in the cold. The flour\u2019s own enzymes soften the gluten and free sugar, and they keep going at fridge temperature, which is what a cold proof is for and what eventually wears the dough out.')
     ),
     waterFoldout(ctx)
   );
 }
 
-function verdictText(verdict, ratio, need, r) {
-  if (!Number.isFinite(ratio)) return 'Set an inoculation to see whether this schedule lands ripe.';
-  const at = `${effectiveYeastPct(r).toFixed(3)}% ${YEAST_LABEL[r.yeastType].toLowerCase()}`;
-  if (verdict.key === 'on') return `At ${at} this schedule lands in the window. The dough should be at peak when it hits the deck.`;
-  if (ratio > 1) return `At ${at} the dough will be about ${((ratio - 1) * 100).toFixed(0)}% past peak by launch. Cut the cold proof, drop the fridge temperature, or come down to about ${need.toFixed(3)}% yeast.`;
-  return `At ${at} the dough reaches only ${(ratio * 100).toFixed(0)}% of ripeness by launch. Extend the cold proof, or go up to about ${need.toFixed(3)}% yeast.`;
+function describeYeast(have, need) {
+  const ratio = have / need;
+  if (ratio > 1.25) return `${(ratio * 100 - 100).toFixed(0)}% more yeast than the timing needs`;
+  if (ratio < 0.8) return `${(100 - ratio * 100).toFixed(0)}% less yeast than the timing needs`;
+  return 'about the right amount of yeast for the timing';
+}
+
+function coldProofWords(verdict, w, c, u) {
+  const flour = c.flourLabel;
+  const at = fmtTemp(w.fridgeTempC, u);
+  const range = w.crowded ? `up to ${Math.round(w.high)} hours` : `${Math.round(w.low)} to ${Math.round(w.high)} hours`;
+  if (w.crowded && verdict.key.endsWith('long')) {
+    return `The biga and the bench already use ${w.spentElsewhere.toFixed(0)} of the ${w.ceiling} maturation units ${flour} can take, which leaves about ${Math.round(w.high)} hours for the fridge at ${at}. This flour is not strong enough to carry a biga this long and a cold proof of ${fmtDuration(w.actual)} as well. Shorten the biga cold hold, or use a stronger flour.`;
+  }
+  switch (verdict.key) {
+    case 'far-long':
+    case 'long':
+      return `At ${at}, ${flour} wants ${range} in the cold. Yours is ${fmtDuration(w.actual)}, which is longer than the gluten will take. Protease keeps working in the fridge, so the dough will be slack and tear when you open it. Shorten it, or run the fridge colder.`;
+    case 'far-short':
+    case 'short':
+      return `At ${at}, ${flour} wants ${range} in the cold. Yours is ${fmtDuration(w.actual)}, which is short of what this flour can take. The dough will be stiffer to open and plainer to taste. There is room to go longer.`;
+    default:
+      return `At ${at}, ${flour} wants ${range} in the cold and yours is ${fmtDuration(w.actual)}. A warmer fridge would shorten that window, a colder one would stretch it.`;
+  }
 }
 
 function waterFoldout(ctx) {

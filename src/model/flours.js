@@ -160,13 +160,29 @@ export function blendStats(entries) {
 }
 
 /**
- * Fermentation ceiling in FU. Anchored to the published band: a W 280 to 320
- * flour is rated for 24 to 48 h of maturation, and the top of that window at
- * fridge temperature is what the ceiling represents.
+ * How much maturation a flour can take, in maturation units.
+ *
+ * This is a limit on enzyme work, not on yeast work. Gluten slackens because
+ * protease has been shortening it, which is an enzymatic process and carries
+ * on at fridge temperature, so a long cold proof can ruin a dough that never
+ * over-proofed. Attaching the limit to fermentation, as this once did, missed
+ * that entirely.
+ *
+ * One unit is an hour at 20 °C, so the published maturation window in hours is
+ * already the ceiling: a flour rated for 48 hours can take 48 units, however
+ * they are accumulated. A 72 hour cold proof and a 36 hour warm one land in
+ * much the same place, which is what bakers have always said.
  */
-export function fuCeilingForW(w) {
+export function maturationCeilingForW(w) {
   if (!Number.isFinite(w)) return null;
-  return Math.round((w / 300) * 24 * 10) / 10;
+  const band = bandForW(w);
+  if (!band) return null;
+  return band.ferment[1];
+}
+
+/** Kept under the old name so nothing silently reads the wrong ceiling. */
+export function fuCeilingForW() {
+  throw new Error('The flour ceiling is a maturation limit now; use maturationCeilingForW.');
 }
 
 /**

@@ -1,34 +1,44 @@
-// Fermentation model.
+// Fermentation and maturation.
 //
-// The point of this module is to make two different schedules comparable.
-// "18 h at 18 °C" and "66 h at 3 °C" are not the same amount of fermentation,
-// so the app reduces any schedule to a single number: Fermentation Units (FU).
+// Two processes run in a dough at once and they answer to cold differently.
 //
-//   1 FU = one hour at the reference temperature (20 °C).
+//   Fermentation is the yeast: carbon dioxide, rise, and being "proofed".
+//   Maturation is the flour's own enzymes: amylase freeing sugar, protease
+//   shortening gluten. It is what makes a dough extensible and flavoured.
 //
-// Rate follows a Q10 law: every 10 °C roughly multiplies activity by Q10.
-// Yeast does not follow one Q10 across the whole range, so the model uses a
-// steeper coefficient in the cold zone (a fridge slows dough far more than a
-// single Q10 predicts) and rolls activity off again above the optimum.
+// Yeast falls to roughly a tenth of its room-temperature rate at 4 °C while
+// enzymes keep 40 to 50% of theirs. That gap is the whole reason cold proofing
+// works: it does not slow a dough down evenly, it slows the yeast far more than
+// the enzymes, so a long cold hold buys maturation without gassing the dough
+// out. A single number cannot describe that, so this module keeps two.
 //
-// The constants are exposed and user-calibratable on purpose. They are a
-// starting point, not physics. Log bakes, then tune K until the model's
-// "ready" call matches the dough you actually pulled out of the fridge.
+// Both curves are anchored to published figures rather than to constants
+// chosen to make a favourite recipe come out right:
+//
+//   Yeast    doubles per 10 °C in the warm range, and sits at about 10% of its
+//            room-temperature rate at 4 °C.
+//   Enzymes  retain 40 to 50% at 4 °C, which is a far flatter curve.
+//
+// One unit of either is one hour at 20 °C. See the app's sources for both.
+
+export const REFERENCE_TEMP_C = 20;
 
 export const DEFAULT_MODEL = {
-  refTempC: 20,
-  q10Warm: 2.2, // 15 °C and above
-  q10Cold: 3.2, // below 15 °C, where activity falls off faster
+  refTempC: REFERENCE_TEMP_C,
+
+  // Yeast. q10Warm is the textbook doubling; q10Cold is what it takes to land
+  // on the published 10% at 4 °C, given that doubling above the break.
+  q10Warm: 2,
+  q10Cold: 5.92,
   coldBreakC: 15,
-  optimumC: 35, // past this, heat stress cuts activity
+  optimumC: 35,
   heatRolloff: 9,
-  // K ties inoculation to ripeness: yeast% x FU is roughly constant.
-  // Anchored to the Contemporary Canotto reference bake, which ripens on
-  // 0.10% IDY across 24.2 FU, so K = 2.42. Recalibrate from your own log.
-  k: 2.42,
+
+  // Enzymes. Flat enough to hold 45% at 4 °C, the middle of the published band.
+  q10Enzyme: 1.65,
 };
 
-/** Relative fermentation rate at a temperature, 1.0 at the reference temp. */
+/** Yeast activity, 1.0 at the reference temperature. */
 export function rateAt(tempC, m = DEFAULT_MODEL) {
   if (!Number.isFinite(tempC)) return 0;
   let r;
@@ -39,66 +49,59 @@ export function rateAt(tempC, m = DEFAULT_MODEL) {
     r = atBreak * m.q10Cold ** ((tempC - m.coldBreakC) / 10);
   }
   if (tempC > m.optimumC) r *= Math.exp(-(((tempC - m.optimumC) / m.heatRolloff) ** 2));
-  // Below freezing the dough is parked, not fermenting.
   if (tempC <= -1) r *= 0.02;
   return Math.max(0, r);
 }
 
-/** Total fermentation delivered by a list of {hours, tempC} stages. */
-export function fermentUnits(stages, m = DEFAULT_MODEL) {
-  return (stages || []).reduce((sum, s) => {
-    const h = Number(s.hours) || 0;
-    return sum + h * rateAt(Number(s.tempC), m);
-  }, 0);
+/** Enzyme activity, 1.0 at the reference temperature. Far flatter than yeast. */
+export function maturationRateAt(tempC, m = DEFAULT_MODEL) {
+  if (!Number.isFinite(tempC)) return 0;
+  const r = m.q10Enzyme ** ((tempC - m.refTempC) / 10);
+  if (tempC <= -1) return r * 0.05;
+  return Math.max(0, r);
 }
 
-/** Per-stage FU plus the running total, for the contribution chart. */
+/** Yeast work delivered by a list of {hours, tempC} stages. */
+export function fermentUnits(stages, m = DEFAULT_MODEL) {
+  return (stages || []).reduce((sum, s) => sum + (Number(s.hours) || 0) * rateAt(Number(s.tempC), m), 0);
+}
+
+/** Enzyme work delivered by the same stages. */
+export function maturationUnits(stages, m = DEFAULT_MODEL) {
+  return (stages || []).reduce((sum, s) => sum + (Number(s.hours) || 0) * maturationRateAt(Number(s.tempC), m), 0);
+}
+
+/** Per-stage contribution of both, plus running totals, for the phase table. */
 export function stageBreakdown(stages, m = DEFAULT_MODEL) {
-  let running = 0;
+  let ferment = 0;
+  let mature = 0;
   return (stages || []).map((s) => {
-    const fu = (Number(s.hours) || 0) * rateAt(Number(s.tempC), m);
-    running += fu;
-    return { ...s, rate: rateAt(Number(s.tempC), m), fu, cumulative: running };
+    const hours = Number(s.hours) || 0;
+    const fu = hours * rateAt(Number(s.tempC), m);
+    const mu = hours * maturationRateAt(Number(s.tempC), m);
+    ferment += fu;
+    mature += mu;
+    return { ...s, rate: rateAt(Number(s.tempC), m), matRate: maturationRateAt(Number(s.tempC), m), fu, mu, cumulative: ferment, cumulativeMu: mature };
   });
 }
 
-/** Inoculation (as IDY %) that ripens a dough in the given FU. */
-export function yeastForFU(fu, m = DEFAULT_MODEL) {
-  if (!fu || fu <= 0) return NaN;
-  return m.k / fu;
-}
-
-/** The inverse: FU a given IDY inoculation is aiming at. */
-export function fuForYeast(idyPct, m = DEFAULT_MODEL) {
-  if (!idyPct || idyPct <= 0) return NaN;
-  return m.k / idyPct;
-}
-
-/** Hours at one temperature to reach a target FU. */
-export function hoursToFU(targetFU, tempC, m = DEFAULT_MODEL) {
-  const r = rateAt(tempC, m);
-  if (r <= 0) return Infinity;
-  return targetFU / r;
-}
-
 /**
- * How ripe a schedule is against the inoculation it carries.
- * 1.0 means the model thinks the dough peaks exactly at the end of the schedule.
+ * Inoculation for a schedule, scaled from a bake that came out right.
+ *
+ * Yeast quantity and yeast work trade off close to inversely, so if a known
+ * good bake used `refYeastPct` across `refFU`, the same dough over `fu` wants
+ * that product divided back out. No absolute constant is involved, and the
+ * reference is a real dough rather than a number chosen to flatter one.
  */
-export function ripeness(stages, idyPct, m = DEFAULT_MODEL) {
-  const fu = fermentUnits(stages, m);
-  const target = fuForYeast(idyPct, m);
-  if (!Number.isFinite(target) || target <= 0) return NaN;
-  return fu / target;
+export function yeastForFU(fu, { refYeastPct, refFU }) {
+  if (!(fu > 0) || !(refYeastPct > 0) || !(refFU > 0)) return NaN;
+  return (refYeastPct * refFU) / fu;
 }
 
-export function ripenessVerdict(ratio) {
-  if (!Number.isFinite(ratio)) return { key: 'unknown', label: 'Not enough data', tone: 'neutral' };
-  if (ratio < 0.55) return { key: 'very-under', label: 'Well under-fermented', tone: 'bad' };
-  if (ratio < 0.85) return { key: 'under', label: 'Under-fermented', tone: 'warn' };
-  if (ratio <= 1.2) return { key: 'on', label: 'In the window', tone: 'good' };
-  if (ratio <= 1.7) return { key: 'over', label: 'Over-fermented', tone: 'warn' };
-  return { key: 'very-over', label: 'Well over-fermented', tone: 'bad' };
+/** How this schedule's yeast work compares with the reference bake's. */
+export function fermentRatio(fu, refFU) {
+  if (!(refFU > 0) || !(fu > 0)) return NaN;
+  return fu / refFU;
 }
 
 /**
@@ -170,27 +173,3 @@ export function waterTempFor({ ddtC, flourTempC, roomTempC, frictionC = 9, prefe
   return ddtC * factors - others;
 }
 
-/** A curve of required IDY % across a span of hours at one temperature. */
-export function yeastCurve(tempC, fromH, toH, steps = 24, m = DEFAULT_MODEL) {
-  const out = [];
-  for (let i = 0; i <= steps; i += 1) {
-    const hours = fromH + ((toH - fromH) * i) / steps;
-    const fu = hours * rateAt(tempC, m);
-    out.push({ x: hours, y: yeastForFU(fu, m) });
-  }
-  return out;
-}
-
-/**
- * Fit K from bakes the baker graded as correctly proofed.
- * Each sample is {fu, idyPct}. K is the median of fu x idyPct.
- */
-export function calibrateK(samples) {
-  const ks = (samples || [])
-    .map((s) => s.fu * s.idyPct)
-    .filter((v) => Number.isFinite(v) && v > 0)
-    .sort((a, b) => a - b);
-  if (!ks.length) return null;
-  const mid = Math.floor(ks.length / 2);
-  return ks.length % 2 ? ks[mid] : (ks[mid - 1] + ks[mid]) / 2;
-}

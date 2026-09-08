@@ -223,6 +223,18 @@ export function lineChart({ series, xLabel, yLabel, height = 260, markers = [] }
     root.appendChild(svg('line', { x1: sx(m.x), x2: sx(m.x), y1: pad.t, y2: H - pad.b, class: 'marker' }));
     root.appendChild(svg('text', { x: sx(m.x) + 5, y: pad.t + 12, class: 'tick strong' }, m.label));
   }
+
+  // A legend only earns its space when there is more than one line to tell apart.
+  const named = series.filter((s) => s.label);
+  if (named.length > 1) {
+    let lx = pad.l + 6;
+    named.forEach((s) => {
+      const i = series.indexOf(s);
+      root.appendChild(svg('line', { x1: lx, x2: lx + 16, y1: pad.t + 4, y2: pad.t + 4, class: 'line', stroke: s.color || SERIES_COLORS[i % SERIES_COLORS.length] }));
+      root.appendChild(svg('text', { x: lx + 21, y: pad.t + 8, class: 'tick' }, s.label));
+      lx += 34 + s.label.length * 6.4;
+    });
+  }
   return root;
 }
 

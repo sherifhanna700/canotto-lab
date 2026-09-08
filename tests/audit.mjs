@@ -17,8 +17,8 @@
  */
 import { computeRecipe } from '../src/model/dough.js';
 import { DEFAULT_SCHEDULE, scheduleStages, solveSchedule, STEPS } from '../src/model/protocol.js';
-import { fermentUnits, ripeness, yeastForFU, doughTempFrom, frictionFrom, rateAt } from '../src/model/ferment.js';
-import { suggestPlan } from '../src/model/advisor.js';
+import { fermentUnits, maturationUnits, yeastForFU, doughTempFrom, frictionFrom, rateAt, maturationRateAt } from '../src/model/ferment.js';
+import { suggestPlan, coldProofWindow, coldProofVerdict, HOUSE_REFERENCE } from '../src/model/advisor.js';
 import { blendStats, FLOURS } from '../src/model/flours.js';
 import { cToF } from '../src/model/units.js';
 
@@ -56,8 +56,23 @@ for (const roomTempC of rooms) {
   const where = `${coldProofHours} h at ${Math.round(cToF(fridgeTempC))} F, room ${Math.round(cToF(roomTempC))} F`;
   const fu = fermentUnits(scheduleStages(S));
   if (!(fu > 0)) flag(where, `fermentation units ${fu}`);
-  const need = yeastForFU(fu);
+  const need = yeastForFU(fu, { refYeastPct: HOUSE_REFERENCE.yeastPct, refFU: HOUSE_REFERENCE.fu });
   if (!(need > 0) || need > 10) flag(where, `needs ${need.toFixed(2)}% yeast`);
+  const mu = maturationUnits(scheduleStages(S));
+  if (!(mu > fu)) flag(where, `maturation ${mu.toFixed(1)} MU should outrun fermentation ${fu.toFixed(1)} FU in a cold schedule`);
+
+  // The advice must be actionable: a suggestion the app itself would then call
+  // wrong is worse than no suggestion at all.
+  for (const f of FLOURS.filter((x) => Number.isFinite(x.w))) {
+    const blend = { flours: [{ id: f.id, pct: 100 }], w: f.w };
+    const win = coldProofWindow({ blend, schedule: S });
+    if (!win) continue;
+    if (!(win.ideal >= 0) || win.ideal > 400) flag(where, `${f.name}: suggests ${win.ideal.toFixed(0)} h`);
+    if (win.high < win.low) flag(where, `${f.name}: window is inverted`);
+    const echo = coldProofWindow({ blend, schedule: { ...S, coldProofHours: win.ideal } });
+    if (coldProofVerdict(echo).key !== 'on') flag(where, `${f.name}: its own suggestion reads as ${coldProofVerdict(echo).label}`);
+    if (win.crowded && win.high > 24) flag(where, `${f.name}: called crowded but still has ${win.high.toFixed(0)} h of room`);
+  }
   const sched = solveSchedule(S);
   if (!(sched.totalMin > 0)) flag(where, 'lead time is not positive');
   for (const [id, at] of Object.entries(sched.at)) {

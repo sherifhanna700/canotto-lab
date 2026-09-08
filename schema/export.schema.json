@@ -59,9 +59,16 @@
                 "coldBreakC": {
                   "type": "number"
                 },
-                "k": {
+                "q10Enzyme": {
                   "type": "number",
-                  "description": "Inoculation times fermentation units at ripeness. Anchored to the house protocol and recalibratable from a bake log."
+                  "description": "Rate multiplier per 10 degrees for the flour's own enzymes, which slow far less in the cold than yeast does. Maturation units are integrated against this curve, and a flour's W value bounds how many of them its gluten can absorb."
+                },
+                "optimumC": {
+                  "type": "number",
+                  "description": "Temperature above which yeast activity falls away again."
+                },
+                "heatRolloff": {
+                  "type": "number"
                 }
               },
               "additionalProperties": true
