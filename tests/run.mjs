@@ -1040,6 +1040,18 @@ test('a page load never asks Google for anything', () => {
   assert.ok(!/drive\.connect|getToken/.test(onLoad), 'nothing before the first render reaches for a token');
 });
 
+test('a returning baker is not asked which account they are', () => {
+  /*
+   * Without a hint, Google shows the account chooser on the first sync of
+   * every session, even though the app has been connected to one account all
+   * along and knows which. The hint answers that in advance.
+   */
+  const drive = readFileSync(new URL('../src/lib/drive.js', import.meta.url), 'utf8');
+  const getToken = drive.slice(drive.indexOf('async function getToken'), drive.indexOf('async function api'));
+  assert.match(getToken, /rememberedAccount\(\)\?\.email/, 'the remembered address is used as the hint');
+  assert.match(getToken, /requestAccessToken\(\{[^}]*hint/s, 'and passed to Google with the request');
+});
+
 test('the app asks Google for the hidden folder and nothing wider', () => {
   const drive = readFileSync(new URL('../src/lib/drive.js', import.meta.url), 'utf8');
   assert.match(drive, /auth\/drive\.appdata/, 'the narrow scope');

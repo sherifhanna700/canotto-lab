@@ -151,7 +151,22 @@ async function getToken({ interactive }) {
       resolve(token.value);
     };
     client.error_callback = (err) => reject(new Error(err?.type === 'popup_closed' ? 'Sign-in window was closed.' : 'Google sign-in failed.'));
-    client.requestAccessToken({ prompt: interactive ? 'consent' : '' });
+
+    /*
+     * Name the account we already know about.
+     *
+     * Without a hint Google has to ask which account this is, every session,
+     * even though the app has been connected to one all along and can say so.
+     * The hint answers that question in advance, so someone who has connected
+     * before goes straight through instead of picking themselves out of a list
+     * they did not need to see.
+     *
+     * It is only ever the address this browser stored when connecting. If it
+     * is stale, or that account is not signed in, Google falls back to asking,
+     * which is the right thing to do and needs no handling here.
+     */
+    const hint = rememberedAccount()?.email || undefined;
+    client.requestAccessToken({ prompt: interactive ? 'consent' : '', ...(hint ? { hint } : {}) });
   });
 }
 
