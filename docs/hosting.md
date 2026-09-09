@@ -39,6 +39,23 @@ to be fresh, and it is the only one told not to cache.
 the same one that serves the site holds the OAuth client that Drive sync needs.
 See [google-drive.md](google-drive.md).
 
+## What is not deployed
+
+`firebase.json` lists what to leave out, and the patterns matter more than they
+look. Firebase's documented `**/.*` ignores files whose name starts with a dot
+but not the contents of a directory whose name does, so a first deploy shipped
+the entire `.git` directory and served the repository history at
+`/.git/`. `**/.*/**` and an explicit `.git/**` are what actually keep it out.
+
+A correct deploy is 41 files. If a deploy ever reports hundreds, something is
+being swept in that should not be, and the quickest check is:
+
+```sh
+curl -o /dev/null -w '%{http_code}\n' https://canotto-lab.web.app/.git/HEAD
+```
+
+404 is the only acceptable answer.
+
 ## Cost
 
 Nothing, on the Spark plan, which needs no card. This site is a few hundred
