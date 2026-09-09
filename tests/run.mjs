@@ -1040,6 +1040,26 @@ test('a page load never asks Google for anything', () => {
   assert.ok(!/drive\.connect|getToken/.test(onLoad), 'nothing before the first render reaches for a token');
 });
 
+test('the token survives a reload but not a closed tab', () => {
+  /*
+   * sessionStorage is the whole point: localStorage would outlive the tab, and
+   * memory alone would not outlive a reload, which is the case worth covering.
+   * A cookie would be no safer, because only a server can set HttpOnly and
+   * this app has none.
+   */
+  const drive = readFileSync(new URL('../src/lib/drive.js', import.meta.url), 'utf8');
+  assert.match(drive, /sessionStorage\.setItem\(TOKEN_KEY/, 'the token is kept for the tab');
+  assert.ok(!/localStorage\.(get|set)Item\(TOKEN_KEY/.test(drive), 'never in localStorage');
+  assert.ok(!/document\.cookie/.test(drive), 'and never in a cookie');
+  assert.match(drive, /expiresAt > Date\.now\(\)/, 'an expired token is discarded rather than used');
+
+  // Disconnecting must take it with it, or the next person at the browser
+  // inherits a live key.
+  const disconnect = drive.slice(drive.indexOf('export function disconnect'), drive.indexOf('/* ------------------------------- the file'));
+  assert.match(disconnect, /keepToken\(null\)/, 'disconnect drops the token');
+  assert.match(disconnect, /removeItem\(ACCOUNT_KEY\)/, 'and forgets the account');
+});
+
 test('a returning baker is not asked which account they are', () => {
   /*
    * Without a hint, Google shows the account chooser on the first sync of

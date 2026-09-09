@@ -126,7 +126,10 @@ recipes both keep their work. Nothing is ever deleted by a sync. A recipe remove
 device comes back from the other, because losing work to a sync is worse than seeing
 something you meant to bin.
 
-The access token is held in memory only, never written to storage.
+The key Google issues is kept for the life of the tab and discarded when you close it, so a
+reload does not need a new one. It never reaches us, and Google expires it after about an
+hour regardless. There is no long-lived credential behind it, because Google does not issue
+one to a page with no server.
 
 Running your own copy of this app? [docs/google-drive.md](docs/google-drive.md) covers
 the one-off OAuth client that has to exist before the Setup screen offers any of this.

@@ -43,7 +43,7 @@
 
   <h2>What stays on your device</h2>
   <p>Everything you make is stored in your browser and goes nowhere else: recipes, bake logs, schedules, scores, notes, equipment, and settings. There is no account to create and no server of ours that holds any of it. Clearing your browser data deletes it, which is why the app offers a JSON download.</p>
-  <p>These are the only things written to your browser's local storage:</p>
+  <p>These are the only things written to your browser's storage:</p>
   <table>
     <tr><th>Key</th><th>What it holds</th></tr>
     <tr><td><code>canotto-lab/v1</code></td><td>Your recipes, bakes and settings</td></tr>
@@ -54,6 +54,7 @@
     <tr><td><code>canotto-lab/drive-connected</code></td><td>Present only if you connected a Google account</td></tr>
     <tr><td><code>canotto-lab/drive-file-id</code></td><td>Which file in your own account holds your library</td></tr>
     <tr><td><code>canotto-lab/drive-account</code></td><td>The address of the connected account, so the app can tell you which one it is after a reload without asking Google again</td></tr>
+    <tr><td><code>canotto-lab/drive-token</code></td><td>The key Google issued for your own account, kept for the life of the tab so a reload does not need another one. In session storage, so closing the tab discards it. Google expires it after about an hour regardless.</td></tr>
   </table>
   <p>No cookies are set by this app, for tracking or anything else.</p>
 
@@ -68,7 +69,7 @@
   <p>Sync is optional and off unless you turn it on. If you do, the app asks Google for one narrow permission, <code>drive.appdata</code>: a hidden folder that only this app can see. It cannot see, list or touch any other file in your Drive, and Google's own consent screen says so.</p>
   <p>Your library then goes from your browser to your Google account. It does not pass through any server of ours, because we do not have one. We cannot read it. You can delete it from the Setup screen, or revoke the app entirely in your Google account settings.</p>
   <p>The app also reads your email address, for one reason: to show you which account is connected, on your own screen, so you are not left guessing when you use two. It is kept in this browser so the app can still tell you after a reload, it is never sent to us, and disconnecting deletes it.</p>
-  <p>Signing in is something you start. The app never asks Google for anything because a page loaded; it asks when you press sync, and Google may briefly show its own window then to hand over a fresh key.</p>
+  <p>Signing in is something you start. The app never asks Google for anything because a page loaded; it asks when you press sync, and Google may briefly show its own window then to hand over a fresh key. That key is kept for as long as the tab is open and is discarded when you close it. It is never sent to us, and there is no long-lived credential behind it: Google does not issue one to a page like this, which is why an hour is the most any of it lasts.</p>
 
   <h2>What we never do</h2>
   <ul>

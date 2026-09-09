@@ -81,6 +81,11 @@ so the Setup screen carries a button that deletes it, and the JSON download is
 the copy they can actually hold. Revoking the app in Google account settings
 removes it too.
 
-The access token lives in memory only, never in storage. Google reissues one
-without a prompt while the person's Google session is alive, which is why
-returning to the app looks like staying signed in.
+The access token lives in sessionStorage: it survives a reload, and goes when
+the tab closes. A cookie would be no safer, since only a server can set
+HttpOnly and this app has none, so a cookie set from script is readable by the
+same things. There is no refresh token either, because Google does not issue
+them to browser clients, so an hour is the ceiling however it is held.
+
+The request carries the remembered address as a `hint`, which is what stops
+Google asking a returning person which account they are.

@@ -45,12 +45,55 @@ export function clientId() {
 export const isConfigured = () => !!clientId();
 
 /*
- * The access token is deliberately kept in memory only. Writing it to storage
- * would leave a live credential sitting in the browser for anything else on
- * the origin to read, and it buys nothing: Google will re-issue one without a
- * prompt while the Google session is alive.
+ * The access token is kept for the life of the tab, and no longer.
+ *
+ * It goes in sessionStorage rather than localStorage, which is the difference
+ * between surviving a reload and surviving a closed tab. A reload is the case
+ * worth covering: without it, opening the app again meant another trip to
+ * Google for a token it had just been given. Closing the tab is where it
+ * should end, because a token is a bearer credential and the less time one
+ * sits at rest the better.
+ *
+ * A cookie would be no safer here. Only a server can set HttpOnly, and this
+ * app has none, so a cookie set from script is readable by exactly the same
+ * things sessionStorage is, with a size limit and a copy attached to every
+ * request thrown in. What keeps anyone signed in to Google is Google's own
+ * cookie on their domain, which is what makes this quick when it does happen.
+ *
+ * There is no refresh token to be had either: Google does not issue them to
+ * browser clients. So an hour is the ceiling however this is stored, and
+ * storing it buys a reload, not a session.
  */
-let token = null;
+const TOKEN_KEY = 'canotto-lab/drive-token';
+
+let token = readToken();
+
+/** The token from this tab's session, if it is still worth having. */
+function readToken() {
+  try {
+    const raw = sessionStorage.getItem(TOKEN_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.value || !(parsed.expiresAt > Date.now())) {
+      sessionStorage.removeItem(TOKEN_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function keepToken(next) {
+  token = next;
+  try {
+    if (next) sessionStorage.setItem(TOKEN_KEY, JSON.stringify(next));
+    else sessionStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // Storage refused. The token still works for this page, and the next
+    // reload simply asks Google again.
+  }
+}
 let tokenClient = null;
 let account = null;
 const listeners = new Set();
@@ -142,12 +185,12 @@ async function getToken({ interactive }) {
         reject(new Error(res.error === 'access_denied' ? 'Google access was declined.' : `Google sign-in failed: ${res.error}`));
         return;
       }
-      token = {
+      keepToken({
         value: res.access_token,
         // A minute of slack, so a request never starts on a token that expires
         // while it is in flight.
         expiresAt: Date.now() + (Number(res.expires_in) || 3600) * 1000 - 60000,
-      };
+      });
       resolve(token.value);
     };
     client.error_callback = (err) => reject(new Error(err?.type === 'popup_closed' ? 'Sign-in window was closed.' : 'Google sign-in failed.'));
@@ -176,7 +219,7 @@ async function api(url, { method = 'GET', headers = {}, body, interactive = fals
   if (res.status === 401) {
     // The token was rejected, so drop it and let the caller decide whether to
     // ask the person to connect again.
-    token = null;
+    keepToken(null);
     throw new Error('Google access expired. Connect again.');
   }
   if (!res.ok) throw new Error(`Drive said ${res.status}. ${(await res.text()).slice(0, 120)}`);
@@ -240,7 +283,7 @@ export function disconnect() {
       // Revoking is a courtesy. Dropping the token locally is what matters.
     }
   }
-  token = null;
+  keepToken(null);
   account = null;
   try {
     localStorage.removeItem(CONNECTED_KEY);

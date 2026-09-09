@@ -16,9 +16,9 @@
 // The phase proportions come from the house protocol, so a stronger flour
 // stretches that schedule and a weaker one shortens it.
 
-import { maturationUnits, fermentUnits, maturationRateAt, yeastForFU, DEFAULT_MODEL } from './ferment.js?v=6a56bc58';
-import { maturationCeilingForW, hydrationRangeForW, findFlour } from './flours.js?v=6a56bc58';
-import { DEFAULT_SCHEDULE } from './protocol.js?v=6a56bc58';
+import { maturationUnits, fermentUnits, maturationRateAt, yeastForFU, DEFAULT_MODEL } from './ferment.js?v=eb765592';
+import { maturationCeilingForW, hydrationRangeForW, findFlour } from './flours.js?v=eb765592';
+import { DEFAULT_SCHEDULE } from './protocol.js?v=eb765592';
 
 /** Share of total maturation time each phase takes, from the house protocol. */
 const TIME_SHARES = { bigaRest: 0.043, bigaCold: 0.192, coldProof: 0.72, temper: 0.045 };
