@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy · Canotto Lab</title>
+<meta name="description" content="What Canotto Lab stores, what it counts, and what it never sees.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍕</text></svg>">
+<style>
+  /* No webfont here on purpose: this page makes no request to anyone. */
+  :root { color-scheme: light dark; --bg:#faf6f2; --fg:#241a15; --muted:#6b5a50; --line:#e2d6cc; --accent:#a33e18; --card:#fff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#191210; --fg:#f0e6df; --muted:#b8a599; --line:#3a2b24; --accent:#f0a883; --card:#221917; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.65 ui-serif, Georgia, "Times New Roman", serif; }
+  main { max-width: 44rem; margin:0 auto; padding: 32px 20px 80px; }
+  h1 { font-size:1.9rem; line-height:1.2; margin:0 0 6px; }
+  h2 { font-size:1.15rem; margin:34px 0 10px; }
+  p, li { color:var(--fg); }
+  .lede { color:var(--muted); margin:0 0 8px; }
+  a { color:var(--accent); }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.86em; }
+  pre { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; overflow-x:auto; }
+  ul { padding-left:1.15rem; }
+  li { margin:5px 0; }
+  .box { background:var(--card); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:10px; padding:14px 16px; margin:18px 0; }
+  .foot { margin-top:44px; padding-top:16px; border-top:1px solid var(--line); color:var(--muted); font-size:.88rem; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:.92rem; }
+  th, td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Privacy</h1>
+  <p class="lede">Canotto Lab, last updated 9 September 2026.</p>
+
+  <div class="box">
+    <p style="margin:0">The short version: your recipes and bakes never leave your device unless you choose to sync them, and when you do they go to your own Google account, not to us. We count how many devices use the app each day, and nothing else. We do not sell anything, and there is nothing to sell.</p>
+  </div>
+
+  <h2>What stays on your device</h2>
+  <p>Everything you make is stored in your browser and goes nowhere else: recipes, bake logs, schedules, scores, notes, equipment, and settings. There is no account to create and no server of ours that holds any of it. Clearing your browser data deletes it, which is why the app offers a JSON download.</p>
+  <p>These are the only things written to your browser's local storage:</p>
+  <table>
+    <tr><th>Key</th><th>What it holds</th></tr>
+    <tr><td><code>canotto-lab/v1</code></td><td>Your recipes, bakes and settings</td></tr>
+    <tr><td><code>canotto-lab/theme</code></td><td>Light, dark, or match my device</td></tr>
+    <tr><td><code>canotto-lab/device</code></td><td>A random number used for the count below</td></tr>
+    <tr><td><code>canotto-lab/counted-on</code></td><td>The last date this device was counted, so it is counted once a day</td></tr>
+    <tr><td><code>canotto-lab/no-count</code></td><td>Present only if you switched counting off</td></tr>
+    <tr><td><code>canotto-lab/drive-connected</code></td><td>Present only if you connected a Google account</td></tr>
+    <tr><td><code>canotto-lab/drive-file-id</code></td><td>Which file in your own account holds your library</td></tr>
+  </table>
+  <p>No cookies are set by this app, for tracking or anything else.</p>
+
+  <h2>The one thing we count</h2>
+  <p>We want to know how many people use this: how many yesterday, how many this week, how many this month. Counting that needs some way to tell two devices apart, so your browser generates a random number for itself the first time you open the app. It is not derived from anything about you and it means nothing anywhere else.</p>
+  <p>Once a day at most, the app sends exactly this, filed under that random number:</p>
+  <pre>{ "day": "2026-09-09" }</pre>
+  <p>A date, not a time, because when you bake is not our business. No page views, no clicks, no recipes, no counts of what you made, no screen size, no name, no email. The rules on our side reject anything that carries more than that one field, so this cannot quietly grow into analytics without a deliberate change in two separate places.</p>
+  <p>We cannot tell who you are from it, we cannot tell what you baked, and we cannot connect it to a Google account if you have connected one. It can be switched off in Setup, and off means the request is not made at all rather than made with a flag on it.</p>
+
+  <h2>If you connect a Google account</h2>
+  <p>Sync is optional and off unless you turn it on. If you do, the app asks Google for one narrow permission, <code>drive.appdata</code>: a hidden folder that only this app can see. It cannot see, list or touch any other file in your Drive, and Google's own consent screen says so.</p>
+  <p>Your library then goes from your browser to your Google account. It does not pass through any server of ours, because we do not have one. We cannot read it. You can delete it from the Setup screen, or revoke the app entirely in your Google account settings.</p>
+  <p>The app also reads your email address, for one reason: to show you which account is connected, on your own screen, so you are not left guessing when you use two. It is not stored anywhere but your browser and is not sent to us.</p>
+
+  <h2>What we never do</h2>
+  <ul>
+    <li>No advertising, and no advertising identifiers.</li>
+    <li>No third-party analytics. No Google Analytics, no Firebase Analytics, no tag manager, no pixels.</li>
+    <li>No selling, renting or sharing of anything, to anyone, for any purpose.</li>
+    <li>No profiles, no behavioural records, no mailing list. We have no way to contact you and no wish to.</li>
+    <li>No server of ours ever receives a recipe, a bake, a score or a note.</li>
+  </ul>
+
+  <h2>Requests that reach Google</h2>
+  <p>The app is a static page, but loading any page on the internet means contacting whoever serves it. In the interest of stating this accurately rather than comfortably:</p>
+  <ul>
+    <li>The site is hosted on Firebase Hosting, which is Google. Like every web host, their request logs record IP addresses. We do not read those logs and cannot use them to identify anyone.</li>
+    <li>The page loads its typefaces from Google Fonts, so Google sees your IP address when the page loads. That is Google's collection, not ours, and it is governed by Google's own privacy policy.</li>
+    <li>The daily count described above goes to Google's Firestore, which is where we store it.</li>
+    <li>If you connect an account, Google handles the sign-in and holds the file.</li>
+  </ul>
+  <p>This page you are reading now makes no external request of any kind.</p>
+
+  <h2>Children</h2>
+  <p>This is a tool for making pizza dough. It is not directed at children and collects nothing that could identify anyone of any age.</p>
+
+  <h2>Changes</h2>
+  <p>If what the app does ever changes, this page changes with it in the same commit. The app is open source, so the claims here can be checked against the code rather than taken on trust: the counting is in <code>src/lib/count.js</code>, the rules that constrain it are in <code>firestore.rules</code>, and the sync is in <code>src/lib/drive.js</code>.</p>
+
+  <div class="foot">
+    <p><a href="./">Back to Canotto Lab</a> · <a href="terms.html">Terms</a> · <a href="https://github.com/sherifhanna700/canotto-lab">Source</a></p>
+  </div>
+</main>
+</body>
+</html>

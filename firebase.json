@@ -14,7 +14,8 @@
       "tools/**",
       "docs/**",
       "README.md",
-      "LICENSE"
+      "LICENSE",
+      "firestore.rules"
     ],
     "headers": [
       {
@@ -49,5 +50,8 @@
         ]
       }
     ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
   }
 }

@@ -93,6 +93,26 @@ export function numberField({ label, value, min, max, step = 1, suffix, onInput,
   );
 }
 
+/**
+ * An on/off switch with its own explanation.
+ *
+ * A real checkbox rather than a styled div, so it is reachable by keyboard and
+ * announced correctly, and so the label is clickable.
+ */
+export function toggleField({ label, checked, hint, onChange }) {
+  const input = h('input', {
+    type: 'checkbox',
+    checked: !!checked,
+    onChange: (e) => onChange(e.target.checked),
+  });
+  return h(
+    'label',
+    { class: 'toggle' },
+    input,
+    h('span', {}, h('span', { class: 'toggle-label' }, label), hint ? h('span', { class: 'toggle-hint' }, hint) : null)
+  );
+}
+
 export function selectField({ label, value, options, onChange, hint, groups }) {
   const sel = h('select', { dataset: { k: String(label) }, onChange: (e) => onChange(e.target.value) });
   if (groups) {

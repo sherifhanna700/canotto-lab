@@ -7,9 +7,9 @@
 //      moment you want the first pizza to hit the deck, which is what makes
 //      "same recipe, different timing" an experiment you can actually run.
 
-import { fmtGrams, fmtTemp, fmtDuration } from './units.js?v=ab7e5c7c';
-import { stageFlourLabel } from './dough.js?v=ab7e5c7c';
-import { mixerPhrasing, mixerLabel } from './equipment.js?v=ab7e5c7c';
+import { fmtGrams, fmtTemp, fmtDuration } from './units.js?v=24ead2c3';
+import { stageFlourLabel } from './dough.js?v=24ead2c3';
+import { mixerPhrasing, mixerLabel } from './equipment.js?v=24ead2c3';
 
 /**
  * Room temperature defaults to 21.1 °C, which is exactly 70 °F.

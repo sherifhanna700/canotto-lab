@@ -11,6 +11,9 @@ enforces which web addresses may use it, which is why it is not a secret.
 Until that id is filled in, the Setup screen says sync is not switched on and
 offers the file download instead.
 
+The client id is already in the build, so nothing below needs doing again. It
+is kept for the record, and for anyone running their own copy.
+
 ## What to create, once
 
 1. Go to the [Google Cloud console](https://console.cloud.google.com/) and

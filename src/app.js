@@ -1,17 +1,18 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe, isDirty, saveCurrent, discardCurrent } from './lib/store.js?v=ab7e5c7c';
-import { readRecipeLink } from './lib/share.js?v=ab7e5c7c';
-import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=ab7e5c7c';
-import { h, $, icon, clear, toast } from './lib/ui.js?v=ab7e5c7c';
-import { computeRecipe } from './model/dough.js?v=ab7e5c7c';
-import { solveSchedule, activeSteps } from './model/protocol.js?v=ab7e5c7c';
+import { load, subscribe, update, addRecipe, isDirty, saveCurrent, discardCurrent } from './lib/store.js?v=24ead2c3';
+import { readRecipeLink } from './lib/share.js?v=24ead2c3';
+import { countToday } from './lib/count.js?v=24ead2c3';
+import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=24ead2c3';
+import { h, $, icon, clear, toast } from './lib/ui.js?v=24ead2c3';
+import { computeRecipe } from './model/dough.js?v=24ead2c3';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=24ead2c3';
 
-import renderRecipe from './views/recipe.js?v=ab7e5c7c';
-import renderProtocol from './views/protocol.js?v=ab7e5c7c';
-import renderBake from './views/bake.js?v=ab7e5c7c';
-import renderLog from './views/log.js?v=ab7e5c7c';
-import renderSetup from './views/setup.js?v=ab7e5c7c';
+import renderRecipe from './views/recipe.js?v=24ead2c3';
+import renderProtocol from './views/protocol.js?v=24ead2c3';
+import renderBake from './views/bake.js?v=24ead2c3';
+import renderLog from './views/log.js?v=24ead2c3';
+import renderSetup from './views/setup.js?v=24ead2c3';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
@@ -462,6 +463,16 @@ function renderSaveBar() {
 
 const foot = document.querySelector('.foot p');
 if (foot) foot.textContent = `${foot.textContent} Build ${BUILD}.`;
+
+/*
+ * Count this device as active today, once.
+ *
+ * Deliberately last, after the app has rendered, and deliberately unawaited:
+ * a counter must never be able to delay or break the thing it is counting.
+ * What it sends is one date under a random number, and it can be switched off
+ * in Setup. See src/lib/count.js and privacy.html, which have to agree.
+ */
+countToday().catch(() => {});
 
 // A throw inside a click handler never reaches the caller, so it would
 // otherwise look like a button that simply does nothing.

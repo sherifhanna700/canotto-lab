@@ -1,6 +1,22 @@
 // Model tests. Run with `npm test`. No framework: assertions and a counter.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+/*
+ * The counter is browser code, and the only browser thing it touches is
+ * localStorage. A dozen lines of it here beats a headless browser, and keeps
+ * the claims in privacy.html checkable by `npm test`.
+ */
+if (typeof globalThis.localStorage === 'undefined') {
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(String(k)) ? store.get(String(k)) : null),
+    setItem: (k, v) => store.set(String(k), String(v)),
+    removeItem: (k) => store.delete(String(k)),
+    clear: () => store.clear(),
+  };
+}
 import { computeRecipe, allocateFlours, convertYeast, DEFAULT_RECIPE, effectiveYeastPct } from '../src/model/dough.js';
 import { blendStats, hydrationRangeForW, estimateW, maturationCeilingForW, bandForW, FLOURS } from '../src/model/flours.js';
 import { rateAt, maturationRateAt, fermentUnits, maturationUnits, yeastForFU, waterTempFor, DEFAULT_MODEL } from '../src/model/ferment.js';
@@ -10,6 +26,7 @@ import { suggestPlan, reviewPlan, defaultLeadHours, strengthBand, coldProofWindo
 import { recipeFromBlend, overallScore, recipeRating, starterRecipes, houseRecipe } from '../src/model/recipes.js';
 import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIXERS } from '../src/model/equipment.js';
 import { diagnose } from '../src/model/diagnostics.js';
+import { countToday, today, isOff, setCounting } from '../src/lib/count.js';
 import { derive, findFactor } from '../src/model/metrics.js';
 import { mergeCollections } from '../src/lib/drive.js';
 import { normaliseRecipe, EMPTY_ACTUALS, EMPTY_SCORES, SCHEMA_BASE, exportStateJSON } from '../src/lib/store.js';
@@ -19,14 +36,27 @@ import { DEFAULT_EQUIPMENT } from '../src/model/equipment.js';
 import { cToF, fToC, deltaToDisplay, deltaFromDisplay, reconcile, splitDoses } from '../src/model/units.js';
 
 let passed = 0;
+/*
+ * Tests run one after another, including async ones.
+ *
+ * This used to call fn() and move on, which meant an async test was never
+ * waited for: it passed the moment it started, and a failure surfaced as an
+ * unhandled rejection rather than a FAIL. Anything sharing state between async
+ * tests also interleaved. Queueing them keeps the order on the page the order
+ * they run in.
+ */
+let queue = Promise.resolve();
+
 const test = (name, fn) => {
-  try {
-    fn();
-    passed += 1;
-  } catch (err) {
-    console.error(`FAIL  ${name}\n      ${err.message}`);
-    process.exitCode = 1;
-  }
+  queue = queue.then(async () => {
+    try {
+      await fn();
+      passed += 1;
+    } catch (err) {
+      console.error(`FAIL  ${name}\n      ${err.message}`);
+      process.exitCode = 1;
+    }
+  });
 };
 const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg}: ${a} vs ${b} (tolerance ${tol})`);
 
@@ -894,4 +924,113 @@ test('a sync merge keeps both sides and never drops a record', () => {
   assert.equal(pulled, 2, 'b and c came in');
 });
 
+/* ------------------------- what we say we collect ------------------------ */
+
+/*
+ * These tests exist to keep the privacy page honest. Every claim it makes
+ * about what leaves the device is checked against what the code actually
+ * sends, so the two cannot drift apart quietly.
+ */
+
+test('the daily count sends one field and nothing else', async () => {
+  const sent = [];
+  const fetcher = async (url, opts) => {
+    sent.push({ url, body: JSON.parse(opts.body), method: opts.method });
+    return { ok: true };
+  };
+  const res = await countToday({ now: new Date('2026-09-09T12:00:00'), fetcher });
+
+  assert.equal(res.counted, true);
+  assert.equal(sent.length, 1, 'one request, not one per anything else');
+  const { fields } = sent[0].body;
+  assert.deepEqual(Object.keys(fields), ['day'], 'the payload carries a date and nothing more');
+  assert.match(fields.day.stringValue, /^\d{4}-\d{2}-\d{2}$/, 'a date, not a timestamp');
+  assert.ok(!/T\d/.test(fields.day.stringValue), 'no time of day is sent');
+});
+
+test('the identifier is random and is not derived from anything', async () => {
+  const ids = new Set();
+  for (let i = 0; i < 3; i += 1) {
+    globalThis.localStorage.clear();
+    const sent = [];
+    // eslint-disable-next-line no-await-in-loop
+    await countToday({ fetcher: async (url) => { sent.push(url); return { ok: true }; } });
+    ids.add(sent[0].split('/').pop().split('?')[0]);
+  }
+  assert.equal(ids.size, 3, 'a fresh browser is a fresh number, unrelated to the last');
+  for (const id of ids) assert.match(id, /^[0-9a-f]{32}$/, 'a random value, not a hash of anything');
+});
+
+test('a device is counted once a day, not once a visit', async () => {
+  globalThis.localStorage.clear();
+  let calls = 0;
+  const fetcher = async () => { calls += 1; return { ok: true }; };
+  const now = new Date('2026-09-09T08:00:00');
+  await countToday({ now, fetcher });
+  await countToday({ now: new Date('2026-09-09T23:00:00'), fetcher });
+  assert.equal(calls, 1, 'the second visit the same day sends nothing');
+  await countToday({ now: new Date('2026-09-10T08:00:00'), fetcher });
+  assert.equal(calls, 2, 'a new day counts again');
+});
+
+test('a failed count is retried, not silently dropped', async () => {
+  globalThis.localStorage.clear();
+  let calls = 0;
+  const fetcher = async () => { calls += 1; return { ok: calls > 1, status: 503 }; };
+  const now = new Date('2026-09-09T08:00:00');
+  const first = await countToday({ now, fetcher });
+  assert.equal(first.counted, false, 'a rejected write is not treated as done');
+  const second = await countToday({ now, fetcher });
+  assert.equal(second.counted, true, 'so the next open tries again');
+});
+
+test('switched off means no request at all', async () => {
+  globalThis.localStorage.clear();
+  setCounting(false);
+  let calls = 0;
+  const res = await countToday({ fetcher: async () => { calls += 1; return { ok: true }; } });
+  assert.equal(calls, 0, 'not a request with a flag on it: no request');
+  assert.equal(res.reason, 'off');
+  setCounting(true);
+  assert.equal(isOff(), false);
+});
+
+test('the date is the local one, because that is what a person means by today', () => {
+  const noon = new Date(2026, 8, 9, 12, 0, 0);
+  assert.equal(today(noon), '2026-09-09');
+  const lateEvening = new Date(2026, 8, 9, 23, 30, 0);
+  assert.equal(today(lateEvening), '2026-09-09', 'still today where they are, whatever UTC says');
+});
+
+test('the rules reject anything the privacy page does not mention', () => {
+  const rules = readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8');
+  assert.match(rules, /hasOnly\(\['day'\]\)/, 'writes are limited to the one field');
+  assert.match(rules, /matches\('\[0-9\]\{4\}-\[0-9\]\{2\}-\[0-9\]\{2\}'\)/, 'and to something shaped like a date');
+  assert.match(rules, /allow read: if false/, 'the app cannot read the collection back');
+  assert.match(rules, /allow delete: if false/, 'and cannot delete from it');
+  assert.match(rules, /match \/\{document=\*\*\}[\s\S]*allow read, write: if false/, 'nothing else is writable');
+});
+
+test('the privacy page describes the storage keys that actually exist', () => {
+  const page = readFileSync(new URL('../privacy.html', import.meta.url), 'utf8');
+  const sources = ['src/lib/count.js', 'src/lib/drive.js', 'src/lib/store.js', 'src/lib/theme.js', 'src/app.js']
+    .map((f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8'))
+    .join('\n');
+  const used = new Set([...sources.matchAll(/'(canotto-lab\/[a-z0-9-]+)'/g)].map((m) => m[1]));
+  for (const key of used) {
+    assert.ok(page.includes(key), `privacy.html does not mention the stored key ${key}`);
+  }
+  assert.ok(used.size >= 6, `expected the known keys, found ${used.size}`);
+});
+
+test('the app asks Google for the hidden folder and nothing wider', () => {
+  const drive = readFileSync(new URL('../src/lib/drive.js', import.meta.url), 'utf8');
+  assert.match(drive, /auth\/drive\.appdata/, 'the narrow scope');
+  assert.ok(!/auth\/drive['" ]/.test(drive), 'never full Drive access');
+  assert.ok(!/auth\/drive\.file/.test(drive), 'not even the create-your-own-files scope');
+  const page = readFileSync(new URL('../privacy.html', import.meta.url), 'utf8');
+  assert.ok(page.includes('drive.appdata'), 'and the privacy page names the same scope');
+});
+
+await queue;
 console.log(`\n${passed} model tests passed.`);

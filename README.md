@@ -134,6 +134,23 @@ the one-off OAuth client that has to exist before the Setup screen offers any of
 Hosting, cache headers and deployment are covered in
 [docs/hosting.md](docs/hosting.md).
 
+## Privacy
+
+Your recipes and bakes are stored in your browser and are never sent to us. If you
+connect a Google account they go to that account's private storage for this app, not
+through any server of ours, because there isn't one.
+
+The one thing the app sends is a count of how many devices use it, once a day at most:
+a random number the browser generated for itself, and today's date. Nothing else. It
+can be switched off in Setup, and off means the request is not made rather than made
+with a flag on it.
+
+There is no build step, so the JavaScript running in your browser is the same text as
+the source here. The counting is [`src/lib/count.js`](src/lib/count.js), the rules that
+constrain what it may write are [`firestore.rules`](firestore.rules), and the sync is
+[`src/lib/drive.js`](src/lib/drive.js). The tests in `tests/run.mjs` check the code
+against the claims in [privacy.html](privacy.html), so the two cannot drift apart.
+
 ## Data formats
 
 Everything the app exports is plain JSON, and every file names the schema it

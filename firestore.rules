@@ -1,0 +1,40 @@
+rules_version = '2';
+
+// The only thing stored here is how many devices used the app on a given day.
+//
+// A document is one anonymous device. Its id is a random value the browser
+// generated for itself, and the only field is the date it was last active.
+// Everything else about a bake stays on the device, or in the baker's own
+// Google account if they connected one.
+//
+// Writes are constrained to that single field so this cannot quietly become
+// analytics. Adding anything to the payload starts failing until someone
+// deliberately changes these rules as well, which is the point.
+//
+// Nothing can be read back by the app, and nothing can be deleted by it.
+// Counts are read by whoever owns the project.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /activity/{deviceId} {
+      allow read: if false;
+      allow delete: if false;
+
+      // Exactly one field, and it must look like a date. The date is not
+      // checked against the server clock: time zones make "today" ambiguous
+      // by up to a day either way, and a rule that rejects honest writes from
+      // one side of the world is worse than one that trusts the format.
+      // matches() is a full-string match in this language, so the pattern
+      // carries no anchors. With ^ and $ it silently matched nothing and
+      // rejected every write, which is the failure that looks like working
+      // security until you test that the allowed case is allowed.
+      allow create, update: if request.resource.data.keys().hasOnly(['day'])
+        && request.resource.data.day is string
+        && request.resource.data.day.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}');
+    }
+
+    // Nothing else is stored, so nothing else is writable.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

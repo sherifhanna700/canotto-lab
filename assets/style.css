@@ -458,3 +458,9 @@ table.compact { font-size: .78rem; }
 table.compact th, table.compact td { padding: 7px 8px; }
 table.compact td:first-child { line-height: 1.35; }
 table.compact .hint { display: block; font-size: .68rem; }
+
+/* An on/off switch with its reason next to it. */
+.toggle { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 2px 0; }
+.toggle input { margin: 3px 0 0; width: 17px; height: 17px; accent-color: var(--primary); flex: 0 0 auto; }
+.toggle-label { display: block; font-size: .86rem; font-weight: 600; color: var(--on-surface); }
+.toggle-hint { display: block; font-size: .76rem; line-height: 1.5; color: var(--on-surface-variant); margin-top: 2px; }

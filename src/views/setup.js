@@ -1,20 +1,21 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=ab7e5c7c';
-import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=ab7e5c7c';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=ab7e5c7c';
-import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=ab7e5c7c';
-import { scheduleStages } from '../model/protocol.js?v=ab7e5c7c';
-import { convertYeast } from '../model/dough.js?v=ab7e5c7c';
-import { overallScore } from '../model/recipes.js?v=ab7e5c7c';
-import { SOURCES, FLOURS } from '../model/flours.js?v=ab7e5c7c';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=ab7e5c7c';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=ab7e5c7c';
-import { lineChart } from '../lib/charts.js?v=ab7e5c7c';
-import * as drive from '../lib/drive.js?v=ab7e5c7c';
-import { tempField, tempDeltaField, } from './common.js?v=ab7e5c7c';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=ab7e5c7c';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=24ead2c3';
+import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=24ead2c3';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=24ead2c3';
+import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=24ead2c3';
+import { scheduleStages } from '../model/protocol.js?v=24ead2c3';
+import { convertYeast } from '../model/dough.js?v=24ead2c3';
+import { overallScore } from '../model/recipes.js?v=24ead2c3';
+import { SOURCES, FLOURS } from '../model/flours.js?v=24ead2c3';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=24ead2c3';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=24ead2c3';
+import { lineChart } from '../lib/charts.js?v=24ead2c3';
+import * as drive from '../lib/drive.js?v=24ead2c3';
+import { isOff, setCounting } from '../lib/count.js?v=24ead2c3';
+import { tempField, tempDeltaField, } from './common.js?v=24ead2c3';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=24ead2c3';
 
 let driveAccount = null;
 let driveStatus = '';
@@ -37,7 +38,7 @@ if (drive.isConfigured() && drive.hasConnected() && !driveAccount) {
 }
 
 export default function renderSetup(ctx) {
-  return [equipmentCard(ctx), kitchenCard(ctx), savingCard(ctx), driveCard(ctx), calibrationCard(ctx), sourcesCard()];
+  return [equipmentCard(ctx), kitchenCard(ctx), savingCard(ctx), driveCard(ctx), countingCard(), calibrationCard(ctx), sourcesCard()];
 }
 
 /* ------------------------------- equipment ------------------------------ */
@@ -332,6 +333,36 @@ function calibrationCard(ctx) {
     ),
     h('p', { class: 'hint', style: { fontSize: '.75rem' } }, 'Defaults are set so the curves pass through published figures: yeast at roughly a tenth of room rate at 4 \u00b0C, enzyme activity holding just under half. Change them only if your own bakes say otherwise.'),
     h('button', { class: 'btn ghost small', onClick: () => { update((st) => { st.settings.model = { ...DEFAULT_MODEL }; }); toast('Model reset'); } }, icon('restart_alt'), 'Reset to defaults')
+  );
+}
+
+/* -------------------------------- counting ------------------------------- */
+
+function countingCard() {
+  return card(
+    'What this app collects',
+    'Almost nothing, and it is worth being exact about which nothing.',
+    h('p', { class: 'note good' }, 'Your recipes, bakes, scores and notes are stored in this browser and are never sent to us. There is no server of ours that could receive them.'),
+    h('p', { class: 'note neutral' }, 'The one thing the app sends is a count of how many devices use it. Once a day at most, it reports a random number your browser made up for itself and today\u2019s date, and nothing else. It cannot say who you are, what you baked, or which account you might have connected.'),
+    h(
+      'div',
+      { style: { margin: '10px 0 4px' } },
+      toggleField({
+        label: 'Count this device in the usage figures',
+        checked: !isOff(),
+        hint: 'Switched off, no request is made at all, rather than one with a flag on it. Everything else works the same.',
+        onChange: (on) => { setCounting(on); toast(on ? 'Counting this device' : 'Not counting this device'); update(() => {}); },
+      })
+    ),
+    h(
+      'p',
+      { class: 'note neutral' },
+      'The whole of it is ',
+      h('a', { href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'written down here'),
+      ', and because this app has no build step, the code running in your browser is the same text as the source. ',
+      h('a', { href: 'https://github.com/sherifhanna700/canotto-lab/blob/main/src/lib/count.js', target: '_blank', rel: 'noopener' }, 'Read the counter'),
+      ' and check.'
+    )
   );
 }
 

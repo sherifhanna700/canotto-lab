@@ -27,7 +27,7 @@
  * not a secret, and Google enforces which origins may use it. Empty here means
  * sync is simply not offered. See docs/google-drive.md to fill it in.
  */
-const BUILT_IN_CLIENT_ID = '';
+const BUILT_IN_CLIENT_ID = '551174233109-oht8hinkgu92qodvi9fvjsi8f6r5sc2k.apps.googleusercontent.com';
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
 const SCOPE = 'openid email https://www.googleapis.com/auth/drive.appdata';
