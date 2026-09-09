@@ -104,25 +104,28 @@ it. Three ways to keep it safe, in order of how little setup they need:
 2. **Save straight to a file.** On Chrome and Edge the app can write to a file you pick
    and remember it, so later saves are one click. Point it at a folder Google Drive or
    iCloud already syncs and you get cloud backup with no accounts and no API.
-3. **Firebase sync.** Optional. Sign in and recipes and bakes mirror to Firestore under
-   your own user id, so they follow you between devices.
+3. **Google Drive sync.** Optional. Connect a Google account and the whole library is
+   kept as a single `canotto-lab.json` in your own Drive, so it follows you between
+   devices. Nothing to set up: no project, no keys, no database.
 
 Recipes can also be shared as a link that carries the whole definition, so the person
 opening it needs no account at all.
 
-### Setting up Firebase sync
+### About Drive sync
 
-The repository carries no project keys. To enable sync:
+The app asks for the `drive.file` scope, which grants access only to files the app
+itself created. It cannot see anything else in your Drive, and the Google consent screen
+says as much. The file is yours: open it, copy it, move it, or delete it without the app.
 
-1. Create a Firebase project, add a Web app, enable **Google** under Authentication, and
-   create a **Firestore** database.
-2. Add your GitHub Pages domain under Authentication → Settings → Authorized domains.
-3. Deploy the rules in `firestore.rules`, which scope every document to its owner.
-4. Open **Setup** in the app and paste the web config. It is kept in the browser.
+Merging is per record and the newest edit wins, so two devices working on different
+recipes both keep their work. Nothing is ever deleted by a sync. A recipe removed on one
+device comes back from the other, because losing work to a sync is worse than seeing
+something you meant to bin.
 
-Alternatively copy `firebase-config.example.js` to `firebase-config.js`, fill it in, and
-add `<script src="firebase-config.js"></script>` to `index.html` before the module script.
-That file is gitignored.
+The access token is held in memory only, never written to storage.
+
+Running your own copy of this app? [docs/google-drive.md](docs/google-drive.md) covers
+the one-off OAuth client that has to exist before the Setup screen offers any of this.
 
 ## Data formats
 

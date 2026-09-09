@@ -4,11 +4,11 @@
 // app touches storage directly, so swapping in a cloud backend later means
 // reimplementing `load` and `save`, not rewriting the views.
 
-import { DEFAULT_RECIPE } from '../model/dough.js?v=6b063ab5';
-import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=6b063ab5';
-import { DEFAULT_MODEL } from '../model/ferment.js?v=6b063ab5';
-import { starterRecipes, houseRecipe } from '../model/recipes.js?v=6b063ab5';
-import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=6b063ab5';
+import { DEFAULT_RECIPE } from '../model/dough.js?v=57af795c';
+import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=57af795c';
+import { DEFAULT_MODEL } from '../model/ferment.js?v=57af795c';
+import { starterRecipes, houseRecipe } from '../model/recipes.js?v=57af795c';
+import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=57af795c';
 
 const KEY = 'canotto-lab/v1';
 const LEGACY = { steps: 'canotto_master_steps', frozen: 'canotto_frozen_count', metrics: 'canotto_step_metrics' };
@@ -559,7 +559,7 @@ export function updateBake(id, patch) {
   });
 }
 
-/** Replace the synced collections with what came back from the cloud merge. */
+/** Replace the synced collections with what came back from a merge. */
 export function applySync({ recipes, bakes }) {
   return update((s) => {
     if (Array.isArray(recipes) && recipes.length) s.recipes = recipes;
@@ -597,8 +597,21 @@ function envelope(schemaFile, body) {
 
 /** Everything: recipes, bakes and settings. */
 export function exportJSON() {
-  const s = load();
-  return envelope('export.schema.json', { version: s.version, recipes: s.recipes, bakes: s.bakes, settings: s.settings });
+  return exportStateJSON(load());
+}
+
+/**
+ * The same document, built from a state that is not the stored one. Sync needs
+ * this: what goes to Drive is the merge of both sides, which does not exist in
+ * storage until it comes back and is applied.
+ */
+export function exportStateJSON(state) {
+  return envelope('export.schema.json', {
+    version: state.version,
+    recipes: state.recipes,
+    bakes: state.bakes,
+    settings: state.settings,
+  });
 }
 
 /** The recipe library on its own. */

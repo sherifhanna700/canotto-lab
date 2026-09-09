@@ -11,8 +11,8 @@ import { recipeFromBlend, overallScore, recipeRating, starterRecipes, houseRecip
 import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIXERS } from '../src/model/equipment.js';
 import { diagnose } from '../src/model/diagnostics.js';
 import { derive, findFactor } from '../src/model/metrics.js';
-import { mergeCollections } from '../src/lib/cloud.js';
-import { normaliseRecipe, EMPTY_ACTUALS, EMPTY_SCORES, SCHEMA_BASE } from '../src/lib/store.js';
+import { mergeCollections } from '../src/lib/drive.js';
+import { normaliseRecipe, EMPTY_ACTUALS, EMPTY_SCORES, SCHEMA_BASE, exportStateJSON } from '../src/lib/store.js';
 import { DEFAULT_SCHEDULE as SCHED } from '../src/model/protocol.js';
 import { validate, loadSchemas } from '../tools/validate-schema.mjs';
 import { DEFAULT_EQUIPMENT } from '../src/model/equipment.js';
@@ -862,6 +862,36 @@ test('a logged bake is judged on the time it really had', () => {
     proof.get({ ...base, doneAt: { 'p4-1': t, 'p5-1': t + 78 * H } }, ranLong) > DEFAULT_SCHEDULE.coldProofHours,
     'the cold proof factor reports what happened, not what was written down'
   );
+});
+
+test('what sync writes to Drive is a valid export document', () => {
+  /*
+   * Sync uploads the merge of both sides, which is not the state in storage,
+   * so it is built from a state object rather than read back. If that shape
+   * ever drifted, the file in someone's Drive would be the thing that broke,
+   * and they would find out on the device that had no copy left.
+   */
+  const merged = {
+    version: 1,
+    recipes: [houseRecipe()],
+    bakes: [sampleBake()],
+    settings: { model: DEFAULT_MODEL, equipment: DEFAULT_EQUIPMENT },
+  };
+  const doc = JSON.parse(exportStateJSON(merged));
+  assert.equal(doc.$schema, `${SCHEMA_BASE}/export.schema.json`, 'names the schema it follows');
+  assert.equal(doc.recipes.length, 1);
+  assert.equal(doc.bakes.length, 1);
+  check(doc, 'export.schema.json');
+});
+
+test('a sync merge keeps both sides and never drops a record', () => {
+  const mine = [{ id: 'a', updatedAt: '2026-09-02T00:00:00Z' }, { id: 'b', updatedAt: '2026-09-01T00:00:00Z' }];
+  const theirs = [{ id: 'b', updatedAt: '2026-09-03T00:00:00Z' }, { id: 'c', updatedAt: '2026-09-01T00:00:00Z' }];
+  const { merged, pulled, pushed } = mergeCollections(mine, theirs);
+  assert.deepEqual(merged.map((d) => d.id).sort(), ['a', 'b', 'c'], 'nothing is lost either way');
+  assert.equal(merged.find((d) => d.id === 'b').updatedAt, '2026-09-03T00:00:00Z', 'the newer edit wins');
+  assert.equal(pushed, 1, 'a went out');
+  assert.equal(pulled, 2, 'b and c came in');
 });
 
 console.log(`\n${passed} model tests passed.`);

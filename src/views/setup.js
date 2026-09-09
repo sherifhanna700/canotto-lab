@@ -1,29 +1,43 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=6b063ab5';
-import { editCurrent, update, exportJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=6b063ab5';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=6b063ab5';
-import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=6b063ab5';
-import { scheduleStages } from '../model/protocol.js?v=6b063ab5';
-import { convertYeast } from '../model/dough.js?v=6b063ab5';
-import { overallScore } from '../model/recipes.js?v=6b063ab5';
-import { SOURCES, FLOURS } from '../model/flours.js?v=6b063ab5';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=6b063ab5';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=6b063ab5';
-import { lineChart } from '../lib/charts.js?v=6b063ab5';
-import * as cloud from '../lib/cloud.js?v=6b063ab5';
-import { tempField, tempDeltaField, } from './common.js?v=6b063ab5';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=6b063ab5';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=57af795c';
+import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=57af795c';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=57af795c';
+import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=57af795c';
+import { scheduleStages } from '../model/protocol.js?v=57af795c';
+import { convertYeast } from '../model/dough.js?v=57af795c';
+import { overallScore } from '../model/recipes.js?v=57af795c';
+import { SOURCES, FLOURS } from '../model/flours.js?v=57af795c';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=57af795c';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=57af795c';
+import { lineChart } from '../lib/charts.js?v=57af795c';
+import * as drive from '../lib/drive.js?v=57af795c';
+import { tempField, tempDeltaField, } from './common.js?v=57af795c';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=57af795c';
 
-let cloudUser = null;
-let cloudStatus = '';
-cloud.onUser((u) => {
-  cloudUser = u;
+let driveAccount = null;
+let driveStatus = '';
+let driveResuming = false;
+drive.onAccount((a) => {
+  driveAccount = a;
 });
 
+/*
+ * Pick the connection back up on load without showing the person anything.
+ * Google will reissue a token silently while their session is alive, so a
+ * returning baker sees the connected state rather than a sign-in button.
+ */
+if (drive.isConfigured() && drive.hasConnected() && !driveAccount) {
+  driveResuming = true;
+  drive.resume().finally(() => {
+    driveResuming = false;
+    update(() => {});
+  });
+}
+
 export default function renderSetup(ctx) {
-  return [equipmentCard(ctx), kitchenCard(ctx), savingCard(ctx), cloudCard(ctx), calibrationCard(ctx), sourcesCard()];
+  return [equipmentCard(ctx), kitchenCard(ctx), savingCard(ctx), driveCard(ctx), calibrationCard(ctx), sourcesCard()];
 }
 
 /* ------------------------------- equipment ------------------------------ */
@@ -192,57 +206,74 @@ function savingCard(ctx) {
   );
 }
 
-/* ---------------------------------- cloud -------------------------------- */
+/* ---------------------------------- drive -------------------------------- */
 
-function cloudCard() {
-  const configured = cloud.isConfigured();
+function driveCard() {
   const body = [];
 
-  if (!configured) {
-    let pasted = '';
+  if (!drive.isConfigured()) {
+    /*
+     * No client id in this build, so there is nothing to offer. Say what the
+     * feature would be rather than pretending it does not exist, and point at
+     * what already works instead.
+     */
     body.push(
-      h('p', { class: 'note neutral' }, 'Sync across devices is optional and needs a Firebase project of your own, which is free. Create one, enable Google sign-in and Firestore, then paste the web app config here. Nothing is sent anywhere until you sign in.'),
-      h(
-        'label',
-        { class: 'field' },
-        h('span', { class: 'field-label' }, 'Firebase web config'),
-        h('span', { class: 'field-input' }, h('textarea', { rows: 5, placeholder: '{ "apiKey": "…", "authDomain": "…", "projectId": "…", "appId": "…" }', onInput: (e) => { pasted = e.target.value; } }))
-      ),
-      h('button', { class: 'btn', onClick: () => { try { cloud.saveConfig(pasted); toast('Firebase configured'); update(() => {}); } catch (e) { toast(e.message); } } }, icon('cloud'), 'Save configuration')
+      h('p', { class: 'note neutral' }, 'Sync is not switched on in this build. Until it is, the file on this screen is the way to carry your library between devices: download it, or use Save to file if your browser offers it.')
     );
-  } else if (!cloudUser) {
-    body.push(
-      h('p', { class: 'note neutral' }, 'Firebase is configured. Sign in and your recipes and bakes follow you between devices.'),
-      h(
-        'div',
-        { class: 'row tight' },
-        h('button', { class: 'btn', onClick: async () => { try { await cloud.signIn(); toast('Signed in'); update(() => {}); } catch (e) { toast(e.message || 'Sign-in failed'); } } }, icon('login'), 'Sign in with Google'),
-        h('button', { class: 'btn ghost', onClick: () => { cloud.clearConfig(); toast('Configuration removed'); update(() => {}); } }, icon('link_off'), 'Remove configuration')
-      )
-    );
-  } else {
-    body.push(
-      h('div', { class: 'stats' }, stat('Signed in', cloudUser.name || cloudUser.email || 'account', cloudUser.email || ''), stat('Last sync', cloudStatus || 'not yet', 'newest edit wins per record')),
-      h(
-        'div',
-        { class: 'row tight' },
-        h('button', {
-          class: 'btn',
-          onClick: async () => {
-            try {
-              const res = await cloud.sync(load());
-              applySync(res);
-              cloudStatus = `${res.pulled} in, ${res.pushed} out`;
-              toast(`Synced: ${res.pulled} pulled, ${res.pushed} pushed`);
-            } catch (e) {
-              toast(e.message || 'Sync failed');
-            }
-          },
-        }, icon('sync'), 'Sync now'),
-        h('button', { class: 'btn ghost', onClick: async () => { await cloud.signOutNow(); toast('Signed out'); update(() => {}); } }, icon('logout'), 'Sign out')
-      )
-    );
+    return card('Sync across devices', 'Not available here.', ...body);
   }
+
+  if (driveResuming) {
+    body.push(h('p', { class: 'note neutral' }, 'Checking with Google\u2026'));
+    return card('Sync across devices', 'Optional. The app works fully without it.', ...body);
+  }
+
+  if (!driveAccount) {
+    body.push(
+      h('p', { class: 'note neutral' }, 'Connect a Google account and your recipes and bakes are kept as a single file in your own Drive, so they follow you between devices. The app can only see files it created there, not anything else in your Drive, and the file is yours: open it, copy it, or delete it without the app.'),
+      h('div', { class: 'row tight' }, h('button', {
+        class: 'btn',
+        onClick: async () => {
+          try {
+            await drive.connect();
+            toast('Connected to Drive');
+            update(() => {});
+          } catch (e) {
+            toast(e.message || 'Could not connect');
+          }
+        },
+      }, icon('cloud'), 'Connect Google Drive'))
+    );
+    return card('Sync across devices', 'Optional. The app works fully without it.', ...body);
+  }
+
+  body.push(
+    h(
+      'div',
+      { class: 'stats' },
+      stat('Connected', driveAccount.email || driveAccount.name || 'your Google account', 'one file in your Drive'),
+      stat('Last sync', driveStatus || 'not yet', 'newest edit wins, per record')
+    ),
+    h(
+      'div',
+      { class: 'row tight' },
+      h('button', {
+        class: 'btn',
+        onClick: async () => {
+          try {
+            const res = await drive.sync(load(), { envelope: exportStateJSON });
+            applySync(res.state);
+            driveStatus = `${res.pulled} in, ${res.pushed} out`;
+            toast(res.created ? 'Created canotto-lab.json in your Drive' : `Synced: ${res.pulled} in, ${res.pushed} out`);
+          } catch (e) {
+            toast(e.message || 'Sync failed');
+          }
+        },
+      }, icon('sync'), 'Sync now'),
+      h('button', { class: 'btn ghost', onClick: () => { drive.disconnect(); toast('Disconnected'); update(() => {}); } }, icon('link_off'), 'Disconnect')
+    ),
+    h('p', { class: 'note neutral' }, 'A sync never deletes anything. A recipe removed on one device comes back from the other, because losing work to a sync is worse than seeing something you meant to bin.')
+  );
 
   return card('Sync across devices', 'Optional. The app works fully without it.', ...body);
 }
@@ -271,7 +302,7 @@ function calibrationCard(ctx) {
       height: 220,
       markers: [{ x: toDisplay(fridge, u), label: 'your fridge' }],
     }),
-    h('p', { class: 'note neutral' }, `At ${fmtTemp(fridge, u)} your yeast runs at ${(rateAt(fridge, m) * 100).toFixed(0)}% of its 20 \u00b0C rate while the flour\u2019s enzymes keep ${(maturationRateAt(fridge, m) * 100).toFixed(0)}%. The dough goes on maturing long after it has stopped rising, which is why a cold proof can be too long as well as too short.`),
+    h('p', { class: 'note neutral' }, `At ${fmtTemp(fridge, u)} your yeast runs at ${(rateAt(fridge, m) * 100).toFixed(0)}% of its ${fmtTemp(20, u)} rate while the flour\u2019s enzymes keep ${(maturationRateAt(fridge, m) * 100).toFixed(0)}%. The dough goes on maturing long after it has stopped rising, which is why a cold proof can be too long as well as too short.`),
     h(
       'div',
       { class: 'row' },

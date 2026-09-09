@@ -221,7 +221,8 @@ export function lineChart({ series, xLabel, yLabel, height = 260, markers = [] }
   for (const m of markers) {
     if (!Number.isFinite(m.x)) continue;
     root.appendChild(svg('line', { x1: sx(m.x), x2: sx(m.x), y1: pad.t, y2: H - pad.b, class: 'marker' }));
-    root.appendChild(svg('text', { x: sx(m.x) + 5, y: pad.t + 12, class: 'tick strong' }, m.label));
+    // Along the bottom, out of the way of the legend that sits at the top.
+    root.appendChild(svg('text', { x: sx(m.x) + 5, y: H - pad.b - 6, class: 'tick strong' }, m.label));
   }
 
   // A legend only earns its space when there is more than one line to tell apart.
