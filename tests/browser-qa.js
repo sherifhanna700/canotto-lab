@@ -536,6 +536,65 @@
     await setNum('Cold proof', 66);
     await setNum('Cold ferment temperature', 37);
 
+    /* ------------------------------- J17 -------------------------------- */
+    /*
+     * Real times. A plan is wrong the moment something runs late, and the
+     * whole point of ticking a box is that the app records when it actually
+     * happened rather than when it was supposed to.
+     */
+    await goTab(1);
+    const stepBy = (re) => $$('#main .step').find((el) => re.test(el.querySelector('.step-title')?.textContent || ''));
+    const tick = async (re) => { stepBy(re)?.querySelector('.step-check')?.click(); await sleep(); };
+
+    const before = Date.now();
+    await tick(/Ambient yeast awakening rest/);
+    const stamped = stored()?.current?.doneAt?.['p1-3'];
+    check('J17.1 checking a step records the wall clock',
+      Number.isFinite(stamped) && stamped >= before && stamped <= Date.now() + 1000,
+      stamped ? new Date(stamped).toISOString() : 'nothing recorded');
+
+    await tick(/Cold ferment at/);
+    await tick(/Tear the biga/);
+    const marks = stored()?.current?.doneAt || {};
+    check('J17.2 each timed step gets its own stamp',
+      ['p1-3', 'p1-4', 'p2-1'].every((id) => Number.isFinite(marks[id])),
+      Object.keys(marks).join(', '));
+
+    const actualCardEl = cards().find((c) => /Where you actually are/.test(c.textContent));
+    check('J17.3 the actual-times card appears once something is timed', !!actualCardEl,
+      actualCardEl ? 'shown' : 'MISSING');
+
+    /*
+     * Rewrite one stamp through the editor the way a person correcting a late
+     * tick would, and check the phase length follows it.
+     */
+    const editor = $$('#main input[type=datetime-local]').find((i) => i.dataset.k === 'stamp-p1-4');
+    if (editor) {
+      const start = marks['p1-3'];
+      const target = new Date(start + 4 * 3600000 - new Date(start).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      editor.value = target;
+      editor.dispatchEvent(new Event('change', { bubbles: true }));
+      await sleep();
+    }
+    const rows = $$('#main tbody tr').filter((r) => /Biga ambient rest/.test(r.children[0]?.textContent || ''));
+    // The picker only has minute precision, so an edited stamp lands within a
+    // minute of the target rather than exactly on it.
+    check('J17.4 correcting a stamp changes the phase it bounds',
+      !!editor && /^(4 h|3 h 59 m)$/.test((rows[0]?.children[2]?.textContent || '').trim()),
+      rows[0] ? [...rows[0].children].map((c) => c.textContent.trim()).join(' | ') : 'no row');
+
+    check('J17.5 an untimed phase is not claimed as measured',
+      $$('#main tbody tr').some((r) => /Cold proof/.test(r.children[0]?.textContent || '') && /\u2014/.test(r.children[2]?.textContent || '')),
+      'cold proof shows a dash');
+
+    /* Unticking must take the stamp with it, or a stale time survives. */
+    await tick(/Tear the biga/);
+    check('J17.6 unchecking a step drops its recorded time',
+      !Number.isFinite(stored()?.current?.doneAt?.['p2-1']),
+      JSON.stringify(Object.keys(stored()?.current?.doneAt || {})));
+
+    await goTab(0);
+
     /* ------------------------------- J11 -------------------------------- */
     const snapshot = stored();
     check('J11.1 state persisted', !!snapshot && snapshot.recipes.length >= 2 && snapshot.bakes.length === 1,

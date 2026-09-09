@@ -433,3 +433,10 @@ details.foldout[open] summary { margin-bottom: 8px; }
 
 /* Keep the bar from covering the end of the page. */
 body.has-save-bar { padding-bottom: calc(84px + var(--safe-bottom)); }
+
+/* Real times against planned times. */
+.stamp-edit { margin-top: 6px; max-width: 230px; }
+.stamp-edit .field-label { font-size: .68rem; }
+.stamp-edit input { font-size: .8rem; padding: 5px 8px; }
+tr.row-live td { background: var(--surface-low); }
+td.num.warn { color: var(--warn); }

@@ -3,20 +3,21 @@
 // Compare and Lab both work off this list, so adding a field here makes it
 // available as an axis, a grouping and a correlation candidate everywhere.
 
-import { computeRecipe } from './dough.js?v=82c337ea';
-import { scheduleStages } from './protocol.js?v=82c337ea';
-import { fermentUnits, maturationUnits } from './ferment.js?v=82c337ea';
-import { convertYeast } from './dough.js?v=82c337ea';
-import { overallScore, SCORE_KEYS } from './recipes.js?v=82c337ea';
-import { maturationCeilingForW } from './flours.js?v=82c337ea';
-import { toDisplay } from './units.js?v=82c337ea';
-import { ovenLabel, mixerLabel } from './equipment.js?v=82c337ea';
+import { computeRecipe } from './dough.js?v=877314ec';
+import { scheduleStages } from './protocol.js?v=877314ec';
+import { projectedStages, PHASE_BOUNDS, hasTimings } from './timeline.js?v=877314ec';
+import { fermentUnits, maturationUnits } from './ferment.js?v=877314ec';
+import { convertYeast } from './dough.js?v=877314ec';
+import { overallScore, SCORE_KEYS } from './recipes.js?v=877314ec';
+import { maturationCeilingForW } from './flours.js?v=877314ec';
+import { toDisplay } from './units.js?v=877314ec';
+import { ovenLabel, mixerLabel } from './equipment.js?v=877314ec';
 
 /** Inputs: things you chose. */
 export const FACTORS = [
   { key: 'hydrationPct', label: 'Hydration', unit: '%', get: (b) => b.recipe.hydrationPct },
   { key: 'fermentationUnits', label: 'Fermentation load', unit: 'FU', get: (b, d) => d.fu },
-  { key: 'coldProofHours', label: 'Cold proof', unit: 'h', get: (b) => b.schedule.coldProofHours },
+  { key: 'coldProofHours', label: 'Cold proof', unit: 'h', get: (b, d) => d.stages[3]?.hours ?? b.schedule.coldProofHours },
   { key: 'fridgeTempC', label: 'Cold ferment temperature', unit: '°', temp: true, get: (b) => b.actuals?.fridgeTempC ?? b.schedule.fridgeTempC },
   { key: 'yeastPct', label: 'Inoculation', unit: '%', get: (b, d) => d.c.yeastPct },
   { key: 'maturationUnits', label: 'Maturation load', unit: 'MU', get: (b, d) => d.mu },
@@ -64,12 +65,21 @@ function numOrNull(v) {
 /** Derived values every accessor above may rely on. */
 export function derive(bake, model) {
   const c = computeRecipe(bake.recipe);
-  const stages = scheduleStages(bake.schedule);
+  const planned = scheduleStages(bake.schedule);
+  /*
+   * Judge a bake on what the dough actually got, not on what was written down
+   * for it. Where a phase was timed, the real duration is used; where it was
+   * not, the plan stands in. This is the whole point of recording wall clock
+   * times, so it has to reach the comparisons in the log.
+   */
+  const stages = hasTimings(bake.doneAt)
+    ? projectedStages({ doneAt: bake.doneAt, schedule: bake.schedule, planned })
+    : planned;
   const fu = fermentUnits(stages, model);
   const idy = convertYeast(bake.recipe.baseYeastPct, bake.recipe.yeastType, 'idy');
   const mu = maturationUnits(stages, model);
   const ceiling = maturationCeilingForW(c.blend?.w);
-  return { c, stages, fu, idy, mu, maturationPct: ceiling ? (mu / ceiling) * 100 : null };
+  return { c, stages, planned, timed: hasTimings(bake.doneAt), fu, idy, mu, maturationPct: ceiling ? (mu / ceiling) * 100 : null };
 }
 
 export function findFactor(key) {

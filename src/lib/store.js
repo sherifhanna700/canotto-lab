@@ -4,11 +4,11 @@
 // app touches storage directly, so swapping in a cloud backend later means
 // reimplementing `load` and `save`, not rewriting the views.
 
-import { DEFAULT_RECIPE } from '../model/dough.js?v=82c337ea';
-import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=82c337ea';
-import { DEFAULT_MODEL } from '../model/ferment.js?v=82c337ea';
-import { starterRecipes, houseRecipe } from '../model/recipes.js?v=82c337ea';
-import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=82c337ea';
+import { DEFAULT_RECIPE } from '../model/dough.js?v=877314ec';
+import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=877314ec';
+import { DEFAULT_MODEL } from '../model/ferment.js?v=877314ec';
+import { starterRecipes, houseRecipe } from '../model/recipes.js?v=877314ec';
+import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=877314ec';
 
 const KEY = 'canotto-lab/v1';
 const LEGACY = { steps: 'canotto_master_steps', frozen: 'canotto_frozen_count', metrics: 'canotto_step_metrics' };
@@ -46,6 +46,9 @@ export function defaultState() {
       schedule: JSON.parse(JSON.stringify(house.schedule)),
       launchISO: nextFridayEvening(),
       done: [],
+      // Wall clock, one entry per checked step. Absolute instants, never gaps:
+      // a gap cannot be corrected without silently moving everything after it.
+      doneAt: {},
       actuals: { ...EMPTY_ACTUALS },
       scores: { ...EMPTY_SCORES },
       notes: '',
@@ -116,6 +119,7 @@ function mergeState(base, saved) {
       actuals: { ...EMPTY_ACTUALS, ...(saved.current?.actuals || {}) },
       scores: { ...EMPTY_SCORES, ...(saved.current?.scores || {}) },
       done: Array.isArray(saved.current?.done) ? saved.current.done : [],
+      doneAt: sanitiseDoneAt(saved.current?.doneAt),
     },
     recipes: reconcileRecipes(saved, base),
     bakes: Array.isArray(saved.bakes) ? saved.bakes : [],
@@ -369,6 +373,22 @@ export function findRecipe(s, id) {
 }
 
 /** Make a recipe the one the protocol, calculator and bake screens work on. */
+/**
+ * Recorded times come back from storage as whatever was there. Anything that
+ * is not a plausible instant is dropped rather than trusted: a bad timestamp
+ * would silently misreport a phase duration, which is worse than none.
+ */
+export function sanitiseDoneAt(raw) {
+  if (!raw || typeof raw !== 'object') return {};
+  const out = {};
+  const floor = Date.parse('2020-01-01T00:00:00Z');
+  for (const [id, v] of Object.entries(raw)) {
+    const n = Number(v);
+    if (Number.isFinite(n) && n > floor) out[id] = n;
+  }
+  return out;
+}
+
 export function loadRecipeInto(s, recipe) {
   s.current.recipeId = recipe.id;
   s.current.title = recipe.name;
@@ -377,6 +397,7 @@ export function loadRecipeInto(s, recipe) {
   // The maturation slider belongs to the recipe, not to the session.
   s.current.leadHours = recipe.plan?.totalHours ?? null;
   s.current.done = [];
+  s.current.doneAt = {};
   s.current.actuals = { ...EMPTY_ACTUALS };
   s.current.scores = { ...EMPTY_SCORES };
   s.current.notes = '';
@@ -512,6 +533,9 @@ export function snapshotBake(s, extra = {}) {
     planned: false,
     recipe: JSON.parse(JSON.stringify(c.recipe)),
     schedule: JSON.parse(JSON.stringify(c.schedule)),
+    // The wall clock times the steps were ticked at. What the schedule asked
+    // for is already above; this is what the dough actually got.
+    doneAt: { ...(c.doneAt || {}) },
     actuals: { ...c.actuals },
     scores: { ...c.scores },
     issues: [],

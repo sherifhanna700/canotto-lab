@@ -5,10 +5,12 @@ import { computeRecipe, allocateFlours, convertYeast, DEFAULT_RECIPE, effectiveY
 import { blendStats, hydrationRangeForW, estimateW, maturationCeilingForW, bandForW, FLOURS } from '../src/model/flours.js';
 import { rateAt, maturationRateAt, fermentUnits, maturationUnits, yeastForFU, waterTempFor, DEFAULT_MODEL } from '../src/model/ferment.js';
 import { solveSchedule, scheduleStages, STEPS, activeSteps, DEFAULT_SCHEDULE } from '../src/model/protocol.js';
+import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, TIMED_STEPS } from '../src/model/timeline.js';
 import { suggestPlan, reviewPlan, defaultLeadHours, strengthBand, coldProofWindow, coldProofVerdict, hoursForMaturation, HOUSE_REFERENCE, MATURATION_TARGET } from '../src/model/advisor.js';
 import { recipeFromBlend, overallScore, recipeRating, starterRecipes, houseRecipe } from '../src/model/recipes.js';
 import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIXERS } from '../src/model/equipment.js';
 import { diagnose } from '../src/model/diagnostics.js';
+import { derive, findFactor } from '../src/model/metrics.js';
 import { mergeCollections } from '../src/lib/cloud.js';
 import { normaliseRecipe, EMPTY_ACTUALS, EMPTY_SCORES, SCHEMA_BASE } from '../src/lib/store.js';
 import { DEFAULT_SCHEDULE as SCHED } from '../src/model/protocol.js';
@@ -241,6 +243,126 @@ test('the suggested duration always lands inside its own window', () => {
 test('water temperature solver uses three or four factors as appropriate', () => {
   near(waterTempFor({ ddtC: 24, flourTempC: 20, roomTempC: 20, frictionC: 8 }), 24 * 3 - 48, 1e-9, 'three factor');
   near(waterTempFor({ ddtC: 24, flourTempC: 20, roomTempC: 20, frictionC: 8, prefermentTempC: 4 }), 24 * 4 - 52, 1e-9, 'four factor');
+});
+
+/* ------------------------------- timeline ------------------------------- */
+
+const T0 = Date.parse('2026-09-01T08:00:00Z');
+const hoursAfter = (h) => T0 + h * 3600000;
+
+test('a phase between two marks measures what really elapsed', () => {
+  const stages = actualStages({
+    doneAt: { 'p1-3': T0, 'p1-4': hoursAfter(4.5) },
+    schedule: DEFAULT_SCHEDULE,
+    planned: scheduleStages(DEFAULT_SCHEDULE),
+  });
+  near(stages[0].hours, 4.5, 1e-9, 'measured against the clock, not the plan');
+  assert.equal(stages[0].state, 'done');
+  assert.equal(stages[1].state, 'running', 'the next phase is under way');
+});
+
+test('a phase still running is measured up to now', () => {
+  const stages = actualStages({
+    doneAt: { 'p4-1': T0 },
+    schedule: DEFAULT_SCHEDULE,
+    planned: scheduleStages(DEFAULT_SCHEDULE),
+    now: hoursAfter(24),
+  });
+  const proof = stages.find((x) => x.name === 'Cold proof');
+  near(proof.hours, 24, 1e-9, '24 hours into the cold proof');
+  assert.equal(proof.state, 'running');
+});
+
+test('an untouched phase falls back to the plan', () => {
+  const planned = scheduleStages(DEFAULT_SCHEDULE);
+  const stages = actualStages({ doneAt: {}, schedule: DEFAULT_SCHEDULE, planned });
+  assert.deepEqual(stages.map((x) => x.state), ['planned', 'planned', 'planned', 'planned', 'planned']);
+  near(stages[3].hours, planned[3].hours, 1e-9, 'planned cold proof carried through');
+});
+
+test('running late shows up as maturation the plan did not ask for', () => {
+  // The case that started this: the final mix happens half an hour late, so
+  // the biga sits in the fridge half an hour longer than the protocol says.
+  // Measured at the moment of the mix, so nothing downstream absorbs it.
+  const planned = scheduleStages(DEFAULT_SCHEDULE);
+  const coldHold = (endHours) => actualStages({
+    doneAt: { 'p1-4': T0, 'p2-1': hoursAfter(endHours) },
+    schedule: DEFAULT_SCHEDULE,
+    planned,
+    now: hoursAfter(endHours),
+  }).find((x) => x.name === 'Biga cold hold');
+
+  near(coldHold(17.5).hours, 17.5, 1e-9, 'the fridge held it half an hour longer');
+  assert.ok(
+    maturationUnits([coldHold(17.5)]) > maturationUnits([coldHold(17)]),
+    'and that half hour is real maturation, not a rounding difference'
+  );
+});
+
+test('a bake in progress projects forward instead of undercounting', () => {
+  // Half an hour late out of the fridge, final mix just started. Summing only
+  // what has elapsed would report less maturation than the plan, which is
+  // nonsense: the dough is behind schedule, not ahead of it.
+  const planned = scheduleStages(DEFAULT_SCHEDULE);
+  const doneAt = { 'p1-3': T0, 'p1-4': hoursAfter(3.75), 'p2-1': hoursAfter(21.25) };
+  const now = hoursAfter(21.25);
+
+  const sofar = maturationUnits(actualStages({ doneAt, schedule: DEFAULT_SCHEDULE, planned, now }));
+  const ahead = maturationUnits(projectedStages({ doneAt, schedule: DEFAULT_SCHEDULE, planned, now }));
+  const plan = maturationUnits(planned);
+
+  assert.ok(sofar < plan, 'elapsed alone undercounts a bake that has barely started');
+  assert.ok(ahead > plan, 'projected forward, the extra half hour in the fridge shows as more maturation');
+  assert.ok(ahead - plan < 1, 'and it is a small amount, because half an hour cold is not much');
+});
+
+test('a phase that has overrun keeps its real time in the projection', () => {
+  const planned = scheduleStages(DEFAULT_SCHEDULE);
+  // Left on the bench for six hours against a planned two.
+  const doneAt = { 'p2-1': T0 };
+  const stages = projectedStages({ doneAt, schedule: DEFAULT_SCHEDULE, planned, now: hoursAfter(6) });
+  const bench = stages.find((x) => x.name === 'Mix & bench');
+  near(bench.hours, 6, 1e-9, 'the overrun is not wished away');
+});
+
+test('drift is signed, and late is positive', () => {
+  const launchISO = '2026-09-01T18:00:00.000Z';
+  const at = { 'p2-1': -600 };
+  const planned = Date.parse(launchISO) - 600 * 60000;
+  const d = drifts({ doneAt: { 'p2-1': planned + 30 * 60000 }, at, launchISO });
+  near(d['p2-1'], 30 * 60000, 1e-9, 'thirty minutes late');
+  assert.equal(sayDrift(d['p2-1']), '30 min late');
+  assert.equal(sayDrift(-90 * 60000), '1 h 30 min early');
+  assert.equal(sayDrift(0), 'on time');
+});
+
+test('a late step pushes the launch by the same amount', () => {
+  const launchISO = '2026-09-01T18:00:00.000Z';
+  const at = { 'p5-1': -240 };
+  const planned = Date.parse(launchISO) - 240 * 60000;
+  const p = projectedLaunch({ doneAt: { 'p5-1': planned + 45 * 60000 }, at, launchISO });
+  near(p.slipMs, 45 * 60000, 1e-9, 'the slip carries to the oven');
+  near(p.launchMs - p.plannedMs, 45 * 60000, 1e-9, 'dinner moves by the same 45 minutes');
+});
+
+test('the projection follows the latest step by plan order, not tick order', () => {
+  const launchISO = '2026-09-01T18:00:00.000Z';
+  const at = { 'p1-4': -3000, 'p5-1': -240 };
+  const base = Date.parse(launchISO);
+  // Someone ticks the temper first, then goes back for a missed earlier box.
+  const p = projectedLaunch({
+    doneAt: { 'p5-1': base - 240 * 60000 + 15 * 60000, 'p1-4': base - 3000 * 60000 + 90 * 60000 },
+    at,
+    launchISO,
+  });
+  assert.equal(p.from, 'p5-1', 'the last thing that happened governs what is left');
+  near(p.slipMs, 15 * 60000, 1e-9, 'not the 90 minute drift from hours ago');
+});
+
+test('nothing recorded means nothing claimed', () => {
+  assert.equal(hasTimings({}), false);
+  assert.equal(hasTimings({ 'p1-3': T0 }), true);
+  assert.equal(projectedLaunch({ doneAt: {}, at: {}, launchISO: '2026-09-01T18:00:00.000Z' }), null);
 });
 
 /* ------------------------------- protocol ------------------------------- */
@@ -654,6 +776,26 @@ test('every view imports what it uses', async () => {
   // Only names the app defines itself matter here; globals are filtered above.
   const ours = problems.filter((p) => /(editCurrent|announceFork|toast|update|render|go|card|stat|pill|icon|chip)\b/.test(p));
   assert.deepEqual(ours, [], `used but not imported:\n  ${ours.join('\n  ')}`);
+});
+
+test('a logged bake is judged on the time it really had', () => {
+  const base = { recipe: DEFAULT_RECIPE, schedule: DEFAULT_SCHEDULE, scores: EMPTY_SCORES };
+  const t = Date.parse('2026-09-01T08:00:00Z');
+  const H = 3600000;
+  // Same recipe on paper. One of them actually sat 12 hours longer in the cold.
+  const asPlanned = derive({ ...base }, DEFAULT_MODEL);
+  const ranLong = derive(
+    { ...base, doneAt: { 'p4-1': t, 'p5-1': t + (DEFAULT_SCHEDULE.coldProofHours + 12) * H } },
+    DEFAULT_MODEL
+  );
+  assert.equal(asPlanned.timed, false, 'no timings, so the plan stands');
+  assert.equal(ranLong.timed, true);
+  assert.ok(ranLong.mu > asPlanned.mu, 'the extra twelve hours count against the flour budget');
+  const proof = findFactor('coldProofHours');
+  assert.ok(
+    proof.get({ ...base, doneAt: { 'p4-1': t, 'p5-1': t + 78 * H } }, ranLong) > DEFAULT_SCHEDULE.coldProofHours,
+    'the cold proof factor reports what happened, not what was written down'
+  );
 });
 
 console.log(`\n${passed} model tests passed.`);

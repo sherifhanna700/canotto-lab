@@ -84,6 +84,30 @@ between the yeast types is 1 : 1.25 : 3 for instant dry, active dry and fresh.
 `id` from the app's library or a `name` of its own. `w` is the Chopin
 alveograph value and is null where the mill publishes none.
 
+## What actually happened
+
+A `bake` carries both the plan and the record. `schedule` is what was asked
+for; `doneAt` is when the steps were really checked off, in epoch
+milliseconds, keyed by step id.
+
+Only the steps that bound a phase are timed:
+
+| Phase | From | To |
+| --- | --- | --- |
+| Biga ambient rest | `p1-3` | `p1-4` |
+| Biga cold hold | `p1-4` | `p2-1` |
+| Mix and bench | `p2-1` | `p4-1` |
+| Cold proof | `p4-1` | `p5-1` |
+| Counter temper | `p5-1` | `p5-4` |
+
+A phase with both bounds present ran for the difference between them. A phase
+missing either bound ran for whatever `schedule` says. Anything judging a bake
+should prefer the measured duration, because a dough is shaped by the hours it
+actually had, not the hours someone wrote down for it.
+
+Absolute instants are stored rather than the gaps between them, so a single
+mistimed entry can be corrected without silently shifting everything after it.
+
 ## Reading a bake without the app
 
 The model is not needed to read the data, but it is what makes two schedules

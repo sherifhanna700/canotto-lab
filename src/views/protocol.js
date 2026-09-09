@@ -1,14 +1,15 @@
 // Protocol: the schedule solved backwards from your launch time, and the
 // 19 steps with the measurements you take as you go.
 
-import { h, card, numberField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=82c337ea';
-import { update, editCurrent, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=82c337ea';
-import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=82c337ea';
-import { fermentUnits, maturationUnits } from '../model/ferment.js?v=82c337ea';
-import { convertYeast } from '../model/dough.js?v=82c337ea';
-import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=82c337ea';
-import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=82c337ea';
-import { tempField, } from './common.js?v=82c337ea';
+import { h, card, numberField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=877314ec';
+import { update, editCurrent, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=877314ec';
+import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=877314ec';
+import { fermentUnits, maturationUnits } from '../model/ferment.js?v=877314ec';
+import { convertYeast } from '../model/dough.js?v=877314ec';
+import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=877314ec';
+import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=877314ec';
+import { tempField, } from './common.js?v=877314ec';
+import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, TIMED_STEPS } from '../model/timeline.js?v=877314ec';
 
 const METRIC_DEFS = {
   ambientTempC: { label: 'Ambient temperature', kind: 'temp', hint: 'Where the dough is sitting right now' },
@@ -26,7 +27,96 @@ const METRIC_DEFS = {
 };
 
 export default function renderProtocol(ctx) {
-  return [scheduleCard(ctx), ...PHASES.map((p) => phaseCard(ctx, p)), footerCard(ctx)];
+  // Everything about real times is worked out once, here, so a step and the
+  // summary above it can never disagree about what happened.
+  const doneAt = ctx.s.current.doneAt || {};
+  const tctx = {
+    ...ctx,
+    doneAt,
+    drift: drifts({ doneAt, at: ctx.sched.at, launchISO: ctx.s.current.launchISO }),
+  };
+  return [
+    scheduleCard(tctx),
+    hasTimings(doneAt) ? actualCard(tctx) : null,
+    ...PHASES.map((p) => phaseCard(tctx, p)),
+    footerCard(tctx),
+  ].filter(Boolean);
+}
+
+/* ------------------------- what actually happened ------------------------ */
+
+function actualCard(ctx) {
+  const { s, u, S, sched, doneAt } = ctx;
+  const planned = scheduleStages(S);
+  const stages = actualStages({ doneAt, schedule: S, planned });
+  const proj = projectedLaunch({ doneAt, at: sched.at, launchISO: s.current.launchISO });
+
+  // Compare like with like: real times where they exist, the protocol's own
+  // times for everything still to come. Summing only what has elapsed would
+  // make every bake in progress look under-fermented.
+  const ahead = projectedStages({ doneAt, schedule: S, planned });
+  const actualFU = fermentUnits(ahead, ctx.model);
+  const actualMU = maturationUnits(ahead, ctx.model);
+  const planFU = fermentUnits(planned, ctx.model);
+  const planMU = maturationUnits(planned, ctx.model);
+  const running = stages.find((x) => x.state === 'running');
+
+  return card(
+    'Where you actually are',
+    'Measured from the times you checked the steps off. Phases still to come are counted at the length the protocol asks for.',
+
+    h(
+      'div',
+      { class: 'stats' },
+      running
+        ? stat(running.name, fmtDuration(running.hours), `so far, of ${fmtDuration(planned[stages.indexOf(running)].hours)} planned`)
+        : stat('Phases timed', String(stages.filter((x) => x.state === 'done').length), `of ${stages.length}`),
+      stat('Maturation', `${actualMU.toFixed(0)} MU`, `heading for, against a plan of ${planMU.toFixed(0)}`),
+      stat('Fermentation', `${actualFU.toFixed(1)} FU`, `heading for, against a plan of ${planFU.toFixed(1)}`)
+    ),
+
+    proj && Math.abs(proj.slipMs) >= 300000
+      ? h(
+          'div',
+          {},
+          h('p', { class: `note ${Math.abs(proj.slipMs) > 3600000 ? 'warn' : 'neutral'}` },
+            `You are running ${sayDrift(proj.slipMs)}. Keep every remaining phase as long as the protocol says and the first pizza goes in at ${fmtDateTime(new Date(proj.launchMs))}, instead of ${fmtDateTime(new Date(proj.plannedMs))}. Hold the launch where it is and the time comes out of whatever phase is running now.`),
+          h('div', { class: 'row tight' },
+            h('button', { class: 'btn tonal small', onClick: () => { setLaunch(toLocalInput(proj.launchMs)); toast(`Launch moved ${sayDrift(proj.slipMs)}`); } }, icon('schedule'), 'Move the launch to match'))
+        )
+      : h('p', { class: 'note good' }, 'You are on the protocol\u2019s clock. Nothing needs moving.'),
+
+    h(
+      'div',
+      { class: 'table-wrap' },
+      h(
+        'table',
+        {},
+        h('thead', {}, h('tr', {}, h('th', {}, 'Phase'), h('th', { class: 'num' }, 'Planned'), h('th', { class: 'num' }, 'Actual'), h('th', { class: 'num' }, 'Difference'))),
+        h('tbody', {}, ...stages.map((x, i) => {
+          // A phase still running is not early, it is unfinished. Only an
+          // overrun is worth reporting before it ends.
+          const gap = (x.hours - planned[i].hours) * 3600000;
+          const diff = x.state === 'done' ? gap : (x.state === 'running' && gap > 0 ? gap : null);
+          return h(
+            'tr',
+            { class: x.state === 'running' ? 'row-live' : null },
+            h('td', {}, x.name, x.state === 'running' ? h('span', { class: 'hint' }, ' \u00b7 running now') : null),
+            h('td', { class: 'num' }, fmtDuration(planned[i].hours)),
+            h('td', { class: 'num' }, x.state === 'planned' ? '\u2014' : fmtDuration(x.hours)),
+            h('td', { class: `num${diff !== null && Math.abs(diff) > 1800000 ? ' warn' : ''}` }, diff === null ? (x.state === 'running' ? 'in progress' : '\u2014') : sayDrift(diff))
+          );
+        }))
+      )
+    ),
+    h('p', { class: 'hint', style: { fontSize: '.72rem' } }, 'A phase counts as timed once both the step that starts it and the step that ends it are checked. Correct a time on the step itself if you ticked it late.')
+  );
+}
+
+/** A local datetime string the launch field understands. */
+function toLocalInput(ms) {
+  const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60000);
+  return d.toISOString().slice(0, 16);
 }
 
 /* -------------------------------- schedule ------------------------------ */
@@ -141,10 +231,23 @@ function stepNode(ctx, step, launch) {
     if (skipped) return;
     update((st) => {
       const set = new Set(st.current.done);
-      set.has(step.id) ? set.delete(step.id) : set.add(step.id);
+      const at = { ...(st.current.doneAt || {}) };
+      if (set.has(step.id)) {
+        set.delete(step.id);
+        delete at[step.id];
+      } else {
+        set.add(step.id);
+        // The moment it was ticked, which is the only honest record of when
+        // it happened. Editable below, because people tick things late.
+        if (TIMED_STEPS.includes(step.id)) at[step.id] = Date.now();
+      }
       st.current.done = [...set];
+      st.current.doneAt = at;
     });
   };
+
+  const stampedAt = s.current.doneAt?.[step.id];
+  const off = ctx.drift?.[step.id];
 
   const metrics = (step.metrics || []).filter((k) => METRIC_DEFS[k]);
 
@@ -160,11 +263,44 @@ function stepNode(ctx, step, launch) {
         'div',
         { class: 'step-meta' },
         h('span', { class: 'step-time' }, `${fmtDay(when)} ${fmtClock(when)}`),
-        pill(step.badge(tctx), skipped ? 'neutral' : 'neutral')
+        pill(step.badge(tctx), skipped ? 'neutral' : 'neutral'),
+        // What really happened, next to what was asked for.
+        Number.isFinite(stampedAt)
+          ? pill(`done ${fmtClock(new Date(stampedAt))}${Number.isFinite(off) && Math.abs(off) >= 300000 ? ` \u00b7 ${sayDrift(off)}` : ''}`,
+              !Number.isFinite(off) || Math.abs(off) < 1800000 ? 'good' : 'warn')
+          : null
       ),
       h('p', { class: 'step-body', html: step.body(tctx), onClick: toggle }),
+      Number.isFinite(stampedAt) ? stampEditor(step, stampedAt) : null,
       metrics.length && !skipped ? h('div', { class: 'step-metrics' }, ...metrics.map((k) => metricField(ctx, k))) : null
     )
+  );
+}
+
+/**
+ * Ticking a box late is the normal case, not the exception, so the recorded
+ * time has to be correctable. A datetime-local input is the one control that
+ * a phone offers a decent picker for.
+ */
+function stampEditor(step, stampedAt) {
+  const local = (ms) => {
+    const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60000);
+    return d.toISOString().slice(0, 16);
+  };
+  return h(
+    'label',
+    { class: 'field stamp-edit' },
+    h('span', { class: 'field-label' }, 'Actually done at'),
+    h('span', { class: 'field-input' }, h('input', {
+      type: 'datetime-local',
+      value: local(stampedAt),
+      dataset: { k: `stamp-${step.id}` },
+      onChange: (e) => {
+        const ms = Date.parse(e.target.value);
+        if (!Number.isFinite(ms)) return;
+        update((st) => { st.current.doneAt = { ...(st.current.doneAt || {}), [step.id]: ms }; });
+      },
+    }))
   );
 }
 
