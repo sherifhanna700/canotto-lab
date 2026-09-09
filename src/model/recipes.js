@@ -5,10 +5,10 @@
 // it scored. Pick a flour, take the suggested defaults, name it, and it
 // becomes yours to edit and to score.
 
-import { DEFAULT_RECIPE } from './dough.js?v=24ead2c3';
-import { DEFAULT_SCHEDULE } from './protocol.js?v=24ead2c3';
-import { blendStats, blendLabel } from './flours.js?v=24ead2c3';
-import { suggestPlan, defaultLeadHours } from './advisor.js?v=24ead2c3';
+import { DEFAULT_RECIPE } from './dough.js?v=4b76d5b2';
+import { DEFAULT_SCHEDULE } from './protocol.js?v=4b76d5b2';
+import { blendStats, blendLabel } from './flours.js?v=4b76d5b2';
+import { suggestPlan, defaultLeadHours } from './advisor.js?v=4b76d5b2';
 
 export const SCORE_KEYS = [
   { key: 'canotto', label: 'Canotto height', hint: '1 flat, 5 massive' },

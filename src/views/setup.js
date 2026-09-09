@@ -1,41 +1,34 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=24ead2c3';
-import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=24ead2c3';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=24ead2c3';
-import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=24ead2c3';
-import { scheduleStages } from '../model/protocol.js?v=24ead2c3';
-import { convertYeast } from '../model/dough.js?v=24ead2c3';
-import { overallScore } from '../model/recipes.js?v=24ead2c3';
-import { SOURCES, FLOURS } from '../model/flours.js?v=24ead2c3';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=24ead2c3';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=24ead2c3';
-import { lineChart } from '../lib/charts.js?v=24ead2c3';
-import * as drive from '../lib/drive.js?v=24ead2c3';
-import { isOff, setCounting } from '../lib/count.js?v=24ead2c3';
-import { tempField, tempDeltaField, } from './common.js?v=24ead2c3';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=24ead2c3';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=4b76d5b2';
+import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=4b76d5b2';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=4b76d5b2';
+import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=4b76d5b2';
+import { scheduleStages } from '../model/protocol.js?v=4b76d5b2';
+import { convertYeast } from '../model/dough.js?v=4b76d5b2';
+import { overallScore } from '../model/recipes.js?v=4b76d5b2';
+import { SOURCES, FLOURS } from '../model/flours.js?v=4b76d5b2';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=4b76d5b2';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=4b76d5b2';
+import { lineChart } from '../lib/charts.js?v=4b76d5b2';
+import * as drive from '../lib/drive.js?v=4b76d5b2';
+import { isOff, setCounting } from '../lib/count.js?v=4b76d5b2';
+import { tempField, tempDeltaField, } from './common.js?v=4b76d5b2';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=4b76d5b2';
 
 let driveAccount = null;
 let driveStatus = '';
-let driveResuming = false;
 drive.onAccount((a) => {
   driveAccount = a;
 });
 
 /*
- * Pick the connection back up on load without showing the person anything.
- * Google will reissue a token silently while their session is alive, so a
- * returning baker sees the connected state rather than a sign-in button.
+ * Show the connection again after a reload. This asks Google for nothing: it
+ * reads back which account was connected and says so. A token is fetched when
+ * a sync is actually requested, off the click that requested it.
  */
-if (drive.isConfigured() && drive.hasConnected() && !driveAccount) {
-  driveResuming = true;
-  drive.resume().finally(() => {
-    driveResuming = false;
-    update(() => {});
-  });
-}
+if (drive.isConfigured() && drive.hasConnected() && !driveAccount) drive.resume();
 
 export default function renderSetup(ctx) {
   return [equipmentCard(ctx), kitchenCard(ctx), savingCard(ctx), driveCard(ctx), countingCard(), calibrationCard(ctx), sourcesCard()];
@@ -224,11 +217,6 @@ function driveCard() {
     return card('Sync across devices', 'Not available here.', ...body);
   }
 
-  if (driveResuming) {
-    body.push(h('p', { class: 'note neutral' }, 'Checking with Google\u2026'));
-    return card('Sync across devices', 'Optional. The app works fully without it.', ...body);
-  }
-
   if (!driveAccount) {
     body.push(
       h('p', { class: 'note neutral' }, 'Connect a Google account and your recipes and bakes are kept in that account\u2019s private storage for this app, so they follow you between devices. It is not a folder in your Drive: nothing appears there, and the app cannot see, list or touch a single other file you own. Only this app can read what it puts there, and you can delete it from here whenever you like.'),
@@ -274,6 +262,7 @@ function driveCard() {
       h('button', { class: 'btn ghost', onClick: () => { drive.disconnect(); toast('Disconnected'); update(() => {}); } }, icon('link_off'), 'Disconnect')
     ),
     h('p', { class: 'note neutral' }, 'A sync never deletes anything. A recipe removed on one device comes back from the other, because losing work to a sync is worse than seeing something you meant to bin.'),
+    h('p', { class: 'hint', style: { fontSize: '.75rem' } }, 'Google may show its own window the first time you sync in a new session. That is it handing over a fresh key, and it closes itself. The app never asks for one just because a page loaded.'),
     h(
       'div',
       { class: 'row tight' },

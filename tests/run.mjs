@@ -1023,6 +1023,23 @@ test('the privacy page describes the storage keys that actually exist', () => {
   assert.ok(used.size >= 6, `expected the known keys, found ${used.size}`);
 });
 
+test('a page load never asks Google for anything', () => {
+  /*
+   * The token client always wants a popup, so asking for one on load either
+   * gets blocked or throws a sign-in window at someone who is just opening the
+   * app. This is the regression that did exactly that: reloading re-prompted,
+   * and dismissing the prompt left the screen offering to connect again.
+   */
+  const drive = readFileSync(new URL('../src/lib/drive.js', import.meta.url), 'utf8');
+  const resume = drive.slice(drive.indexOf('export function resume'), drive.indexOf('export function disconnect'));
+  assert.ok(!/getToken|requestAccessToken|await /.test(resume), 'resume() reads what it remembered and asks Google nothing');
+
+  const setup = readFileSync(new URL('../src/views/setup.js', import.meta.url), 'utf8');
+  assert.ok(!/drive\.connect\(\)[^)]*\n?[^)]*module scope/.test(setup), 'and nothing connects at module scope');
+  const onLoad = setup.slice(0, setup.indexOf('export default'));
+  assert.ok(!/drive\.connect|getToken/.test(onLoad), 'nothing before the first render reaches for a token');
+});
+
 test('the app asks Google for the hidden folder and nothing wider', () => {
   const drive = readFileSync(new URL('../src/lib/drive.js', import.meta.url), 'utf8');
   assert.match(drive, /auth\/drive\.appdata/, 'the narrow scope');

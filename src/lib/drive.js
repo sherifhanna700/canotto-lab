@@ -34,6 +34,7 @@ const SCOPE = 'openid email https://www.googleapis.com/auth/drive.appdata';
 const FILE_NAME = 'canotto-lab.json';
 const FILE_ID_KEY = 'canotto-lab/drive-file-id';
 const CONNECTED_KEY = 'canotto-lab/drive-connected';
+const ACCOUNT_KEY = 'canotto-lab/drive-account';
 
 /** Set window.GOOGLE_CLIENT_ID to try a different client without a rebuild. */
 export function clientId() {
@@ -62,7 +63,7 @@ export function onAccount(cb) {
 
 export const currentAccount = () => account;
 
-/** Whether this browser has connected before, so the UI can offer to resume. */
+/** Whether this browser has connected before, so the UI can say so. */
 export const hasConnected = () => {
   try {
     return localStorage.getItem(CONNECTED_KEY) === '1';
@@ -70,6 +71,20 @@ export const hasConnected = () => {
     return false;
   }
 };
+
+/**
+ * The address of the connected account, kept so the app can say which one it
+ * is without asking Google every time the page loads. It never leaves this
+ * browser, and disconnecting removes it.
+ */
+function rememberedAccount() {
+  try {
+    const raw = localStorage.getItem(ACCOUNT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 function announce() {
   for (const cb of listeners) cb(account);
@@ -162,6 +177,11 @@ async function fetchAccount() {
     // Knowing which account is connected is a convenience, not a requirement.
     account = { email: null, name: null };
   }
+  try {
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify(account));
+  } catch {
+    // The app still works, it just cannot name the account after a reload.
+  }
   announce();
   return account;
 }
@@ -171,20 +191,30 @@ export async function connect() {
   try {
     localStorage.setItem(CONNECTED_KEY, '1');
   } catch {
-    // A browser refusing storage still works, it just cannot resume silently.
+    // A browser refusing storage still works, it just forgets between visits.
   }
   return fetchAccount();
 }
 
 /** Try to pick up where we left off without showing the person anything. */
-export async function resume() {
+/**
+ * Show the connection again after a reload, without contacting Google.
+ *
+ * There is no silent token here to be had. Google's token client always wants
+ * a popup, and a popup without a click is either blocked or, worse, a sign-in
+ * window appearing unbidden on every page load. Asking on load did exactly
+ * that: it interrupted people who had already connected, and when the popup
+ * was dismissed it left the screen offering to connect all over again.
+ *
+ * So nothing is asked for until there is something to do. The app remembers
+ * which account was connected and says so, and the token is fetched at the
+ * moment of a sync, off the back of the click that asked for it.
+ */
+export function resume() {
   if (!isConfigured() || !hasConnected()) return null;
-  try {
-    await getToken({ interactive: false });
-    return await fetchAccount();
-  } catch {
-    return null;
-  }
+  account = rememberedAccount() || { email: null, name: null };
+  announce();
+  return account;
 }
 
 export function disconnect() {
@@ -200,6 +230,7 @@ export function disconnect() {
   try {
     localStorage.removeItem(CONNECTED_KEY);
     localStorage.removeItem(FILE_ID_KEY);
+    localStorage.removeItem(ACCOUNT_KEY);
   } catch {
     // Nothing to clean up.
   }
@@ -339,6 +370,9 @@ export function mergeCollections(local, remote) {
  * along with what moved in each direction.
  */
 export async function sync(state, { envelope }) {
+  // The click that started this is the gesture Google needs, so a token can be
+  // asked for here even if the last one has expired.
+  await getToken({ interactive: false });
   const id = await findFile();
   const remote = id ? await readFile(id) : { recipes: [], bakes: [] };
 
