@@ -18,6 +18,8 @@
  * physically changes place or state, which is why they are the ones worth
  * timing: everything between them is the same dough at the same temperature.
  */
+import { DEFAULT_MODEL, maturationRateAt, maturationUnits } from './ferment.js?v=6b063ab5';
+
 export const PHASE_BOUNDS = [
   { name: 'Biga ambient rest', from: 'p1-3', to: 'p1-4', tempKey: 'bigaRoomTempC', plan: 'bigaRestHours' },
   { name: 'Biga cold hold', from: 'p1-4', to: 'p2-1', tempKey: 'bigaFridgeTempC', plan: 'bigaColdHours' },
@@ -26,7 +28,10 @@ export const PHASE_BOUNDS = [
   { name: 'Counter temper', from: 'p5-1', to: 'p5-4', tempKey: 'roomTempC', plan: 'temperHours' },
 ];
 
-/** Every step whose time is worth recording, in the order they happen. */
+/**
+ * The steps whose times bound a phase. Every step is stamped when it is
+ * checked off, but only these ten decide how long a phase actually ran.
+ */
 export const TIMED_STEPS = [...new Set(PHASE_BOUNDS.flatMap((p) => [p.from, p.to]))];
 
 export const HOUR = 3600000;
@@ -58,9 +63,9 @@ export function actualStages({ doneAt = {}, schedule = {}, planned = [], now = D
   });
 }
 
-/** True once there is enough recorded to say anything about the real timing. */
+/** True once anything at all has been timed. */
 export function hasTimings(doneAt) {
-  return TIMED_STEPS.some((id) => stamp(doneAt, id) !== null);
+  return Object.keys(doneAt || {}).some((id) => stamp(doneAt, id) !== null);
 }
 
 /**
@@ -94,11 +99,13 @@ export function projectedLaunch({ doneAt = {}, at = {}, launchISO }) {
   if (!Number.isFinite(launch)) return null;
 
   let last = null;
-  for (const id of TIMED_STEPS) {
+  for (const id of Object.keys(doneAt)) {
     const t = stamp(doneAt, id);
     const offset = num(at[id]);
     if (t === null || offset === null) continue;
     // The latest mark by plan position, not by the order they were ticked.
+    // Every checked step counts, so the projection follows the most recent
+    // thing that actually happened rather than the last phase boundary.
     if (!last || offset > last.offset) last = { id, at: t, offset };
   }
   if (!last) return null;
@@ -143,4 +150,45 @@ export function projectedStages({ doneAt = {}, schedule = {}, planned = [], now 
     if (x.state === 'running') return { ...x, hours: Math.max(x.hours, plan) };
     return { ...x, hours: plan };
   });
+}
+
+/**
+ * Phases that can still have time taken out of them.
+ *
+ * A finished phase is history. A phase that is running or still to come can be
+ * shortened, which is the other way out of running late: hold the launch where
+ * it is and take the time from somewhere downstream.
+ */
+export function trimmablePhases(stages, { minHours = 0.25 } = {}) {
+  return stages
+    .map((x, index) => ({ index, name: x.name, hours: x.hours, tempC: x.tempC, state: x.state }))
+    .filter((x) => x.state !== 'done' && x.hours > minHours);
+}
+
+/** The same stages with `hours` taken out of one of them. */
+export function trimStage(stages, index, hours) {
+  return stages.map((x, i) => (i === index ? { ...x, hours: Math.max(0, x.hours - hours) } : x));
+}
+
+/**
+ * How much to cut from one phase to land back on a maturation figure.
+ *
+ * Maturation is linear in time at a fixed temperature, so this is a division
+ * rather than a search. It matters because clock time and enzyme time are not
+ * interchangeable: an hour lost on a warm bench is worth several hours in the
+ * fridge, so catching up on the clock does not put the dough back where it was.
+ */
+export function trimForMaturation({ stages, index, targetMU, model = DEFAULT_MODEL }) {
+  const stage = stages[index];
+  if (!stage) return null;
+  const rate = maturationRateAt(stage.tempC, model);
+  if (!(rate > 0)) return null;
+  const excess = maturationUnits(stages, model) - targetMU;
+  const hours = excess / rate;
+  return {
+    hours,
+    // Only worth offering when there is something to cut and enough phase to
+    // cut it from.
+    feasible: hours > 0.25 && hours < stage.hours,
+  };
 }

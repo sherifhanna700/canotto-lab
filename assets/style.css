@@ -440,3 +440,21 @@ body.has-save-bar { padding-bottom: calc(84px + var(--safe-bottom)); }
 .stamp-edit input { font-size: .8rem; padding: 5px 8px; }
 tr.row-live td { background: var(--surface-low); }
 td.num.warn { color: var(--warn); }
+
+/* Running late: the ways out, one row each. */
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.choice {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 11px 13px; border-radius: 11px;
+  background: var(--surface-low); border: 1px solid var(--outline-variant);
+}
+.choice-body { flex: 1 1 220px; min-width: 0; }
+.choice-title { margin: 0 0 3px; font-size: .84rem; font-weight: 600; color: var(--on-surface); }
+.choice-note { margin: 0; font-size: .76rem; line-height: 1.5; color: var(--on-surface-variant); }
+.choice .btn { flex: 0 0 auto; }
+
+/* The planned-against-actual table has to fit a phone. */
+table.compact { font-size: .78rem; }
+table.compact th, table.compact td { padding: 7px 8px; }
+table.compact td:first-child { line-height: 1.35; }
+table.compact .hint { display: block; font-size: .68rem; }

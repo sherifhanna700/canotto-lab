@@ -168,7 +168,7 @@
     "doneAt": {
       "type": "object",
       "title": "Recorded times",
-      "description": "When each protocol step was actually checked off, as milliseconds since the Unix epoch. Absolute instants, never the gaps between them, so any one of them can be corrected without moving the rest. Keys are step ids from the protocol schema. Only the steps that bound a phase are recorded: p1-3 and p1-4 bound the biga's ambient rest, p1-4 and p2-1 the biga's cold hold, p2-1 and p4-1 the mix and bench, p4-1 and p5-1 the cold proof, p5-1 and p5-4 the counter temper. A phase with both bounds present ran for the difference between them; a phase with neither ran for whatever the schedule says. Consumers judging a bake should prefer these durations over the planned ones.",
+      "description": "When each protocol step was actually checked off, as milliseconds since the Unix epoch. Every step is stamped, not only the ones that bound a phase, so the record shows where an evening actually went. Absolute instants, never the gaps between them, so any one of them can be corrected without moving the rest. Keys are step ids from the protocol schema. Ten of them bound the five phases: p1-3 and p1-4 the biga's ambient rest, p1-4 and p2-1 the biga's cold hold, p2-1 and p4-1 the mix and bench, p4-1 and p5-1 the cold proof, p5-1 and p5-4 the counter temper. A phase with both bounds present ran for the difference between them; a phase missing either ran for whatever the schedule says. Consumers judging a bake should prefer these durations over the planned ones.",
       "propertyNames": {
         "pattern": "^p[0-9]+-[0-9]+$"
       },

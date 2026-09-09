@@ -3,15 +3,15 @@
 // Compare and Lab both work off this list, so adding a field here makes it
 // available as an axis, a grouping and a correlation candidate everywhere.
 
-import { computeRecipe } from './dough.js?v=073b8c53';
-import { scheduleStages } from './protocol.js?v=073b8c53';
-import { projectedStages, PHASE_BOUNDS, hasTimings } from './timeline.js?v=073b8c53';
-import { fermentUnits, maturationUnits } from './ferment.js?v=073b8c53';
-import { convertYeast } from './dough.js?v=073b8c53';
-import { overallScore, SCORE_KEYS } from './recipes.js?v=073b8c53';
-import { maturationCeilingForW } from './flours.js?v=073b8c53';
-import { toDisplay } from './units.js?v=073b8c53';
-import { ovenLabel, mixerLabel } from './equipment.js?v=073b8c53';
+import { computeRecipe } from './dough.js?v=6b063ab5';
+import { scheduleStages } from './protocol.js?v=6b063ab5';
+import { projectedStages, PHASE_BOUNDS, hasTimings } from './timeline.js?v=6b063ab5';
+import { fermentUnits, maturationUnits } from './ferment.js?v=6b063ab5';
+import { convertYeast } from './dough.js?v=6b063ab5';
+import { overallScore, SCORE_KEYS } from './recipes.js?v=6b063ab5';
+import { maturationCeilingForW } from './flours.js?v=6b063ab5';
+import { toDisplay } from './units.js?v=6b063ab5';
+import { ovenLabel, mixerLabel } from './equipment.js?v=6b063ab5';
 
 /** Inputs: things you chose. */
 export const FACTORS = [

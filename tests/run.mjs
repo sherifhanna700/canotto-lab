@@ -5,7 +5,7 @@ import { computeRecipe, allocateFlours, convertYeast, DEFAULT_RECIPE, effectiveY
 import { blendStats, hydrationRangeForW, estimateW, maturationCeilingForW, bandForW, FLOURS } from '../src/model/flours.js';
 import { rateAt, maturationRateAt, fermentUnits, maturationUnits, yeastForFU, waterTempFor, DEFAULT_MODEL } from '../src/model/ferment.js';
 import { solveSchedule, scheduleStages, STEPS, activeSteps, DEFAULT_SCHEDULE } from '../src/model/protocol.js';
-import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, TIMED_STEPS } from '../src/model/timeline.js';
+import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, TIMED_STEPS, trimmablePhases, trimStage, trimForMaturation } from '../src/model/timeline.js';
 import { suggestPlan, reviewPlan, defaultLeadHours, strengthBand, coldProofWindow, coldProofVerdict, hoursForMaturation, HOUSE_REFERENCE, MATURATION_TARGET } from '../src/model/advisor.js';
 import { recipeFromBlend, overallScore, recipeRating, starterRecipes, houseRecipe } from '../src/model/recipes.js';
 import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIXERS } from '../src/model/equipment.js';
@@ -325,6 +325,52 @@ test('a phase that has overrun keeps its real time in the projection', () => {
   near(bench.hours, 6, 1e-9, 'the overrun is not wished away');
 });
 
+test('catching up on the clock does not put the dough back where it was', () => {
+  /*
+   * The case from a real bake: the mix ran 1 h 32 m long on a warm bench, so
+   * the schedule slipped two hours. Cutting two hours off the cold proof puts
+   * dinner back on time, but sheds far less maturation than the bench added,
+   * because enzymes at 21 C work more than twice as fast as at 3 C.
+   */
+  const planned = scheduleStages(DEFAULT_SCHEDULE);
+  const over = planned.map((x) => (x.name === 'Mix & bench' ? { ...x, hours: x.hours + 1.53, state: 'done' } : { ...x, state: 'planned' }));
+  const proofIndex = planned.findIndex((x) => x.name === 'Cold proof');
+
+  const planMU = maturationUnits(planned);
+  const lateMU = maturationUnits(over);
+  assert.ok(lateMU > planMU, 'the overrun added maturation');
+
+  const clockCut = maturationUnits(trimStage(over, proofIndex, 2));
+  assert.ok(clockCut > planMU, 'two hours off the fridge does not undo it');
+
+  const need = trimForMaturation({ stages: over, index: proofIndex, targetMU: planMU });
+  assert.ok(need.feasible, 'there is enough cold proof to cut from');
+  assert.ok(need.hours > 2, `it takes more than the clock slip: ${need.hours.toFixed(1)} h`);
+  near(maturationUnits(trimStage(over, proofIndex, need.hours)), planMU, 1e-6, 'cutting that much lands on the plan');
+});
+
+test('only phases that have not finished can be trimmed', () => {
+  const stages = [
+    { name: 'Biga ambient rest', hours: 4, tempC: 21, state: 'done' },
+    { name: 'Cold proof', hours: 66, tempC: 3, state: 'running' },
+    { name: 'Counter temper', hours: 4, tempC: 21, state: 'planned' },
+    { name: 'Nothing left', hours: 0, tempC: 21, state: 'planned' },
+  ];
+  assert.deepEqual(trimmablePhases(stages).map((x) => x.name), ['Cold proof', 'Counter temper']);
+});
+
+test('a trim never drives a phase below zero', () => {
+  const stages = [{ name: 'Cold proof', hours: 3, tempC: 3, state: 'running' }];
+  near(trimStage(stages, 0, 10)[0].hours, 0, 1e-9, 'clamped at nothing');
+});
+
+test('nothing to shed means nothing to offer', () => {
+  const planned = scheduleStages(DEFAULT_SCHEDULE);
+  const i = planned.findIndex((x) => x.name === 'Cold proof');
+  const onPlan = trimForMaturation({ stages: planned, index: i, targetMU: maturationUnits(planned) });
+  assert.equal(onPlan.feasible, false, 'a schedule already on target is not asked to cut');
+});
+
 test('drift is signed, and late is positive', () => {
   const launchISO = '2026-09-01T18:00:00.000Z';
   const at = { 'p2-1': -600 };
@@ -357,6 +403,26 @@ test('the projection follows the latest step by plan order, not tick order', () 
   });
   assert.equal(p.from, 'p5-1', 'the last thing that happened governs what is left');
   near(p.slipMs, 15 * 60000, 1e-9, 'not the 90 minute drift from hours ago');
+});
+
+test('every checked step counts toward the projection, not just phase bounds', () => {
+  const launchISO = '2026-09-01T18:00:00.000Z';
+  const base = Date.parse(launchISO);
+  // p2-2 is a bench step in the middle of a phase, not one of the ten bounds.
+  const at = { 'p2-1': -240, 'p2-2': -230 };
+  const p = projectedLaunch({
+    doneAt: { 'p2-1': base - 240 * 60000, 'p2-2': base - 230 * 60000 + 20 * 60000 },
+    at,
+    launchISO,
+  });
+  assert.equal(p.from, 'p2-2', 'the most recent thing that happened governs what is left');
+  near(p.slipMs, 20 * 60000, 1e-9, 'and it carries its own slip');
+});
+
+test('a stamp on any step is enough to start reporting', () => {
+  assert.equal(hasTimings({ 'p3-2': Date.now() }), true, 'a mid-phase step counts');
+  assert.equal(hasTimings({}), false);
+  assert.equal(hasTimings({ 'p3-2': 'not a time' }), false, 'and rubbish does not');
 });
 
 test('nothing recorded means nothing claimed', () => {

@@ -150,3 +150,20 @@ here is done from the Recipe tab with the house protocol loaded.
    maturation units than fermentation units.
 9. Inoculation is reported before the freeze buffer, and the scaling button is
    absent when the yeast already suits the schedule.
+
+## J19. Catching up
+
+Running late has two answers and they are not the same for the dough, because
+an hour lost on a warm bench is worth several hours in a fridge.
+
+1. When behind, the app offers both moving the launch and holding it while
+   cutting the slip out of a chosen phase.
+2. The phase to cut from can be changed, and only phases that have not finished
+   and have a single duration knob are offered.
+3. Each option states the maturation the dough will end on, and cutting the
+   clock slip sheds less maturation than the delay added.
+4. Taking a cut actually shortens that phase in the schedule.
+5. Maturation is judged against what the flour can absorb, not against the
+   current plan, so trimming a phase cannot move the target with it.
+6. When the projection is over the flour's budget, a cut sized to bring it back
+   inside is offered as well.

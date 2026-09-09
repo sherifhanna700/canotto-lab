@@ -1,15 +1,16 @@
 // Protocol: the schedule solved backwards from your launch time, and the
 // 19 steps with the measurements you take as you go.
 
-import { h, card, numberField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=073b8c53';
-import { update, editCurrent, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=073b8c53';
-import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=073b8c53';
-import { fermentUnits, maturationUnits } from '../model/ferment.js?v=073b8c53';
-import { convertYeast } from '../model/dough.js?v=073b8c53';
-import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=073b8c53';
-import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=073b8c53';
-import { tempField, } from './common.js?v=073b8c53';
-import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, TIMED_STEPS } from '../model/timeline.js?v=073b8c53';
+import { h, card, numberField, selectField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=6b063ab5';
+import { update, editCurrent, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=6b063ab5';
+import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=6b063ab5';
+import { fermentUnits, maturationUnits } from '../model/ferment.js?v=6b063ab5';
+import { convertYeast } from '../model/dough.js?v=6b063ab5';
+import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=6b063ab5';
+import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=6b063ab5';
+import { tempField, } from './common.js?v=6b063ab5';
+import { MATURATION_TARGET, MATURATION_WINDOW } from '../model/advisor.js?v=6b063ab5';
+import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, trimmablePhases, trimStage, trimForMaturation } from '../model/timeline.js?v=6b063ab5';
 
 const METRIC_DEFS = {
   ambientTempC: { label: 'Ambient temperature', kind: 'temp', hint: 'Where the dough is sitting right now' },
@@ -46,7 +47,7 @@ export default function renderProtocol(ctx) {
 /* ------------------------- what actually happened ------------------------ */
 
 function actualCard(ctx) {
-  const { s, u, S, sched, doneAt } = ctx;
+  const { s, u, S, c, sched, doneAt } = ctx;
   const planned = scheduleStages(S);
   const stages = actualStages({ doneAt, schedule: S, planned });
   const proj = projectedLaunch({ doneAt, at: sched.at, launchISO: s.current.launchISO });
@@ -55,11 +56,58 @@ function actualCard(ctx) {
   // times for everything still to come. Summing only what has elapsed would
   // make every bake in progress look under-fermented.
   const ahead = projectedStages({ doneAt, schedule: S, planned });
-  const actualFU = fermentUnits(ahead, ctx.model);
-  const actualMU = maturationUnits(ahead, ctx.model);
-  const planFU = fermentUnits(planned, ctx.model);
+  const headingMU = maturationUnits(ahead, ctx.model);
+  const headingFU = fermentUnits(ahead, ctx.model);
   const planMU = maturationUnits(planned, ctx.model);
-  const running = stages.find((x) => x.state === 'running');
+  const planFU = fermentUnits(planned, ctx.model);
+  const ceiling = c.maturationCeiling;
+
+  /*
+   * The flour's budget is the anchor, not the plan.
+   *
+   * Comparing against the plan is circular once the baker starts trimming a
+   * phase to catch up: the plan is the live schedule, so cutting an hour moves
+   * the target down by the same hour and the app would never say the dough was
+   * back on course. How much enzyme work the gluten can absorb does not move.
+   */
+  const load = ceiling ? headingMU / ceiling : null;
+  const budget = maturationVerdict(load);
+  const overBudget = load !== null && load > MATURATION_WINDOW.high;
+
+  const slipH = proj ? proj.slipMs / 3600000 : 0;
+  const behind = proj && proj.slipMs >= 300000;
+  const early = proj && proj.slipMs <= -300000;
+
+  /*
+   * Only phases with a single duration knob can be trimmed. Mix and bench is
+   * the sum of half a dozen bench timings, so there is no one number to take
+   * the time out of.
+   */
+  const options = trimmablePhases(ahead).filter((x) => PHASE_BOUNDS[x.index].plan);
+  const chosen = options.find((x) => x.index === s.ui?.trimIndex)
+    || options.find((x) => x.name === 'Cold proof')
+    || options[0];
+
+  const afterCut = chosen && behind ? trimStage(ahead, chosen.index, slipH) : null;
+  const cutMU = afterCut ? maturationUnits(afterCut, ctx.model) : null;
+  // Bringing an over-budget dough back to the comfortable middle of the band,
+  // which is a fixed property of the flour rather than of the current plan.
+  const toBudget = chosen && overBudget
+    ? trimForMaturation({ stages: ahead, index: chosen.index, targetMU: ceiling * MATURATION_TARGET, model: ctx.model })
+    : null;
+
+  const applyCut = (hours, message) => {
+    const key = PHASE_BOUNDS[chosen.index].plan;
+    editCurrent((cur) => { cur.schedule[key] = round(Math.max(0, cur.schedule[key] - hours), 2); });
+    toast(message);
+  };
+
+  const phasePicker = () => selectField({
+    label: 'Take the time out of',
+    value: String(chosen.index),
+    options: options.map((o) => ({ value: String(o.index), label: `${o.name} (${fmtDuration(o.hours)})` })),
+    onChange: (v) => update((st) => { st.ui = { ...st.ui, trimIndex: Number(v) }; }),
+  });
 
   return card(
     'Where you actually are',
@@ -68,31 +116,73 @@ function actualCard(ctx) {
     h(
       'div',
       { class: 'stats' },
-      running
-        ? stat(running.name, fmtDuration(running.hours), `so far, of ${fmtDuration(planned[stages.indexOf(running)].hours)} planned`)
-        : stat('Phases timed', String(stages.filter((x) => x.state === 'done').length), `of ${stages.length}`),
-      stat('Maturation', `${actualMU.toFixed(0)} MU`, `heading for, against a plan of ${planMU.toFixed(0)}`),
-      stat('Fermentation', `${actualFU.toFixed(1)} FU`, `heading for, against a plan of ${planFU.toFixed(1)}`)
+      stat('Maturation', `${headingMU.toFixed(0)} MU`, ceiling ? `heading for, of about ${ceiling} this flour takes` : `heading for, plan said ${planMU.toFixed(0)}`),
+      stat('Fermentation', `${headingFU.toFixed(1)} FU`, `heading for, plan said ${planFU.toFixed(1)}`)
     ),
 
-    proj && Math.abs(proj.slipMs) >= 300000
+    budget ? h('p', { class: `note ${budget.tone}` }, budget.text(headingMU, ceiling)) : null,
+
+    behind
       ? h(
           'div',
-          {},
-          h('p', { class: `note ${Math.abs(proj.slipMs) > 3600000 ? 'warn' : 'neutral'}` },
-            `You are running ${sayDrift(proj.slipMs)}. Keep every remaining phase as long as the protocol says and the first pizza goes in at ${fmtDateTime(new Date(proj.launchMs))}, instead of ${fmtDateTime(new Date(proj.plannedMs))}. Hold the launch where it is and the time comes out of whatever phase is running now.`),
-          h('div', { class: 'row tight' },
-            h('button', { class: 'btn tonal small', onClick: () => { setLaunch(toLocalInput(proj.launchMs)); toast(`Launch moved ${sayDrift(proj.slipMs)}`); } }, icon('schedule'), 'Move the launch to match'))
+          { class: 'stack' },
+          h('p', { class: 'note neutral' },
+            `You are running ${sayDrift(proj.slipMs)}. You can move dinner or take the time out of a later phase, and the two are not the same for the dough.`),
+          chosen
+            ? h(
+                'div',
+                { class: 'stack' },
+                phasePicker(),
+                choice(
+                  `Move the launch to ${fmtDateTime(new Date(proj.launchMs))}`,
+                  `Every phase keeps its planned length, so the dough still lands on ${headingMU.toFixed(0)} MU. The time already lost stays lost.`,
+                  'schedule', 'Move the launch',
+                  () => { setLaunch(toLocalInput(proj.launchMs)); toast(`Launch moved ${sayDrift(proj.slipMs)}`); }
+                ),
+                choice(
+                  `Hold ${fmtDateTime(new Date(proj.plannedMs))} and cut ${fmtDuration(slipH)} from the ${chosen.name.toLowerCase()}`,
+                  `Dinner is on time. ${fmtDuration(slipH)} at ${fmtTemp(chosen.tempC, u)} sheds ${(headingMU - cutMU).toFixed(1)} MU, so the dough lands on ${cutMU.toFixed(0)}.`,
+                  'content_cut', `Cut ${fmtDuration(slipH)}`,
+                  () => applyCut(slipH, `Cut ${fmtDuration(slipH)} from the ${chosen.name.toLowerCase()}`)
+                )
+              )
+            : h('p', { class: 'note neutral' }, 'Nothing downstream is long enough to take the time out of, so the launch has to move.')
         )
-      : h('p', { class: 'note good' }, 'You are on the protocol\u2019s clock. Nothing needs moving.'),
+      : early
+        ? h(
+            'div',
+            { class: 'stack' },
+            h('p', { class: 'note neutral' }, `You are running ${sayDrift(proj.slipMs)}. The first pizza can go in at ${fmtDateTime(new Date(proj.launchMs))}, or hold the launch and the spare time lands in whichever phase is running.`),
+            choice(
+              `Move the launch to ${fmtDateTime(new Date(proj.launchMs))}`,
+              'Keeps every remaining phase the length the protocol asks for.',
+              'schedule', 'Move the launch',
+              () => { setLaunch(toLocalInput(proj.launchMs)); toast(`Launch moved ${sayDrift(proj.slipMs)}`); }
+            )
+          )
+        : h('p', { class: 'note good' }, 'You are on the protocol\u2019s clock. Nothing needs moving.'),
+
+    toBudget?.feasible && chosen
+      ? h(
+          'div',
+          { class: 'stack' },
+          behind ? null : phasePicker(),
+          choice(
+            `Cut ${fmtDuration(toBudget.hours)} from the ${chosen.name.toLowerCase()} to get back inside the budget`,
+            `Clock time and enzyme time are not the same: the hours that put this over were warm and these are cold. Cutting ${fmtDuration(toBudget.hours)} brings the dough to about ${(ceiling * MATURATION_TARGET).toFixed(0)} MU, a comfortable place in what ${c.flourLabel} can take.`,
+            'target', `Cut ${fmtDuration(toBudget.hours)}`,
+            () => applyCut(toBudget.hours, `Cut ${fmtDuration(toBudget.hours)} to get back inside the budget`)
+          )
+        )
+      : null,
 
     h(
       'div',
       { class: 'table-wrap' },
       h(
         'table',
-        {},
-        h('thead', {}, h('tr', {}, h('th', {}, 'Phase'), h('th', { class: 'num' }, 'Planned'), h('th', { class: 'num' }, 'Actual'), h('th', { class: 'num' }, 'Difference'))),
+        { class: 'compact' },
+        h('thead', {}, h('tr', {}, h('th', {}, 'Phase'), h('th', { class: 'num' }, 'Planned'), h('th', { class: 'num' }, 'Actual'), h('th', { class: 'num' }, 'Diff'))),
         h('tbody', {}, ...stages.map((x, i) => {
           // A phase still running is not early, it is unfinished. Only an
           // overrun is worth reporting before it ends.
@@ -101,16 +191,51 @@ function actualCard(ctx) {
           return h(
             'tr',
             { class: x.state === 'running' ? 'row-live' : null },
-            h('td', {}, x.name, x.state === 'running' ? h('span', { class: 'hint' }, ' \u00b7 running now') : null),
+            h('td', {}, x.name, x.state === 'running' ? h('span', { class: 'hint' }, ' running now') : null),
             h('td', { class: 'num' }, fmtDuration(planned[i].hours)),
             h('td', { class: 'num' }, x.state === 'planned' ? '\u2014' : fmtDuration(x.hours)),
-            h('td', { class: `num${diff !== null && Math.abs(diff) > 1800000 ? ' warn' : ''}` }, diff === null ? (x.state === 'running' ? 'in progress' : '\u2014') : sayDrift(diff))
+            h('td', { class: `num${diff !== null && Math.abs(diff) > 1800000 ? ' warn' : ''}` },
+              diff === null ? (x.state === 'running' ? 'running' : '\u2014') : compactDrift(diff))
           );
         }))
       )
     ),
     h('p', { class: 'hint', style: { fontSize: '.72rem' } }, 'A phase counts as timed once both the step that starts it and the step that ends it are checked. Correct a time on the step itself if you ticked it late.')
   );
+}
+
+/** One way out of a timing problem: what it does, and the button to do it. */
+function choice(title, note, iconName, label, onClick) {
+  return h(
+    'div',
+    { class: 'choice' },
+    h('div', { class: 'choice-body' },
+      h('p', { class: 'choice-title' }, title),
+      h('p', { class: 'choice-note' }, note)),
+    h('button', { class: 'btn tonal small', onClick }, icon(iconName), label)
+  );
+}
+
+/**
+ * Where the projected maturation sits against what the flour can absorb. The
+ * bands match the ones the recipe screen judges a cold proof by, so the two
+ * screens cannot disagree about whether a dough is over-matured.
+ */
+function maturationVerdict(load) {
+  if (load === null) return null;
+  if (load > 1.15) return { tone: 'bad', text: (mu, ceil) => `${mu.toFixed(0)} MU is past the ${ceil} this flour can take. The enzymes will have gone too far: expect a slack dough that tears when you open it.` };
+  if (load > MATURATION_WINDOW.high) return { tone: 'warn', text: (mu, ceil) => `${mu.toFixed(0)} MU is over the ${ceil} this flour can take. Take time out of a phase below, or accept a softer dough.` };
+  if (load > 0.9) return { tone: 'warn', text: (mu, ceil) => `${mu.toFixed(0)} MU is near the top of the ${ceil} this flour can take. It will work, with no margin if the fridge runs warm.` };
+  if (load < MATURATION_WINDOW.low) return { tone: 'warn', text: (mu, ceil) => `${mu.toFixed(0)} MU is short of what ${ceil} of budget allows. There is room to go longer.` };
+  return { tone: 'good', text: (mu, ceil) => `${mu.toFixed(0)} MU sits comfortably inside the ${ceil} this flour can take.` };
+}
+
+/** Signed and short, for a column that has to fit on a phone. */
+function compactDrift(ms) {
+  const mins = Math.round(ms / 60000);
+  if (mins === 0) return 'on time';
+  const sign = mins > 0 ? '+' : '\u2212';
+  return sign + fmtDuration(Math.abs(mins) / 60);
 }
 
 /** A local datetime string the launch field understands. */
@@ -237,9 +362,11 @@ function stepNode(ctx, step, launch) {
         delete at[step.id];
       } else {
         set.add(step.id);
-        // The moment it was ticked, which is the only honest record of when
-        // it happened. Editable below, because people tick things late.
-        if (TIMED_STEPS.includes(step.id)) at[step.id] = Date.now();
+        // Every step is stamped, not just the ones that bound a phase. The
+        // phase arithmetic only needs the boundaries, but the record of when
+        // each thing actually happened is worth having on its own, and it is
+        // the only way to see afterwards where an evening went.
+        at[step.id] = Date.now();
       }
       st.current.done = [...set];
       st.current.doneAt = at;

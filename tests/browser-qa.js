@@ -764,6 +764,77 @@
     return 'seeded a house protocol edited in place; reload and run canottoQARescueCheck()';
   };
 
+  /*
+   * Running late, and the two ways out of it. Kept separate because it needs
+   * the session put into a specific mid-bake state, and a reload to pick it up.
+   */
+  window.canottoQALateSetup = async function () {
+    const st = JSON.parse(localStorage.getItem('canotto-lab/v1'));
+    const { solveSchedule } = await import('/src/model/protocol.js');
+    const sched = solveSchedule(st.current.schedule);
+    const now = Date.now();
+    // The cold proof starts now, two hours behind, because the mix ran long.
+    const launchMs = now - sched.at['p4-1'] * 60000 - 120 * 60000;
+    st.current.launchISO = new Date(launchMs - new Date(launchMs).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    st.current.done = ['p1-3', 'p1-4', 'p2-1', 'p4-1'];
+    st.current.doneAt = {
+      'p1-3': launchMs + sched.at['p1-3'] * 60000,
+      'p1-4': launchMs + sched.at['p1-4'] * 60000,
+      'p2-1': launchMs + sched.at['p2-1'] * 60000 + 28 * 60000,
+      'p4-1': now,
+    };
+    localStorage.setItem('canotto-lab/v1', JSON.stringify(st));
+    return 'set up; reload then run canottoQALateCheck()';
+  };
+
+  window.canottoQALateCheck = function () {
+    const out = [];
+    let ok = 0;
+    let bad = 0;
+    const check = (id, pass, detail = '') => {
+      pass ? (ok += 1) : (bad += 1);
+      out.push(`${pass ? 'PASS' : 'FAIL'}  ${id}  ${detail}`);
+    };
+    const card = cards().find((c) => /Where you actually are/.test(c.textContent));
+    const titles = () => $$('.choice-title', card).map((t) => t.textContent);
+    const hours = (t) => {
+      const h = Number((t.match(/(\d+)\s*h/) || [])[1] || 0);
+      const m = Number((t.match(/(\d+)\s*m/) || [])[1] || 0);
+      return h + m / 60;
+    };
+
+    check('J19.1 both ways out are offered', titles().length >= 2, titles().join(' / '));
+    check('J19.2 one moves the launch', titles().some((t) => /^Move the launch/.test(t)), '');
+    check('J19.3 one holds it and cuts a phase', titles().some((t) => /^Hold .* and cut/.test(t)), '');
+
+    const picker = $$('select', card).find((s2) => s2.closest('label')?.textContent.includes('Take the time out of'));
+    const names = picker ? [...picker.options].map((o) => o.text) : [];
+    check('J19.4 only unfinished phases with one knob are offered',
+      names.some((n) => /Cold proof/.test(n)) && !names.some((n) => /Mix & bench|Biga/.test(n)),
+      names.join(', '));
+
+    const cutTitle = titles().find((t) => /^Hold .* and cut/.test(t)) || '';
+    const note = $$('.choice-note', card)[1]?.textContent || '';
+    const shed = Number((note.match(/sheds ([\d.]+) MU/) || [])[1]);
+    check('J19.5 the cut sheds less maturation than the delay added',
+      shed > 0 && shed < 1.5, `cutting ${hours(cutTitle).toFixed(1)} h sheds ${shed} MU`);
+
+    const before = JSON.parse(localStorage.getItem('canotto-lab/v1')).current.schedule.coldProofHours;
+    const btn = $$('.choice button', card)[1];
+    btn?.click();
+    const after = JSON.parse(localStorage.getItem('canotto-lab/v1')).current.schedule.coldProofHours;
+    check('J19.6 taking the cut shortens the phase',
+      after < before && Math.abs((before - after) - hours(cutTitle)) < 0.2,
+      `${before} h -> ${after} h`);
+
+    const anchored = cards().find((c) => /Where you actually are/.test(c.textContent))?.textContent || '';
+    check('J19.7 maturation is judged against the flour, not the plan',
+      /this flour takes/.test(anchored), 'budget is the anchor');
+
+    out.push(`${ok} passed, ${bad} failed`);
+    return out.join('\n');
+  };
+
   window.canottoQARescueCheck = function () {
     const s = JSON.parse(localStorage.getItem('canotto-lab/v1'));
     const house = s.recipes.find((r) => r.origin === 'house');

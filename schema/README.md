@@ -90,7 +90,8 @@ A `bake` carries both the plan and the record. `schedule` is what was asked
 for; `doneAt` is when the steps were really checked off, in epoch
 milliseconds, keyed by step id.
 
-Only the steps that bound a phase are timed:
+Every step is stamped when it is checked off. Ten of them bound the five
+phases:
 
 | Phase | From | To |
 | --- | --- | --- |
