@@ -14,7 +14,9 @@ offers the file download instead.
 ## What to create, once
 
 1. Go to the [Google Cloud console](https://console.cloud.google.com/) and
-   create a project. Any name.
+   create a project. If you already made a Firebase project to host the site,
+   use that one: every Firebase project is a Google Cloud project, so the
+   hosting and the OAuth client live together.
 2. Under **APIs and services → Library**, enable the **Google Drive API**.
 3. Under **APIs and services → OAuth consent screen**, choose **External**,
    fill in the app name, your email as support and developer contact, and save.
@@ -32,12 +34,16 @@ offers the file download instead.
    type **Web application**. Add these **Authorized JavaScript origins**:
 
    ```
+   https://canotto-lab.web.app
+   https://canotto-lab.firebaseapp.com
    https://sherifhanna700.github.io
    http://localhost:8080
    ```
 
-   Origins carry no path, so the GitHub Pages entry covers every site under
-   that account. Add whatever port you serve locally on.
+   Firebase serves the site on both of its own domains, so both need listing.
+   The GitHub Pages entry is only needed while that mirror is still in use, and
+   because origins carry no path it covers every site under that account. Add
+   whatever port you serve locally on.
 7. Copy the client id. It looks like `1234567890-abc123.apps.googleusercontent.com`.
 
 ## Where it goes

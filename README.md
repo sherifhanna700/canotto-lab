@@ -6,7 +6,7 @@ It started as a single static page holding one protocol. This is the same protoc
 every hardcoded number turned into a variable, plus the thing a static page cannot do:
 a record of what you actually baked, so you can tell which permutation was better.
 
-**Live app:** https://sherifhanna700.github.io/canotto-lab/
+**Live app:** https://canotto-lab.web.app/
 
 ## Five screens
 
@@ -126,6 +126,9 @@ The access token is held in memory only, never written to storage.
 
 Running your own copy of this app? [docs/google-drive.md](docs/google-drive.md) covers
 the one-off OAuth client that has to exist before the Setup screen offers any of this.
+
+Hosting, cache headers and deployment are covered in
+[docs/hosting.md](docs/hosting.md).
 
 ## Data formats
 

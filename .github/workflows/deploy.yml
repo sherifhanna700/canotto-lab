@@ -1,0 +1,45 @@
+# Deploy to Firebase Hosting on every push to main.
+#
+# The one secret this needs is FIREBASE_SERVICE_ACCOUNT, which
+# `firebase init hosting:github` creates and stores for you. Without it the
+# job is skipped rather than failed, so the repo still builds for anyone who
+# has not set hosting up.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # The stamp is content-derived, so this also proves the committed build
+      # id matches the committed source.
+      - run: npm test
+      - name: Fail if the build was not stamped
+        run: git diff --exit-code || (echo "Run npm test and commit the restamped files." && exit 1)
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for hosting credentials
+        id: creds
+        run: echo "present=${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}" >> "$GITHUB_OUTPUT"
+      - name: Deploy to Firebase Hosting
+        if: steps.creds.outputs.present == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: canotto-lab
+      - name: Say why nothing was deployed
+        if: steps.creds.outputs.present != 'true'
+        run: echo "No FIREBASE_SERVICE_ACCOUNT secret, so nothing was deployed. GitHub Pages is unaffected."
