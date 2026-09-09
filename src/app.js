@@ -1,17 +1,17 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe, isDirty, saveCurrent, discardCurrent } from './lib/store.js?v=877314ec';
-import { readRecipeLink } from './lib/share.js?v=877314ec';
-import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=877314ec';
-import { h, $, icon, clear, toast } from './lib/ui.js?v=877314ec';
-import { computeRecipe } from './model/dough.js?v=877314ec';
-import { solveSchedule, activeSteps } from './model/protocol.js?v=877314ec';
+import { load, subscribe, update, addRecipe, isDirty, saveCurrent, discardCurrent } from './lib/store.js?v=073b8c53';
+import { readRecipeLink } from './lib/share.js?v=073b8c53';
+import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=073b8c53';
+import { h, $, icon, clear, toast } from './lib/ui.js?v=073b8c53';
+import { computeRecipe } from './model/dough.js?v=073b8c53';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=073b8c53';
 
-import renderRecipe from './views/recipe.js?v=877314ec';
-import renderProtocol from './views/protocol.js?v=877314ec';
-import renderBake from './views/bake.js?v=877314ec';
-import renderLog from './views/log.js?v=877314ec';
-import renderSetup from './views/setup.js?v=877314ec';
+import renderRecipe from './views/recipe.js?v=073b8c53';
+import renderProtocol from './views/protocol.js?v=073b8c53';
+import renderBake from './views/bake.js?v=073b8c53';
+import renderLog from './views/log.js?v=073b8c53';
+import renderSetup from './views/setup.js?v=073b8c53';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
@@ -139,10 +139,19 @@ function assignKeys(root) {
   }
 }
 
+/*
+ * Set while the app is putting focus back after a redraw. Focusing an element
+ * fires focusout on the previous one synchronously, and without this the exit
+ * handler reads that as the baker leaving a field and schedules another
+ * redraw, which restores focus again: a loop that never settles.
+ */
+let restoringFocus = false;
+
 function restoreFocus(root, snap) {
   if (!snap) return;
   const el = root.querySelector(`[data-key="${CSS.escape(snap.key)}"]`);
   if (!el) return;
+  restoringFocus = true;
   el.focus({ preventScroll: true });
   if (snap.start !== null && snap.start !== undefined) {
     try {
@@ -151,6 +160,7 @@ function restoreFocus(root, snap) {
       // Not selectable, focus alone is enough.
     }
   }
+  restoringFocus = false;
 }
 
 let navBuilt = false;
@@ -230,6 +240,60 @@ let typingIn = null;
  */
 let draggingSlider = null;
 
+/*
+ * Never rebuild the screen under a finger.
+ *
+ * Tapping from one field to another runs focusout, then change on the field
+ * being left, then focusin on the field being tapped. The change handler
+ * commits the value, which asks for a redraw, and at that instant the old
+ * field has gone and the new one has not arrived: the redraw destroys the
+ * control being tapped before it can take focus, so the tap lands on nothing
+ * and the keyboard drags the page somewhere unrelated.
+ *
+ * A pointer interaction is not over until pointerup, so nothing is rebuilt
+ * until then. Nothing is lost by waiting: the model is already updated, and
+ * only the drawing is held back.
+ */
+let pointerIsDown = false;
+let renderAfterPointer = false;
+let pointerFallback = null;
+
+// On the window, because a press routinely ends somewhere other than where it
+// started, and because that is the one node every pointer event reaches.
+window.addEventListener('pointerdown', () => { pointerIsDown = true; }, true);
+for (const end of ['pointerup', 'pointercancel']) {
+  window.addEventListener(end, () => {
+    pointerIsDown = false;
+    if (!renderAfterPointer) return;
+    renderAfterPointer = false;
+    clearTimeout(pointerFallback);
+    // Zero delay, but a task boundary, which puts the redraw after the click
+    // this same pointerup is about to produce.
+    setTimeout(render, 0);
+  }, true);
+}
+
+/*
+ * A held-back redraw must always arrive.
+ *
+ * If a pointerup never comes, because the press was captured elsewhere or the
+ * window lost the pointer, the screen would simply stop updating and the app
+ * would look dead. So a deferred redraw carries its own deadline. A real drag
+ * keeps asking for redraws and keeps pushing the deadline back, and a release
+ * beats it to the punch, so this only ever fires when something has gone
+ * missing.
+ */
+function deferRenderUntilPointerUp() {
+  renderAfterPointer = true;
+  clearTimeout(pointerFallback);
+  pointerFallback = setTimeout(() => {
+    pointerIsDown = false;
+    if (!renderAfterPointer) return;
+    renderAfterPointer = false;
+    render();
+  }, 500);
+}
+
 export function render() {
   const main = $('#main');
 
@@ -254,6 +318,10 @@ export function render() {
 
   if (typingIn) return;
   if (draggingSlider) return;
+  if (pointerIsDown) {
+    deferRenderUntilPointerUp();
+    return;
+  }
 
   const snap = captureFocus();
   const openFoldouts = captureFoldouts(main);
@@ -275,7 +343,19 @@ export function render() {
     console.error(err);
     next.appendChild(h('div', { class: 'card' }, h('div', { class: 'card-body' }, h('p', { class: 'note bad' }, `Something went wrong rendering this screen: ${err.message}`))));
   }
+  /*
+   * Keep the reading position across the swap.
+   *
+   * replaceChildren empties the container before refilling it, so a screen
+   * that ends up shorter leaves the browser to clamp the scroll, and the
+   * position is gone. Reading scrollY here is free, since nothing has been
+   * mutated yet; restoring it afterwards costs nothing when it has not moved.
+   * Deliberately no height pinning, which would force a synchronous layout on
+   * every keystroke.
+   */
+  const y = window.scrollY;
   main.replaceChildren(next);
+  if (y && window.scrollY !== y) window.scrollTo(0, y);
 
   assignKeys(main);
   restoreFoldouts(main, openFoldouts);
@@ -424,10 +504,43 @@ for (const end of ['pointerup', 'pointercancel']) {
   });
 }
 
+/*
+ * Catching up after a field is left has to wait for focus to settle.
+ *
+ * focusout fires before focusin, and before the click that caused it. Redrawing
+ * inside the handler therefore destroys whatever the person is reaching for:
+ * the tap lands on nothing, focus snaps back to the field they just left, and
+ * on a phone the keyboard stays open and hauls the page somewhere unrelated.
+ * That is the "typing scrolls the page away" bug.
+ *
+ * Two frames is enough for focusin and click to have been dispatched, and is
+ * far too short to see. If another text field took over, the redraw is left to
+ * that field's own exit, because rebuilding under a live keyboard is the thing
+ * being avoided.
+ */
+let catchUpScheduled = false;
+
+function runCatchUp() {
+  catchUpScheduled = false;
+  // Another field took the keyboard. Rebuilding under it is the thing being
+  // avoided, so leave the redraw to that field's own exit.
+  if (typingIn) return;
+  render();
+}
+
+function catchUpAfterTyping() {
+  if (catchUpScheduled) return;
+  catchUpScheduled = true;
+  // Only focusin has still to be dispatched, and that has happened by the
+  // time a microtask runs. If a finger is down, render defers on its own.
+  queueMicrotask(runCatchUp);
+}
+
 $('#main').addEventListener('focusout', (e) => {
+  if (restoringFocus) return;
   if (e.target !== typingIn) return;
   typingIn = null;
-  render();
+  catchUpAfterTyping();
 });
 
 subscribe(() => render());

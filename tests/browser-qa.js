@@ -18,6 +18,23 @@
    * take minutes instead of milliseconds.
    */
   const sleep = () => Promise.resolve();
+
+  /*
+   * Leaving a text field no longer redraws synchronously. The app waits a
+   * moment so that focusin, and any click, are dispatched first: rebuilding
+   * inside focusout destroys whatever is being tapped. Nothing here uses real
+   * pointer events, so the redraw lands on the next microtask, and a task
+   * boundary is enough to see it.
+   */
+  const settle = async () => { await Promise.resolve(); await Promise.resolve(); };
+
+  /*
+   * Only for a simulated tap. The app waits for pointerup before redrawing,
+   * and that wait is a real task, so this is the one place a timer is needed.
+   * A backgrounded tab clamps timers to a second, which is why everything
+   * else stays on microtasks.
+   */
+  const settleTap = () => new Promise((r) => setTimeout(r, 0));
   const $ = (s, root = document) => root.querySelector(s);
   const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 
@@ -74,6 +91,7 @@
     const typed = el.value;
     el.dispatchEvent(new Event('change', { bubbles: true }));
     el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await settle();
     await sleep(45);
     return { cleared, typed, nodeSurvived: survived.every(Boolean) };
   }
@@ -343,6 +361,7 @@
     const other = byKey('Recipe name');
     other.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
     other.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await settle();
     await sleep();
     const stillThere = $$('#main input[type=range]').find((e) => e.dataset.k === 'Hydration');
     check('J13.2 a redraw mid-drag does not move the thumb',
@@ -423,6 +442,7 @@
       el.dispatchEvent(new Event('input', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
       el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+      await settle();
       await sleep();
       return true;
     };
@@ -595,6 +615,60 @@
 
     await goTab(0);
 
+    /* ------------------------------- J18 -------------------------------- */
+    /*
+     * Tapping straight from one field to the next. This is the sequence that
+     * used to throw the page: focusout fired, the screen was rebuilt, and the
+     * field being tapped was destroyed before it could take focus, so focus
+     * snapped back to the field just left and took the keyboard with it.
+     *
+     * Focus is asserted through node survival rather than activeElement. A
+     * browser window without OS focus fires no focus events for a programmatic
+     * focus() call, so the events are dispatched by hand here, and the thing
+     * that matters is whether the tapped field is still the same node.
+     */
+    await goTab(0);
+    const nameOf = (el) => el?.closest?.('label')?.querySelector('.field-label')?.textContent || '(none)';
+    const nums = () => $$('#main label.field input[type=number]');
+    const from = nums()[0];
+    const to = nums()[1];
+
+    /*
+     * Focus for real as well as dispatching the event. The app checks that the
+     * field it is protecting is still the active element, so a synthetic
+     * focusin on its own is correctly ignored.
+     */
+    from.focus();
+    from.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    from.value = String(Number(from.value) + 1);
+    from.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep();
+    check('J18.1 a redraw is held off while a field has the keyboard',
+      document.body.contains(from), `"${nameOf(from)}" survived its own keystroke`);
+
+    const tapScrollY = window.scrollY;
+    to.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    from.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    to.focus();
+    to.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    to.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    to.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await settleTap();
+    await settle();
+
+    check('J18.2 tapping a second field does not destroy it mid-tap',
+      document.body.contains(to), `"${nameOf(to)}" is still the node that was tapped`);
+    check('J18.3 and leaves the page where it was',
+      Math.abs(window.scrollY - tapScrollY) < 2,
+      `${Math.round(tapScrollY)} -> ${Math.round(window.scrollY)}`);
+
+    /* Leaving for good must still refresh the screen. */
+    to.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await settle();
+    check('J18.4 leaving the last field still redraws',
+      cards().length > 0 && !$$('#main .note.bad').some((n) => /went wrong/.test(n.textContent)),
+      `${cards().length} cards, redraw ${document.body.contains(to) ? 'did not happen' : 'happened'}`);
+
     /* ------------------------------- J11 -------------------------------- */
     const snapshot = stored();
     check('J11.1 state persisted', !!snapshot && snapshot.recipes.length >= 2 && snapshot.bakes.length === 1,
@@ -627,6 +701,7 @@
       el.dispatchEvent(new Event('input', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
       el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+      await settle();
       await Promise.resolve();
     };
     const savedRecipe = () => { const s = st(); return s.recipes.find((r) => r.id === s.current.recipeId); };
