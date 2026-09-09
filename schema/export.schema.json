@@ -75,6 +75,54 @@
             }
           },
           "additionalProperties": true
+        },
+        "current": {
+          "type": "object",
+          "title": "The bake in progress",
+          "description": "The session as it stands: which recipe is loaded, the schedule being followed, which protocol steps are ticked and when each was really done, plus any measurements and scores recorded so far. This is one working session rather than a collection, so it cannot be merged item by item. Two devices holding different sessions resolve by updatedAt, and the later one wins whole. A session that has never been edited carries no updatedAt, which is what stops a freshly opened device from replacing a bake in progress with an empty one.",
+          "properties": {
+            "recipeId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "title": {
+              "type": "string"
+            },
+            "launchISO": {
+              "type": "string"
+            },
+            "recipe": {
+              "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/dough.schema.json"
+            },
+            "schedule": {
+              "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/protocol.schema.json"
+            },
+            "done": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Ids of the protocol steps ticked off."
+            },
+            "doneAt": {
+              "type": "object",
+              "description": "When each step was actually ticked, as milliseconds since the Unix epoch. Same shape and meaning as on a bake.",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            },
+            "updatedAt": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time",
+              "description": "When the session was last edited. Absent or null on a session nobody has touched, which always loses to one that has."
+            }
+          },
+          "additionalProperties": true
         }
       }
     }

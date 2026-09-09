@@ -1,21 +1,21 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=eb765592';
-import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=eb765592';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=eb765592';
-import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=eb765592';
-import { scheduleStages } from '../model/protocol.js?v=eb765592';
-import { convertYeast } from '../model/dough.js?v=eb765592';
-import { overallScore } from '../model/recipes.js?v=eb765592';
-import { SOURCES, FLOURS } from '../model/flours.js?v=eb765592';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=eb765592';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=eb765592';
-import { lineChart } from '../lib/charts.js?v=eb765592';
-import * as drive from '../lib/drive.js?v=eb765592';
-import { isOff, setCounting } from '../lib/count.js?v=eb765592';
-import { tempField, tempDeltaField, } from './common.js?v=eb765592';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=eb765592';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=3463b6fe';
+import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=3463b6fe';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=3463b6fe';
+import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=3463b6fe';
+import { scheduleStages } from '../model/protocol.js?v=3463b6fe';
+import { convertYeast } from '../model/dough.js?v=3463b6fe';
+import { overallScore } from '../model/recipes.js?v=3463b6fe';
+import { SOURCES, FLOURS } from '../model/flours.js?v=3463b6fe';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=3463b6fe';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=3463b6fe';
+import { lineChart } from '../lib/charts.js?v=3463b6fe';
+import * as drive from '../lib/drive.js?v=3463b6fe';
+import { isOff, setCounting } from '../lib/count.js?v=3463b6fe';
+import { tempField, tempDeltaField, } from './common.js?v=3463b6fe';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=3463b6fe';
 
 let driveAccount = null;
 let driveStatus = '';
@@ -253,7 +253,10 @@ function driveCard() {
             const res = await drive.sync(load(), { envelope: exportStateJSON });
             applySync(res.state);
             driveStatus = `${res.pulled} in, ${res.pushed} out`;
-            toast(res.created ? 'Created canotto-lab.json in your Drive' : `Synced: ${res.pulled} in, ${res.pushed} out`);
+            const session = res.sessionFrom === 'remote' ? ', and picked up the bake in progress' : '';
+            toast(res.created
+              ? 'Created canotto-lab.json in your Drive'
+              : `Synced: ${res.pulled} in, ${res.pushed} out${session}`);
           } catch (e) {
             toast(e.message || 'Sync failed');
           }

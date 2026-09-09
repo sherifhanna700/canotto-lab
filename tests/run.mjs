@@ -27,6 +27,8 @@ import { recipeFromBlend, overallScore, recipeRating, starterRecipes, houseRecip
 import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIXERS } from '../src/model/equipment.js';
 import { diagnose } from '../src/model/diagnostics.js';
 import { countToday, today, isOff, setCounting } from '../src/lib/count.js';
+import { laterSession } from '../src/lib/drive.js';
+import { update as storeUpdate, load as storeLoad, resetAll } from '../src/lib/store.js';
 import { derive, findFactor } from '../src/model/metrics.js';
 import { mergeCollections } from '../src/lib/drive.js';
 import { normaliseRecipe, EMPTY_ACTUALS, EMPTY_SCORES, SCHEMA_BASE, exportStateJSON } from '../src/lib/store.js';
@@ -892,6 +894,82 @@ test('a logged bake is judged on the time it really had', () => {
     proof.get({ ...base, doneAt: { 'p4-1': t, 'p5-1': t + 78 * H } }, ranLong) > DEFAULT_SCHEDULE.coldProofHours,
     'the cold proof factor reports what happened, not what was written down'
   );
+});
+
+/* -------------------- carrying a bake between devices ------------------- */
+
+test('the bake in progress travels with everything else', () => {
+  /*
+   * The reported failure: sync on one address, open the app on another, sync
+   * again, and the recipe was there but the half-ticked protocol was not. The
+   * session was simply never in the file.
+   */
+  const doc = JSON.parse(exportStateJSON({
+    version: 1,
+    recipes: [houseRecipe()],
+    bakes: [],
+    settings: { model: DEFAULT_MODEL, equipment: DEFAULT_EQUIPMENT },
+    current: { title: 'mid bake', done: ['p1-3', 'p1-4'], doneAt: { 'p1-3': 1, 'p1-4': 2 }, updatedAt: '2026-09-09T10:00:00Z' },
+  }));
+  assert.ok(doc.current, 'the session is in the document at all');
+  assert.deepEqual(doc.current.done, ['p1-3', 'p1-4'], 'with what was ticked');
+  assert.deepEqual(doc.current.doneAt, { 'p1-3': 1, 'p1-4': 2 }, 'and when');
+  check(doc, 'export.schema.json');
+});
+
+test('the session that was touched later is the one that survives', () => {
+  const older = { title: 'older', updatedAt: '2026-09-09T09:00:00Z' };
+  const newer = { title: 'newer', updatedAt: '2026-09-09T11:00:00Z' };
+  assert.equal(laterSession(older, newer).current.title, 'newer', 'the other device had it more recently');
+  assert.equal(laterSession(older, newer).from, 'remote');
+  assert.equal(laterSession(newer, older).current.title, 'newer', 'and this one wins when it is this one');
+  assert.equal(laterSession(newer, older).from, 'local');
+});
+
+test('a device that has just opened the app cannot wipe a bake in progress', () => {
+  /*
+   * The dangerous case. A fresh install has a session too, and if it counted
+   * as current it would replace a half-finished bake with an empty one on the
+   * first sync. An untouched session carries no stamp, so it always loses.
+   */
+  const fresh = { title: 'Contemporary Canotto (house)', done: [] };
+  const inProgress = { title: 'mid bake', done: ['p1-3'], updatedAt: '2026-09-09T11:00:00Z' };
+  assert.equal(laterSession(fresh, inProgress).current.title, 'mid bake', 'the real bake wins');
+  assert.equal(laterSession(inProgress, fresh).current.title, 'mid bake', 'from either side');
+});
+
+test('a session is taken whole, never stitched together', () => {
+  // Half of one schedule and half of another is a bake nobody ran.
+  const mine = { title: 'a', done: ['p1-3'], schedule: { coldProofHours: 66 }, updatedAt: '2026-09-09T09:00:00Z' };
+  const theirs = { title: 'b', done: ['p1-3', 'p1-4', 'p2-1'], schedule: { coldProofHours: 42 }, updatedAt: '2026-09-09T10:00:00Z' };
+  const { current } = laterSession(mine, theirs);
+  assert.deepEqual(current, theirs, 'the winner arrives intact');
+});
+
+test('with nothing on the other side, this device keeps its own', () => {
+  const mine = { title: 'a', updatedAt: '2026-09-09T09:00:00Z' };
+  assert.equal(laterSession(mine, undefined).from, 'local');
+  assert.equal(laterSession(mine, undefined).current, mine);
+});
+
+test('a session is stamped when it changes, and only then', async () => {
+  globalThis.localStorage.clear();
+  resetAll();
+  assert.equal(storeLoad().current.updatedAt ?? null, null, 'a fresh session has never been touched');
+
+  storeUpdate((st) => { st.current.done = ['p1-3']; });
+  const first = storeLoad().current.updatedAt;
+  assert.ok(first, 'ticking a step stamps it');
+
+  // A no-op must not make this device look like the more recent one.
+  await new Promise((r) => setTimeout(r, 5));
+  storeUpdate(() => {});
+  assert.equal(storeLoad().current.updatedAt, first, 'a save that changed nothing changes nothing');
+
+  await new Promise((r) => setTimeout(r, 5));
+  storeUpdate((st) => { st.current.doneAt = { 'p1-3': 123 }; });
+  assert.notEqual(storeLoad().current.updatedAt, first, 'recording a time stamps it again');
+  globalThis.localStorage.clear();
 });
 
 test('what sync writes to Drive is a valid export document', () => {

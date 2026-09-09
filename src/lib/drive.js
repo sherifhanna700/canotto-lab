@@ -427,6 +427,25 @@ export function mergeCollections(local, remote) {
  * Pull, merge, push. Returns the merged state so the caller can persist it,
  * along with what moved in each direction.
  */
+/**
+ * Which half-finished bake is the real one.
+ *
+ * A session is not a collection and cannot be merged item by item: a dough is
+ * either the one on this device or the one on the other, and mixing the two
+ * would produce a schedule nobody ran. So the later of the two wins, by the
+ * moment it was last touched.
+ *
+ * A session that has never been touched carries no stamp, which is what stops
+ * a device that has only just opened the app from wiping a bake in progress
+ * with its own blank one.
+ */
+export function laterSession(mine, theirs) {
+  const at = (c) => Date.parse(c?.updatedAt || 0) || 0;
+  if (!theirs) return { current: mine, from: 'local' };
+  if (!mine) return { current: theirs, from: 'remote' };
+  return at(theirs) > at(mine) ? { current: theirs, from: 'remote' } : { current: mine, from: 'local' };
+}
+
 export async function sync(state, { envelope }) {
   // The click that started this is the gesture Google needs, so a token can be
   // asked for here even if the last one has expired.
@@ -436,13 +455,15 @@ export async function sync(state, { envelope }) {
 
   const recipes = mergeCollections(state.recipes || [], Array.isArray(remote.recipes) ? remote.recipes : []);
   const bakes = mergeCollections(state.bakes || [], Array.isArray(remote.bakes) ? remote.bakes : []);
-  const merged = { ...state, recipes: recipes.merged, bakes: bakes.merged };
+  const session = laterSession(state.current, remote.current);
+  const merged = { ...state, recipes: recipes.merged, bakes: bakes.merged, current: session.current };
 
   await writeFile(id, envelope(merged));
   return {
     state: merged,
     pulled: recipes.pulled + bakes.pulled,
     pushed: recipes.pushed + bakes.pushed,
+    sessionFrom: session.from,
     created: !id,
   };
 }

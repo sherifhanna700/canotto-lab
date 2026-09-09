@@ -109,6 +109,18 @@ actually had, not the hours someone wrote down for it.
 Absolute instants are stored rather than the gaps between them, so a single
 mistimed entry can be corrected without silently shifting everything after it.
 
+## The bake in progress
+
+An `export` also carries `current`: the session as it stands, meaning which
+recipe is loaded, the schedule being followed, which protocol steps are ticked
+and when each was really done.
+
+Unlike recipes and bakes this is not a collection and cannot be merged item by
+item, because half of one schedule and half of another is a bake nobody ran. Two
+devices resolve it by `updatedAt` and the later one wins whole. A session nobody
+has edited carries no `updatedAt` at all, which is what stops a freshly opened
+device from replacing a bake in progress with an empty one.
+
 ## Reading a bake without the app
 
 The model is not needed to read the data, but it is what makes two schedules

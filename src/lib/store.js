@@ -4,11 +4,11 @@
 // app touches storage directly, so swapping in a cloud backend later means
 // reimplementing `load` and `save`, not rewriting the views.
 
-import { DEFAULT_RECIPE } from '../model/dough.js?v=eb765592';
-import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=eb765592';
-import { DEFAULT_MODEL } from '../model/ferment.js?v=eb765592';
-import { starterRecipes, houseRecipe } from '../model/recipes.js?v=eb765592';
-import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=eb765592';
+import { DEFAULT_RECIPE } from '../model/dough.js?v=3463b6fe';
+import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=3463b6fe';
+import { DEFAULT_MODEL } from '../model/ferment.js?v=3463b6fe';
+import { starterRecipes, houseRecipe } from '../model/recipes.js?v=3463b6fe';
+import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=3463b6fe';
 
 const KEY = 'canotto-lab/v1';
 const LEGACY = { steps: 'canotto_master_steps', frozen: 'canotto_frozen_count', metrics: 'canotto_step_metrics' };
@@ -319,9 +319,33 @@ export function save() {
 }
 
 /** Mutate state through here so views re-render and the write is persisted. */
+/**
+ * A fingerprint of the working session, used to notice that it changed.
+ *
+ * The stamp itself is left out, or every save would look like a change and
+ * the session would appear newer than it is on every device that opened it.
+ */
+const sessionShape = (current) => {
+  const { updatedAt, ...rest } = current || {};
+  return JSON.stringify(rest);
+};
+
 export function update(fn) {
   const s = load();
+  const before = sessionShape(s.current);
   fn(s);
+  /*
+   * Stamp the working session when it actually changes.
+   *
+   * Sync needs to know which device's half-finished bake is the later one, and
+   * the only honest answer is the one that was touched last. Doing it here
+   * rather than at each of the several dozen places that edit a schedule, tick
+   * a step or record a temperature means it cannot be forgotten at one of
+   * them. A fresh session has no stamp at all, so it always loses to a real
+   * one: opening the app on a new device must not overwrite a bake in progress
+   * with an empty one.
+   */
+  if (s.current && sessionShape(s.current) !== before) s.current.updatedAt = now();
   save();
   listeners.forEach((l) => l(s));
   return s;
@@ -560,10 +584,16 @@ export function updateBake(id, patch) {
 }
 
 /** Replace the synced collections with what came back from a merge. */
-export function applySync({ recipes, bakes }) {
+export function applySync({ recipes, bakes, current }) {
   return update((s) => {
     if (Array.isArray(recipes) && recipes.length) s.recipes = recipes;
     if (Array.isArray(bakes)) s.bakes = bakes;
+    if (current) {
+      // Already decided by the merge; this only writes the winner down. Passed
+      // through mergeState so a session from an older version still lands with
+      // every field the app expects.
+      s.current = mergeState(defaultState(), { current }).current;
+    }
   });
 }
 
@@ -611,6 +641,10 @@ export function exportStateJSON(state) {
     recipes: state.recipes,
     bakes: state.bakes,
     settings: state.settings,
+    // The bake in progress: which recipe is loaded, what is ticked, and when
+    // each step really happened. Without it, syncing mid-bake carries the
+    // recipe but not the evening.
+    current: state.current,
   });
 }
 
