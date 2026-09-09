@@ -1,8 +1,8 @@
-# Turning on Drive sync
+# Turning on sync
 
 The app keeps everything in the browser and works fully without an account.
-Drive sync is optional: connect a Google account and the whole library is kept
-as one JSON file in that person's own Drive.
+Sync is optional: connect a Google account and the whole library is kept as one
+JSON file in that account's private storage for this app.
 
 Nobody using the app has to set anything up. The app carries a single OAuth
 client id, which identifies the app to Google and is public by design. Google
@@ -23,11 +23,16 @@ offers the file download instead.
 4. On the **Scopes** step add these three:
    - `openid`
    - `.../auth/userinfo.email`
-   - `.../auth/drive.file`
+   - `.../auth/drive.appdata`
 
-   `drive.file` is the narrow one: it lets the app touch only files it created
-   itself. It cannot read anything else in anyone's Drive, and the consent
-   screen tells them so.
+   `drive.appdata` is the narrowest thing Drive offers. It gives the app a
+   hidden per-application folder and nothing else: not a folder in the person's
+   Drive that they browse past, but one that does not appear in Drive at all,
+   and no ability to see, list or touch any other file they own. Do **not** add
+   `drive` or `drive.file`; neither is needed and both ask for far more.
+
+   The email scope is only so the app can show which account is connected,
+   which matters once someone has two.
 5. Publish the consent screen. While it is in **Testing**, only accounts listed
    as test users can connect, and their access expires after a week.
 6. Under **APIs and services → Credentials**, create an **OAuth client ID** of
@@ -59,15 +64,19 @@ without editing the file, set `window.GOOGLE_CLIENT_ID` before the app loads.
 
 ## What it does
 
-Sync reads `canotto-lab.json` from the connected Drive, merges it with what is
-in the browser, and writes the result back. Merging is per record and the
+Sync reads `canotto-lab.json` from the app's hidden folder, merges it with what
+is in the browser, and writes the result back. Merging is per record and the
 newest edit wins, so two devices working on different recipes both keep their
 work.
 
 Nothing is ever deleted by a sync. A recipe removed on one device comes back
 from the other, because losing work to a sync is worse than seeing something
-you meant to bin. Deleting for good means deleting on every device, or deleting
-the file in Drive.
+you meant to bin.
+
+The cost of hidden storage is that a person cannot open or empty it from Drive,
+so the Setup screen carries a button that deletes it, and the JSON download is
+the copy they can actually hold. Revoking the app in Google account settings
+removes it too.
 
 The access token lives in memory only, never in storage. Google reissues one
 without a prompt while the person's Google session is alive, which is why

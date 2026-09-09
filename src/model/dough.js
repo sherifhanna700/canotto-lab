@@ -2,8 +2,8 @@
 // bake log snapshots) reads the object this returns, so the numbers in the
 // checklist and the numbers in the calculator can never drift apart.
 
-import { blendStats, blendLabel, flourName, maturationCeilingForW, hydrationRangeForW } from './flours.js?v=57af795c';
-import { reconcile, splitDoses } from './units.js?v=57af795c';
+import { blendStats, blendLabel, flourName, maturationCeilingForW, hydrationRangeForW } from './flours.js?v=ab7e5c7c';
+import { reconcile, splitDoses } from './units.js?v=ab7e5c7c';
 
 /** Relative potency, referenced to instant dry yeast. */
 export const YEAST_FACTOR = { idy: 1, ady: 1.25, fresh: 3 };

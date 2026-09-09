@@ -1,20 +1,20 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=57af795c';
-import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=57af795c';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=57af795c';
-import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=57af795c';
-import { scheduleStages } from '../model/protocol.js?v=57af795c';
-import { convertYeast } from '../model/dough.js?v=57af795c';
-import { overallScore } from '../model/recipes.js?v=57af795c';
-import { SOURCES, FLOURS } from '../model/flours.js?v=57af795c';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=57af795c';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=57af795c';
-import { lineChart } from '../lib/charts.js?v=57af795c';
-import * as drive from '../lib/drive.js?v=57af795c';
-import { tempField, tempDeltaField, } from './common.js?v=57af795c';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=57af795c';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=ab7e5c7c';
+import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=ab7e5c7c';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=ab7e5c7c';
+import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=ab7e5c7c';
+import { scheduleStages } from '../model/protocol.js?v=ab7e5c7c';
+import { convertYeast } from '../model/dough.js?v=ab7e5c7c';
+import { overallScore } from '../model/recipes.js?v=ab7e5c7c';
+import { SOURCES, FLOURS } from '../model/flours.js?v=ab7e5c7c';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=ab7e5c7c';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=ab7e5c7c';
+import { lineChart } from '../lib/charts.js?v=ab7e5c7c';
+import * as drive from '../lib/drive.js?v=ab7e5c7c';
+import { tempField, tempDeltaField, } from './common.js?v=ab7e5c7c';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=ab7e5c7c';
 
 let driveAccount = null;
 let driveStatus = '';
@@ -230,7 +230,7 @@ function driveCard() {
 
   if (!driveAccount) {
     body.push(
-      h('p', { class: 'note neutral' }, 'Connect a Google account and your recipes and bakes are kept as a single file in your own Drive, so they follow you between devices. The app can only see files it created there, not anything else in your Drive, and the file is yours: open it, copy it, or delete it without the app.'),
+      h('p', { class: 'note neutral' }, 'Connect a Google account and your recipes and bakes are kept in that account\u2019s private storage for this app, so they follow you between devices. It is not a folder in your Drive: nothing appears there, and the app cannot see, list or touch a single other file you own. Only this app can read what it puts there, and you can delete it from here whenever you like.'),
       h('div', { class: 'row tight' }, h('button', {
         class: 'btn',
         onClick: async () => {
@@ -242,7 +242,7 @@ function driveCard() {
             toast(e.message || 'Could not connect');
           }
         },
-      }, icon('cloud'), 'Connect Google Drive'))
+      }, icon('cloud'), 'Connect Google account'))
     );
     return card('Sync across devices', 'Optional. The app works fully without it.', ...body);
   }
@@ -251,7 +251,7 @@ function driveCard() {
     h(
       'div',
       { class: 'stats' },
-      stat('Connected', driveAccount.email || driveAccount.name || 'your Google account', 'one file in your Drive'),
+      stat('Connected', driveAccount.email || driveAccount.name || 'your Google account', 'private app storage'),
       stat('Last sync', driveStatus || 'not yet', 'newest edit wins, per record')
     ),
     h(
@@ -272,7 +272,27 @@ function driveCard() {
       }, icon('sync'), 'Sync now'),
       h('button', { class: 'btn ghost', onClick: () => { drive.disconnect(); toast('Disconnected'); update(() => {}); } }, icon('link_off'), 'Disconnect')
     ),
-    h('p', { class: 'note neutral' }, 'A sync never deletes anything. A recipe removed on one device comes back from the other, because losing work to a sync is worse than seeing something you meant to bin.')
+    h('p', { class: 'note neutral' }, 'A sync never deletes anything. A recipe removed on one device comes back from the other, because losing work to a sync is worse than seeing something you meant to bin.'),
+    h(
+      'div',
+      { class: 'row tight' },
+      h('button', {
+        class: 'btn danger small',
+        onClick: () => confirmDialog(
+          'Delete the stored copy in your Google account? What is in this browser is untouched, and the next sync would upload it again.',
+          async () => {
+            try {
+              const gone = await drive.deleteRemote();
+              toast(gone ? 'Stored copy deleted' : 'There was nothing stored');
+            } catch (e) {
+              toast(e.message || 'Could not delete it');
+            }
+          },
+          'Delete'
+        ),
+      }, icon('delete'), 'Delete the stored copy')
+    ),
+    h('p', { class: 'hint', style: { fontSize: '.75rem' } }, 'Private app storage cannot be opened or emptied from Drive itself, so this is the way to remove it. Download the JSON above first if you want to keep a copy you can hold.')
   );
 
   return card('Sync across devices', 'Optional. The app works fully without it.', ...body);

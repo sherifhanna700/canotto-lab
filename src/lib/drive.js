@@ -1,21 +1,26 @@
-// Optional Google Drive sync.
+// Optional sync to the baker's own Google account.
 //
 // The app is local-first and works fully with no account. This is a layer on
-// top: connect a Google account and the whole library is kept as a single
-// JSON file in that person's own Drive, so it follows them between devices and
-// they keep it if they stop using the app.
+// top: connect a Google account and the whole library is kept as a single JSON
+// file, so it follows them between devices.
 //
-// Drive rather than a database because this is a static site with no server.
-// A database would mean every baker creating a cloud project of their own,
-// which nobody is going to do for a pizza tracker. Here the app holds one
-// public client id, and the file lives in the baker's Drive, not ours.
+// Drive rather than a database because this is a static site with no server. A
+// database would mean every baker creating a cloud project of their own, which
+// nobody is going to do for a pizza tracker. Here the app holds one public
+// client id and the storage belongs to the baker, not to us.
 //
-// The scope is drive.file, which grants access only to files this app itself
-// created. It cannot see anything else in the Drive, and the consent screen
-// says so.
+// The scope is drive.appdata, which is the narrowest thing Drive offers: a
+// hidden per-application folder that only this app can see. It is not a folder
+// in their Drive that they browse past; it does not appear in Drive at all,
+// and this app cannot see, list or touch a single other file they own. The
+// consent screen says as much.
 //
-// The Google script is loaded on demand, so a visitor who never connects
-// never downloads it.
+// The cost of that privacy is that they cannot open the file themselves, so
+// the app has to offer a way to delete it. That is what deleteRemote is for,
+// alongside the JSON download, which is the copy they can actually hold.
+//
+// The Google script is loaded on demand, so a visitor who never connects never
+// downloads it.
 
 /**
  * The app's OAuth client id. Public by design: it identifies the app, it is
@@ -25,7 +30,7 @@
 const BUILT_IN_CLIENT_ID = '';
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
-const SCOPE = 'openid email https://www.googleapis.com/auth/drive.file';
+const SCOPE = 'openid email https://www.googleapis.com/auth/drive.appdata';
 const FILE_NAME = 'canotto-lab.json';
 const FILE_ID_KEY = 'canotto-lab/drive-file-id';
 const CONNECTED_KEY = 'canotto-lab/drive-connected';
@@ -221,8 +226,11 @@ async function findFile() {
       // Deleted, or belongs to another account now. Fall through and search.
     }
   }
+  // spaces=appDataFolder is what confines the search to this app's own hidden
+  // folder. Without it the query would run against the whole Drive, which this
+  // token has no right to read anyway, and would simply come back empty.
   const q = encodeURIComponent(`name='${FILE_NAME}' and trashed=false`);
-  const res = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,modifiedTime)&orderBy=modifiedTime desc`);
+  const res = await api(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,modifiedTime)&orderBy=modifiedTime desc`);
   const { files } = await res.json();
   const id = files?.[0]?.id || null;
   if (id) {
@@ -246,7 +254,11 @@ async function readFile(id) {
 }
 
 async function writeFile(id, text) {
-  const meta = { name: FILE_NAME, mimeType: 'application/json' };
+  // A new file has to be told to live in the hidden folder. An existing one
+  // already does, and repeating the parent on an update is an error.
+  const meta = id
+    ? { name: FILE_NAME, mimeType: 'application/json' }
+    : { name: FILE_NAME, mimeType: 'application/json', parents: ['appDataFolder'] };
   const boundary = `canotto${Math.random().toString(36).slice(2)}`;
   const body =
     `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n` +
@@ -266,6 +278,25 @@ async function writeFile(id, text) {
     // Same as above.
   }
   return out.id;
+}
+
+/**
+ * Remove the stored copy.
+ *
+ * This matters more here than it would with a visible file. The hidden folder
+ * cannot be opened or emptied from Drive, so without this the only way to be
+ * rid of the data would be to revoke the whole app in Google account settings.
+ */
+export async function deleteRemote() {
+  const id = await findFile();
+  if (!id) return false;
+  await api(`https://www.googleapis.com/drive/v3/files/${id}`, { method: 'DELETE' });
+  try {
+    localStorage.removeItem(FILE_ID_KEY);
+  } catch {
+    // Nothing to clean up.
+  }
+  return true;
 }
 
 /* -------------------------------- merging -------------------------------- */

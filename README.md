@@ -104,18 +104,22 @@ it. Three ways to keep it safe, in order of how little setup they need:
 2. **Save straight to a file.** On Chrome and Edge the app can write to a file you pick
    and remember it, so later saves are one click. Point it at a folder Google Drive or
    iCloud already syncs and you get cloud backup with no accounts and no API.
-3. **Google Drive sync.** Optional. Connect a Google account and the whole library is
-   kept as a single `canotto-lab.json` in your own Drive, so it follows you between
-   devices. Nothing to set up: no project, no keys, no database.
+3. **Sync to your Google account.** Optional. Connect an account and the whole library
+   is kept as a single `canotto-lab.json` in that account's private storage for this
+   app, so it follows you between devices. Nothing to set up: no project, no keys, no
+   database.
 
 Recipes can also be shared as a link that carries the whole definition, so the person
 opening it needs no account at all.
 
-### About Drive sync
+### About sync
 
-The app asks for the `drive.file` scope, which grants access only to files the app
-itself created. It cannot see anything else in your Drive, and the Google consent screen
-says as much. The file is yours: open it, copy it, move it, or delete it without the app.
+The app asks for the `drive.appdata` scope, the narrowest thing Drive offers. It grants a
+hidden per-application folder and nothing else. Nothing appears in your Drive, and the app
+cannot see, list or touch any other file you own. The Google consent screen says as much.
+
+Because that storage is hidden, you cannot empty it from Drive, so Setup carries a button
+that deletes it, and the JSON download is the copy you can actually hold.
 
 Merging is per record and the newest edit wins, so two devices working on different
 recipes both keep their work. Nothing is ever deleted by a sync. A recipe removed on one
