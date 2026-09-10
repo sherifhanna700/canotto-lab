@@ -4,11 +4,11 @@
 // app touches storage directly, so swapping in a cloud backend later means
 // reimplementing `load` and `save`, not rewriting the views.
 
-import { DEFAULT_RECIPE } from '../model/dough.js?v=3463b6fe';
-import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=3463b6fe';
-import { DEFAULT_MODEL } from '../model/ferment.js?v=3463b6fe';
-import { starterRecipes, houseRecipe } from '../model/recipes.js?v=3463b6fe';
-import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=3463b6fe';
+import { DEFAULT_RECIPE } from '../model/dough.js?v=37fdeb15';
+import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=37fdeb15';
+import { DEFAULT_MODEL } from '../model/ferment.js?v=37fdeb15';
+import { starterRecipes, houseRecipe } from '../model/recipes.js?v=37fdeb15';
+import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=37fdeb15';
 
 const KEY = 'canotto-lab/v1';
 const LEGACY = { steps: 'canotto_master_steps', frozen: 'canotto_frozen_count', metrics: 'canotto_step_metrics' };
@@ -330,7 +330,7 @@ const sessionShape = (current) => {
   return JSON.stringify(rest);
 };
 
-export function update(fn) {
+export function update(fn, { stamp = true } = {}) {
   const s = load();
   const before = sessionShape(s.current);
   fn(s);
@@ -345,7 +345,7 @@ export function update(fn) {
    * one: opening the app on a new device must not overwrite a bake in progress
    * with an empty one.
    */
-  if (s.current && sessionShape(s.current) !== before) s.current.updatedAt = now();
+  if (stamp && s.current && sessionShape(s.current) !== before) s.current.updatedAt = now();
   save();
   listeners.forEach((l) => l(s));
   return s;
@@ -594,6 +594,15 @@ export function applySync({ recipes, bakes, current }) {
       // every field the app expects.
       s.current = mergeState(defaultState(), { current }).current;
     }
+  }, {
+    /*
+     * Writing down the result of a sync is not the baker touching anything, so
+     * it must not restamp the session. Restamping would give this device a
+     * time later than the copy just written to Drive, so the two would
+     * disagree the moment they were made to agree, and a session pulled from
+     * another device would come back looking like this one's own work.
+     */
+    stamp: false,
   });
 }
 

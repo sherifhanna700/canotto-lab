@@ -1,21 +1,21 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=3463b6fe';
-import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=3463b6fe';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=3463b6fe';
-import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=3463b6fe';
-import { scheduleStages } from '../model/protocol.js?v=3463b6fe';
-import { convertYeast } from '../model/dough.js?v=3463b6fe';
-import { overallScore } from '../model/recipes.js?v=3463b6fe';
-import { SOURCES, FLOURS } from '../model/flours.js?v=3463b6fe';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=3463b6fe';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=3463b6fe';
-import { lineChart } from '../lib/charts.js?v=3463b6fe';
-import * as drive from '../lib/drive.js?v=3463b6fe';
-import { isOff, setCounting } from '../lib/count.js?v=3463b6fe';
-import { tempField, tempDeltaField, } from './common.js?v=3463b6fe';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=3463b6fe';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=37fdeb15';
+import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=37fdeb15';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=37fdeb15';
+import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=37fdeb15';
+import { scheduleStages } from '../model/protocol.js?v=37fdeb15';
+import { convertYeast } from '../model/dough.js?v=37fdeb15';
+import { overallScore } from '../model/recipes.js?v=37fdeb15';
+import { SOURCES, FLOURS } from '../model/flours.js?v=37fdeb15';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=37fdeb15';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=37fdeb15';
+import { lineChart } from '../lib/charts.js?v=37fdeb15';
+import * as drive from '../lib/drive.js?v=37fdeb15';
+import { isOff, setCounting } from '../lib/count.js?v=37fdeb15';
+import { tempField, tempDeltaField, } from './common.js?v=37fdeb15';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=37fdeb15';
 
 let driveAccount = null;
 let driveStatus = '';
@@ -253,10 +253,7 @@ function driveCard() {
             const res = await drive.sync(load(), { envelope: exportStateJSON });
             applySync(res.state);
             driveStatus = `${res.pulled} in, ${res.pushed} out`;
-            const session = res.sessionFrom === 'remote' ? ', and picked up the bake in progress' : '';
-            toast(res.created
-              ? 'Created canotto-lab.json in your Drive'
-              : `Synced: ${res.pulled} in, ${res.pushed} out${session}`);
+            toast(res.created ? 'Created canotto-lab.json in your Drive' : describeSync(res));
           } catch (e) {
             toast(e.message || 'Sync failed');
           }
@@ -326,6 +323,27 @@ function calibrationCard(ctx) {
     h('p', { class: 'hint', style: { fontSize: '.75rem' } }, 'Defaults are set so the curves pass through published figures: yeast at roughly a tenth of room rate at 4 \u00b0C, enzyme activity holding just under half. Change them only if your own bakes say otherwise.'),
     h('button', { class: 'btn ghost small', onClick: () => { update((st) => { st.settings.model = { ...DEFAULT_MODEL }; }); toast('Model reset'); } }, icon('restart_alt'), 'Reset to defaults')
   );
+}
+
+/**
+ * What a sync actually did, in words.
+ *
+ * It used to report two numbers and say nothing about the third thing that
+ * moves. Someone who had just ticked their way through half a protocol, synced,
+ * and read "0 in, 0 out" would reasonably conclude their progress had not gone
+ * anywhere, when it had.
+ */
+export function describeSync(res) {
+  const parts = [];
+  if (res.pulled) parts.push(`${res.pulled} in`);
+  if (res.pushed) parts.push(`${res.pushed} out`);
+  if (res.sessionMoved) {
+    parts.push(res.sessionFrom === 'remote'
+      ? 'picked up the bake in progress'
+      : 'sent this device\u2019s bake in progress');
+  }
+  if (!parts.length) return 'Already up to date';
+  return `Synced: ${parts.join(', ')}`;
 }
 
 /* -------------------------------- counting ------------------------------- */

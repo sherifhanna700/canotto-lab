@@ -464,6 +464,17 @@ export async function sync(state, { envelope }) {
     pulled: recipes.pulled + bakes.pulled,
     pushed: recipes.pushed + bakes.pushed,
     sessionFrom: session.from,
+    /*
+     * Whether the bake in progress actually moved, as opposed to both sides
+     * already holding the same one.
+     *
+     * The comparison is against whichever side lost, because that is the side
+     * that changed: a push changes the file, a pull changes this device.
+     * Comparing against the file both ways reported a pull as nothing having
+     * happened, which is the same silence this was meant to fix.
+     */
+    sessionMoved: JSON.stringify(session.current || null)
+      !== JSON.stringify((session.from === 'remote' ? state.current : remote.current) || null),
     created: !id,
   };
 }

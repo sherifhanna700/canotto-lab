@@ -90,6 +90,19 @@
     }
     const typed = el.value;
     el.dispatchEvent(new Event('change', { bubbles: true }));
+    /*
+     * Blur for real, not just in name.
+     *
+     * The app holds off redrawing while a text field has the keyboard, and it
+     * checks that by asking whether the field is still the active element. A
+     * dispatched focusout does not change that, so in a window that actually
+     * has focus the field stayed active, redraws stayed suspended, and every
+     * later journey read a screen that had stopped updating. In a window
+     * without focus the active element was already the body, so the same suite
+     * passed. That is a difference between two browsers, not two builds, and
+     * it made the whole run depend on which window happened to be in front.
+     */
+    el.blur();
     el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
     await settle();
     await sleep(45);

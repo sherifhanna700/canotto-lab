@@ -28,7 +28,7 @@ import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIX
 import { diagnose } from '../src/model/diagnostics.js';
 import { countToday, today, isOff, setCounting } from '../src/lib/count.js';
 import { laterSession } from '../src/lib/drive.js';
-import { update as storeUpdate, load as storeLoad, resetAll } from '../src/lib/store.js';
+import { update as storeUpdate, load as storeLoad, resetAll, applySync } from '../src/lib/store.js';
 import { derive, findFactor } from '../src/model/metrics.js';
 import { mergeCollections } from '../src/lib/drive.js';
 import { normaliseRecipe, EMPTY_ACTUALS, EMPTY_SCORES, SCHEMA_BASE, exportStateJSON } from '../src/lib/store.js';
@@ -970,6 +970,51 @@ test('a session is stamped when it changes, and only then', async () => {
   storeUpdate((st) => { st.current.doneAt = { 'p1-3': 123 }; });
   assert.notEqual(storeLoad().current.updatedAt, first, 'recording a time stamps it again');
   globalThis.localStorage.clear();
+});
+
+test('writing down a sync does not make it look like fresh work', () => {
+  /*
+   * applySync goes through the same update() as everything else, so without
+   * care it restamped the session. This device would then hold a time later
+   * than the copy just written to Drive, so the two disagreed the moment they
+   * were made to agree, and a session pulled from another device came back
+   * looking like this one's own.
+   */
+  globalThis.localStorage.clear();
+  resetAll();
+  const theirs = { title: 'from the other device', done: ['p1-3'], updatedAt: '2026-09-09T11:00:00Z' };
+  applySync({ recipes: [], bakes: [], current: theirs });
+  assert.equal(storeLoad().current.updatedAt, '2026-09-09T11:00:00Z', 'the stamp arrives unchanged');
+  assert.deepEqual(storeLoad().current.done, ['p1-3'], 'along with the work');
+  globalThis.localStorage.clear();
+});
+
+test('a sync that moved a session says so, in either direction', async () => {
+  /*
+   * "0 in, 0 out" after ticking half a protocol reads as nothing having
+   * happened, because the count only ever covered recipes and bakes. The
+   * comparison has to be against whichever side lost: a push changes the file,
+   * a pull changes this device, and comparing against the file both ways
+   * reported a pull as silence.
+   */
+  const { describeSync } = await import('../src/views/setup.js');
+  const stub = (remote, current) => {
+    const winner = laterSession(current, remote);
+    return {
+      pulled: 0,
+      pushed: 0,
+      sessionFrom: winner.from,
+      sessionMoved: JSON.stringify(winner.current || null)
+        !== JSON.stringify((winner.from === 'remote' ? current : remote) || null),
+    };
+  };
+
+  const mine = { title: 'mid bake', updatedAt: '2026-09-09T12:00:00Z' };
+  const theirs = { title: 'theirs', updatedAt: '2026-09-09T13:00:00Z' };
+
+  assert.equal(describeSync(stub(undefined, mine)), 'Synced: sent this device\u2019s bake in progress');
+  assert.equal(describeSync(stub(theirs, mine)), 'Synced: picked up the bake in progress');
+  assert.equal(describeSync(stub(mine, mine)), 'Already up to date', 'both sides holding the same one is the only quiet case');
 });
 
 test('what sync writes to Drive is a valid export document', () => {
