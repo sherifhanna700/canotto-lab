@@ -1017,6 +1017,40 @@ test('a sync that moved a session says so, in either direction', async () => {
   assert.equal(describeSync(stub(mine, mine)), 'Already up to date', 'both sides holding the same one is the only quiet case');
 });
 
+test('the sync result is kept, not flashed', async () => {
+  /*
+   * A toast is the wrong shape for the one thing someone might want to look at
+   * again a minute later, so the outcome is stored and rendered in the card.
+   * It has to survive a reload, because that is exactly when a person comes
+   * back to ask whether the sync worked.
+   */
+  const { rememberSync, lastSync } = await import('../src/lib/drive.js');
+  globalThis.localStorage.clear();
+  assert.equal(lastSync(), null, 'nothing claimed before anything happened');
+
+  rememberSync({ ok: true, text: 'Synced: picked up the bake in progress' });
+  const kept = lastSync();
+  assert.equal(kept.ok, true);
+  assert.match(kept.text, /picked up the bake in progress/);
+  assert.ok(kept.at > 0, 'and when it happened, so the card can say how long ago');
+
+  rememberSync({ ok: false, text: 'The sync did not finish.' });
+  assert.equal(lastSync().ok, false, 'a failure is kept just as plainly');
+
+  rememberSync(null);
+  assert.equal(lastSync(), null, 'and it clears while a sync is running');
+  globalThis.localStorage.clear();
+});
+
+test('the sync card never reports a stale result as current', async () => {
+  const { rememberSync, lastSync, disconnect } = await import('../src/lib/drive.js');
+  globalThis.localStorage.clear();
+  rememberSync({ ok: true, text: 'Synced' });
+  disconnect();
+  assert.equal(lastSync(), null, 'disconnecting forgets what the last sync did');
+  globalThis.localStorage.clear();
+});
+
 test('what sync writes to Drive is a valid export document', () => {
   /*
    * Sync uploads the merge of both sides, which is not the state in storage,

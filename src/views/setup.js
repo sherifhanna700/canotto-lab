@@ -1,24 +1,24 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=37fdeb15';
-import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=37fdeb15';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=37fdeb15';
-import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=37fdeb15';
-import { scheduleStages } from '../model/protocol.js?v=37fdeb15';
-import { convertYeast } from '../model/dough.js?v=37fdeb15';
-import { overallScore } from '../model/recipes.js?v=37fdeb15';
-import { SOURCES, FLOURS } from '../model/flours.js?v=37fdeb15';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=37fdeb15';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=37fdeb15';
-import { lineChart } from '../lib/charts.js?v=37fdeb15';
-import * as drive from '../lib/drive.js?v=37fdeb15';
-import { isOff, setCounting } from '../lib/count.js?v=37fdeb15';
-import { tempField, tempDeltaField, } from './common.js?v=37fdeb15';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=37fdeb15';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=23f40929';
+import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=23f40929';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=23f40929';
+import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=23f40929';
+import { scheduleStages } from '../model/protocol.js?v=23f40929';
+import { convertYeast } from '../model/dough.js?v=23f40929';
+import { overallScore } from '../model/recipes.js?v=23f40929';
+import { SOURCES, FLOURS } from '../model/flours.js?v=23f40929';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=23f40929';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=23f40929';
+import { lineChart } from '../lib/charts.js?v=23f40929';
+import * as drive from '../lib/drive.js?v=23f40929';
+import { isOff, setCounting } from '../lib/count.js?v=23f40929';
+import { tempField, tempDeltaField, } from './common.js?v=23f40929';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=23f40929';
 
 let driveAccount = null;
-let driveStatus = '';
+let syncing = false;
 drive.onAccount((a) => {
   driveAccount = a;
 });
@@ -236,31 +236,50 @@ function driveCard() {
     return card('Sync across devices', 'Optional. The app works fully without it.', ...body);
   }
 
+  const last = drive.lastSync();
   body.push(
     h(
       'div',
       { class: 'stats' },
       stat('Connected', driveAccount.email || driveAccount.name || 'your Google account', 'private app storage'),
-      stat('Last sync', driveStatus || 'not yet', 'newest edit wins, per record')
+      stat('Last sync', last ? whenAgo(last.at) : 'not yet', 'newest edit wins, per record')
     ),
     h(
       'div',
       { class: 'row tight' },
       h('button', {
         class: 'btn',
+        disabled: syncing || undefined,
         onClick: async () => {
+          syncing = true;
+          drive.rememberSync(null);
+          update(() => {});
           try {
             const res = await drive.sync(load(), { envelope: exportStateJSON });
             applySync(res.state);
-            driveStatus = `${res.pulled} in, ${res.pushed} out`;
-            toast(res.created ? 'Created canotto-lab.json in your Drive' : describeSync(res));
+            drive.rememberSync({ ok: true, text: res.created ? 'Created canotto-lab.json in your Google account.' : describeSync(res) });
           } catch (e) {
-            toast(e.message || 'Sync failed');
+            drive.rememberSync({ ok: false, text: e.message || 'The sync did not finish.' });
+          } finally {
+            syncing = false;
+            update(() => {});
           }
         },
-      }, icon('sync'), 'Sync now'),
+      }, icon('sync'), syncing ? 'Syncing\u2026' : 'Sync now'),
       h('button', { class: 'btn ghost', onClick: () => { drive.disconnect(); toast('Disconnected'); update(() => {}); } }, icon('link_off'), 'Disconnect')
     ),
+
+    /*
+     * The result of the last sync, where it can be read rather than caught. A
+     * toast is the wrong shape for this: it is the one thing someone might want
+     * to look at again a minute later, and it was disappearing while they read
+     * it.
+     */
+    syncing
+      ? h('p', { class: 'note neutral' }, 'Talking to Google\u2026')
+      : last
+        ? h('p', { class: `note ${last.ok ? 'good' : 'bad'}` }, `${last.text} ${whenAgo(last.at)}.`)
+        : h('p', { class: 'note neutral' }, 'Nothing synced from this browser yet. Press Sync now and the result will stay here.'),
     h('p', { class: 'note neutral' }, 'A sync never deletes anything. A recipe removed on one device comes back from the other, because losing work to a sync is worse than seeing something you meant to bin.'),
     h('p', { class: 'hint', style: { fontSize: '.75rem' } }, 'Google may show its own window the first time you sync in a new session. That is it handing over a fresh key, and it closes itself. The app never asks for one just because a page loaded.'),
     h(
@@ -323,6 +342,18 @@ function calibrationCard(ctx) {
     h('p', { class: 'hint', style: { fontSize: '.75rem' } }, 'Defaults are set so the curves pass through published figures: yeast at roughly a tenth of room rate at 4 \u00b0C, enzyme activity holding just under half. Change them only if your own bakes say otherwise.'),
     h('button', { class: 'btn ghost small', onClick: () => { update((st) => { st.settings.model = { ...DEFAULT_MODEL }; }); toast('Model reset'); } }, icon('restart_alt'), 'Reset to defaults')
   );
+}
+
+/** "just now", "6 minutes ago", "yesterday". Precise enough to be useful. */
+function whenAgo(at) {
+  const secs = Math.max(0, Math.round((Date.now() - at) / 1000));
+  if (secs < 45) return 'just now';
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.round(hours / 24);
+  return days === 1 ? 'yesterday' : `${days} days ago`;
 }
 
 /**

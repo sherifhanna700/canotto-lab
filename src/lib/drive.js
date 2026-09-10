@@ -289,10 +289,42 @@ export function disconnect() {
     localStorage.removeItem(CONNECTED_KEY);
     localStorage.removeItem(FILE_ID_KEY);
     localStorage.removeItem(ACCOUNT_KEY);
+    localStorage.removeItem(LAST_SYNC_KEY);
   } catch {
     // Nothing to clean up.
   }
   announce();
+}
+
+/* ------------------------------ last outcome ----------------------------- */
+
+/*
+ * What the last sync did, kept so it can be read rather than caught.
+ *
+ * This used to be a toast, which is the wrong shape for it: a line that
+ * disappears while you are still reading, in a strip too narrow for a sentence,
+ * telling you the one thing you might want to check again a minute later. It is
+ * a record, so it is kept like one, and it survives a reload because that is
+ * exactly when someone comes back to ask whether the sync actually worked.
+ */
+const LAST_SYNC_KEY = 'canotto-lab/drive-last-sync';
+
+export function lastSync() {
+  try {
+    const raw = localStorage.getItem(LAST_SYNC_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberSync(record) {
+  try {
+    if (record) localStorage.setItem(LAST_SYNC_KEY, JSON.stringify({ ...record, at: Date.now() }));
+    else localStorage.removeItem(LAST_SYNC_KEY);
+  } catch {
+    // The sync still happened. Only the note about it is lost.
+  }
 }
 
 /* ------------------------------- the file -------------------------------- */
