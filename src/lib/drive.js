@@ -531,6 +531,15 @@ export async function sync(state, { envelope }) {
     // The other device also had a bake going, and it is not the one kept.
     sessionDisplaced: session.displaced,
     /*
+     * Whether the session that won actually contains a bake, and whether the
+     * stored copy held one at all. Without these the app said it had "sent
+     * this device's bake in progress" while that device showed nothing ticked,
+     * which is worse than saying nothing: it describes work that does not
+     * exist and hides the fact that the file had none either.
+     */
+    sessionHasProgress: hasProgress(session.current),
+    remoteHadSession: hasProgress(remote.current),
+    /*
      * Whether the bake in progress actually moved, as opposed to both sides
      * already holding the same one.
      *

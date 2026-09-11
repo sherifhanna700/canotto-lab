@@ -4,11 +4,11 @@
 // app touches storage directly, so swapping in a cloud backend later means
 // reimplementing `load` and `save`, not rewriting the views.
 
-import { DEFAULT_RECIPE } from '../model/dough.js?v=ac46926e';
-import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=ac46926e';
-import { DEFAULT_MODEL } from '../model/ferment.js?v=ac46926e';
-import { starterRecipes, houseRecipe } from '../model/recipes.js?v=ac46926e';
-import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=ac46926e';
+import { DEFAULT_RECIPE } from '../model/dough.js?v=a25ffc47';
+import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=a25ffc47';
+import { DEFAULT_MODEL } from '../model/ferment.js?v=a25ffc47';
+import { starterRecipes, houseRecipe } from '../model/recipes.js?v=a25ffc47';
+import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=a25ffc47';
 
 const KEY = 'canotto-lab/v1';
 const LEGACY = { steps: 'canotto_master_steps', frozen: 'canotto_frozen_count', metrics: 'canotto_step_metrics' };

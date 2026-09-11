@@ -1,21 +1,21 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=ac46926e';
-import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=ac46926e';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=ac46926e';
-import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=ac46926e';
-import { scheduleStages } from '../model/protocol.js?v=ac46926e';
-import { convertYeast } from '../model/dough.js?v=ac46926e';
-import { overallScore } from '../model/recipes.js?v=ac46926e';
-import { SOURCES, FLOURS } from '../model/flours.js?v=ac46926e';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=ac46926e';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=ac46926e';
-import { lineChart } from '../lib/charts.js?v=ac46926e';
-import * as drive from '../lib/drive.js?v=ac46926e';
-import { isOff, setCounting } from '../lib/count.js?v=ac46926e';
-import { tempField, tempDeltaField, } from './common.js?v=ac46926e';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=ac46926e';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=a25ffc47';
+import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=a25ffc47';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=a25ffc47';
+import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=a25ffc47';
+import { scheduleStages } from '../model/protocol.js?v=a25ffc47';
+import { convertYeast } from '../model/dough.js?v=a25ffc47';
+import { overallScore } from '../model/recipes.js?v=a25ffc47';
+import { SOURCES, FLOURS } from '../model/flours.js?v=a25ffc47';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=a25ffc47';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=a25ffc47';
+import { lineChart } from '../lib/charts.js?v=a25ffc47';
+import * as drive from '../lib/drive.js?v=a25ffc47';
+import { isOff, setCounting } from '../lib/count.js?v=a25ffc47';
+import { tempField, tempDeltaField, } from './common.js?v=a25ffc47';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=a25ffc47';
 
 let driveAccount = null;
 let syncing = false;
@@ -372,12 +372,22 @@ export function describeSync(res) {
   const parts = [];
   if (res.pulled) parts.push(`${res.pulled} in`);
   if (res.pushed) parts.push(`${res.pushed} out`);
-  if (res.sessionMoved) {
+  /*
+   * Only claim a bake moved if one did. Saying "sent this device's bake in
+   * progress" while the protocol showed nothing ticked described work that did
+   * not exist, and hid the useful fact underneath: the stored copy had no bake
+   * either, because whatever wrote it could not carry one.
+   */
+  if (res.sessionMoved && res.sessionHasProgress) {
     parts.push(res.sessionFrom === 'remote'
       ? 'picked up the bake in progress'
       : 'sent this device\u2019s bake in progress');
   }
-  const summary = parts.length ? `Synced: ${parts.join(', ')}` : 'Already up to date';
+  let summary = parts.length ? `Synced: ${parts.join(', ')}` : 'Already up to date';
+
+  if (!res.sessionHasProgress && !res.remoteHadSession) {
+    summary += '. Neither this device nor the stored copy has a bake in progress. If one should be there, open the device that has it, pull down to reload the page, and sync from there.';
+  }
 
   /*
    * Two devices each holding a bake is the one case worth interrupting for.

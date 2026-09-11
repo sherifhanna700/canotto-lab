@@ -1024,29 +1024,43 @@ test('writing down a sync does not make it look like fresh work', () => {
 test('a sync that moved a session says so, in either direction', async () => {
   /*
    * "0 in, 0 out" after ticking half a protocol reads as nothing having
-   * happened, because the count only ever covered recipes and bakes. The
-   * comparison has to be against whichever side lost: a push changes the file,
-   * a pull changes this device, and comparing against the file both ways
-   * reported a pull as silence.
+   * happened, because the count only ever covered recipes and bakes.
    */
   const { describeSync } = await import('../src/views/setup.js');
-  const stub = (remote, current) => {
-    const winner = laterSession(current, remote);
-    return {
-      pulled: 0,
-      pushed: 0,
-      sessionFrom: winner.from,
-      sessionMoved: JSON.stringify(winner.current || null)
-        !== JSON.stringify((winner.from === 'remote' ? current : remote) || null),
-    };
-  };
+  const real = { sessionMoved: true, sessionHasProgress: true, remoteHadSession: true, pulled: 0, pushed: 0 };
+  assert.equal(describeSync({ ...real, sessionFrom: 'local' }), 'Synced: sent this device\u2019s bake in progress');
+  assert.equal(describeSync({ ...real, sessionFrom: 'remote' }), 'Synced: picked up the bake in progress');
+  assert.equal(
+    describeSync({ ...real, sessionFrom: 'remote', pulled: 2, pushed: 1 }),
+    'Synced: 2 in, 1 out, picked up the bake in progress'
+  );
+});
 
-  const mine = { title: 'mid bake', updatedAt: '2026-09-09T12:00:00Z' };
-  const theirs = { title: 'theirs', updatedAt: '2026-09-09T13:00:00Z' };
+test('the app never claims to have moved a bake that does not exist', async () => {
+  /*
+   * The reported failure, and the worst kind: the screen said it had sent this
+   * device's bake in progress while the protocol tab showed nothing ticked. It
+   * was describing work that did not exist, and hiding the fact that mattered,
+   * which is that the stored copy had no bake either because whatever wrote it
+   * could not carry one.
+   */
+  const { describeSync } = await import('../src/views/setup.js');
+  const empty = describeSync({
+    pulled: 0, pushed: 0, sessionMoved: true, sessionFrom: 'local',
+    sessionHasProgress: false, remoteHadSession: false,
+  });
+  assert.ok(!/bake in progress/.test(empty.split('. ')[0]), 'no bake is claimed to have moved');
+  assert.match(empty, /Neither this device nor the stored copy has a bake/, 'and the real state is stated');
+  assert.match(empty, /reload the page/, 'with what to do about it');
+});
 
-  assert.equal(describeSync(stub(undefined, mine)), 'Synced: sent this device\u2019s bake in progress');
-  assert.equal(describeSync(stub(theirs, mine)), 'Synced: picked up the bake in progress');
-  assert.equal(describeSync(stub(mine, mine)), 'Already up to date', 'both sides holding the same one is the only quiet case');
+test('nothing is said about reloading when a bake really is there', async () => {
+  const { describeSync } = await import('../src/views/setup.js');
+  const fine = describeSync({
+    pulled: 0, pushed: 0, sessionMoved: true, sessionFrom: 'remote',
+    sessionHasProgress: true, remoteHadSession: true,
+  });
+  assert.ok(!/reload the page/.test(fine), 'no advice offered when nothing is wrong');
 });
 
 test('the sync result is kept, not flashed', async () => {
@@ -1085,12 +1099,18 @@ test('the sync card never reports a stale result as current', async () => {
 
 test('setting a bake aside is said plainly, not buried', async () => {
   const { describeSync } = await import('../src/views/setup.js');
-  const both = describeSync({ pulled: 0, pushed: 0, sessionMoved: true, sessionFrom: 'remote', sessionDisplaced: true });
+  const both = describeSync({
+    pulled: 0, pushed: 0, sessionMoved: true, sessionFrom: 'remote',
+    sessionDisplaced: true, sessionHasProgress: true, remoteHadSession: true,
+  });
   assert.match(both, /Both devices had a bake going/, 'the conflict is named');
   assert.match(both, /set aside/, 'and what happened to the other one');
   assert.match(both, /Download the JSON/, 'and what to do about it');
 
-  const clean = describeSync({ pulled: 0, pushed: 0, sessionMoved: true, sessionFrom: 'remote', sessionDisplaced: false });
+  const clean = describeSync({
+    pulled: 0, pushed: 0, sessionMoved: true, sessionFrom: 'remote',
+    sessionDisplaced: false, sessionHasProgress: true, remoteHadSession: true,
+  });
   assert.ok(!/set aside/.test(clean), 'and nothing alarming is said when nothing was lost');
 });
 

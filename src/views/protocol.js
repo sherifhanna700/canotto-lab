@@ -1,16 +1,16 @@
 // Protocol: the schedule solved backwards from your launch time, and the
 // 19 steps with the measurements you take as you go.
 
-import { h, card, numberField, selectField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=ac46926e';
-import { update, editCurrent, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=ac46926e';
-import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=ac46926e';
-import { fermentUnits, maturationUnits } from '../model/ferment.js?v=ac46926e';
-import { convertYeast } from '../model/dough.js?v=ac46926e';
-import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=ac46926e';
-import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=ac46926e';
-import { tempField, } from './common.js?v=ac46926e';
-import { MATURATION_TARGET, MATURATION_WINDOW } from '../model/advisor.js?v=ac46926e';
-import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, trimmablePhases, trimStage, trimForMaturation } from '../model/timeline.js?v=ac46926e';
+import { h, card, numberField, selectField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=a25ffc47';
+import { update, editCurrent, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=a25ffc47';
+import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=a25ffc47';
+import { fermentUnits, maturationUnits } from '../model/ferment.js?v=a25ffc47';
+import { convertYeast } from '../model/dough.js?v=a25ffc47';
+import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=a25ffc47';
+import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=a25ffc47';
+import { tempField, } from './common.js?v=a25ffc47';
+import { MATURATION_TARGET, MATURATION_WINDOW } from '../model/advisor.js?v=a25ffc47';
+import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, trimmablePhases, trimStage, trimForMaturation } from '../model/timeline.js?v=a25ffc47';
 
 const METRIC_DEFS = {
   ambientTempC: { label: 'Ambient temperature', kind: 'temp', hint: 'Where the dough is sitting right now' },
