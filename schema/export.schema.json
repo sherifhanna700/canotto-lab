@@ -79,7 +79,7 @@
         "current": {
           "type": "object",
           "title": "The bake in progress",
-          "description": "The session as it stands: which recipe is loaded, the schedule being followed, which protocol steps are ticked and when each was really done, plus any measurements and scores recorded so far. This is one working session rather than a collection, so it cannot be merged item by item. Two devices holding different sessions resolve by updatedAt, and the later one wins whole. A session that has never been edited carries no updatedAt, which is what stops a freshly opened device from replacing a bake in progress with an empty one.",
+          "description": "The session as it stands: which recipe is loaded, the schedule being followed, which protocol steps are ticked and when each was really done, plus any measurements and scores recorded so far. This is one working session rather than a collection, so it cannot be merged item by item: half of one schedule joined to half of another is a bake nobody ran. One side wins whole. A session with work in it beats one without, where work means any ticked step, recorded time, measurement, score or note; only when both have work, or neither does, does it come down to the later updatedAt. Ranking by time alone is not enough, because a device that was merely opened and poked at carries a later stamp while carrying no bake. A session nobody has touched has no updatedAt and loses to anything.",
           "properties": {
             "recipeId": {
               "type": [

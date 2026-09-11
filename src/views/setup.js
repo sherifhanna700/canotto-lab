@@ -1,21 +1,21 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=626e5458';
-import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=626e5458';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=626e5458';
-import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=626e5458';
-import { scheduleStages } from '../model/protocol.js?v=626e5458';
-import { convertYeast } from '../model/dough.js?v=626e5458';
-import { overallScore } from '../model/recipes.js?v=626e5458';
-import { SOURCES, FLOURS } from '../model/flours.js?v=626e5458';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=626e5458';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=626e5458';
-import { lineChart } from '../lib/charts.js?v=626e5458';
-import * as drive from '../lib/drive.js?v=626e5458';
-import { isOff, setCounting } from '../lib/count.js?v=626e5458';
-import { tempField, tempDeltaField, } from './common.js?v=626e5458';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=626e5458';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=ac46926e';
+import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=ac46926e';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=ac46926e';
+import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=ac46926e';
+import { scheduleStages } from '../model/protocol.js?v=ac46926e';
+import { convertYeast } from '../model/dough.js?v=ac46926e';
+import { overallScore } from '../model/recipes.js?v=ac46926e';
+import { SOURCES, FLOURS } from '../model/flours.js?v=ac46926e';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=ac46926e';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=ac46926e';
+import { lineChart } from '../lib/charts.js?v=ac46926e';
+import * as drive from '../lib/drive.js?v=ac46926e';
+import { isOff, setCounting } from '../lib/count.js?v=ac46926e';
+import { tempField, tempDeltaField, } from './common.js?v=ac46926e';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=ac46926e';
 
 let driveAccount = null;
 let syncing = false;
@@ -257,7 +257,11 @@ function driveCard() {
           try {
             const res = await drive.sync(load(), { envelope: exportStateJSON });
             applySync(res.state);
-            drive.rememberSync({ ok: true, text: res.created ? 'Created canotto-lab.json in your Google account.' : describeSync(res) });
+            drive.rememberSync({
+              ok: !res.sessionDisplaced,
+              conflict: Boolean(res.sessionDisplaced),
+              text: res.created ? 'Created canotto-lab.json in your Google account.' : describeSync(res),
+            });
           } catch (e) {
             drive.rememberSync({ ok: false, text: e.message || 'The sync did not finish.' });
           } finally {
@@ -278,7 +282,7 @@ function driveCard() {
     syncing
       ? h('p', { class: 'note neutral' }, 'Talking to Google\u2026')
       : last
-        ? h('p', { class: `note ${last.ok ? 'good' : 'bad'}` }, `${last.text} ${whenAgo(last.at)}.`)
+        ? h('p', { class: `note ${last.ok ? 'good' : (last.conflict ? 'warn' : 'bad')}` }, `${last.text} ${whenAgo(last.at)}.`)
         : h('p', { class: 'note neutral' }, 'Nothing synced from this browser yet. Press Sync now and the result will stay here.'),
     h('p', { class: 'note neutral' }, 'A sync never deletes anything. A recipe removed on one device comes back from the other, because losing work to a sync is worse than seeing something you meant to bin.'),
     h('p', { class: 'hint', style: { fontSize: '.75rem' } }, 'Google may show its own window the first time you sync in a new session. That is it handing over a fresh key, and it closes itself. The app never asks for one just because a page loaded.'),
@@ -373,8 +377,17 @@ export function describeSync(res) {
       ? 'picked up the bake in progress'
       : 'sent this device\u2019s bake in progress');
   }
-  if (!parts.length) return 'Already up to date';
-  return `Synced: ${parts.join(', ')}`;
+  const summary = parts.length ? `Synced: ${parts.join(', ')}` : 'Already up to date';
+
+  /*
+   * Two devices each holding a bake is the one case worth interrupting for.
+   * They cannot be merged, so one is set aside, and that is somebody's evening.
+   * Saying which and where the other went is the least this can do.
+   */
+  if (res.sessionDisplaced) {
+    return `${summary}. Both devices had a bake going, so the ${res.sessionFrom === 'remote' ? 'other one' : 'one on this device'} was kept and the other set aside. Download the JSON above before syncing again if you want the one that lost.`;
+  }
+  return summary;
 }
 
 /* -------------------------------- counting ------------------------------- */

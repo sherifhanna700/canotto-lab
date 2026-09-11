@@ -459,23 +459,55 @@ export function mergeCollections(local, remote) {
  * Pull, merge, push. Returns the merged state so the caller can persist it,
  * along with what moved in each direction.
  */
+/** Has anything actually been done in this session, or is it just open? */
+export function hasProgress(current) {
+  if (!current) return false;
+  if (Array.isArray(current.done) && current.done.length) return true;
+  if (current.doneAt && Object.keys(current.doneAt).length) return true;
+  const recorded = (obj) => obj && Object.values(obj).some((v) => v !== null && v !== undefined && v !== '');
+  return recorded(current.actuals) || recorded(current.scores) || Boolean(current.notes);
+}
+
 /**
  * Which half-finished bake is the real one.
  *
  * A session is not a collection and cannot be merged item by item: a dough is
  * either the one on this device or the one on the other, and mixing the two
- * would produce a schedule nobody ran. So the later of the two wins, by the
- * moment it was last touched.
+ * would produce a schedule nobody ran. So one of them wins whole.
  *
- * A session that has never been touched carries no stamp, which is what stops
- * a device that has only just opened the app from wiping a bake in progress
- * with its own blank one.
+ * Which one is not simply the later. That was the first rule here and it was
+ * wrong in the case that matters: open the app on a second device, change a
+ * temperature, look around, and that device now holds the more recent session
+ * while holding no bake at all. Syncing then threw away a real bake in
+ * progress in favour of an idle screen, which is the one outcome worth
+ * preventing.
+ *
+ * So a session with work in it beats one without, and only when both have work,
+ * or neither does, does it come down to which was touched last. A session
+ * nobody has touched has no stamp and loses to anything.
+ *
+ * When both sides have work and they differ, one of them is being set aside.
+ * That is reported rather than done quietly, because it is somebody's evening.
  */
 export function laterSession(mine, theirs) {
   const at = (c) => Date.parse(c?.updatedAt || 0) || 0;
-  if (!theirs) return { current: mine, from: 'local' };
-  if (!mine) return { current: theirs, from: 'remote' };
-  return at(theirs) > at(mine) ? { current: theirs, from: 'remote' } : { current: mine, from: 'local' };
+  const pick = (current, from) => ({
+    current,
+    from,
+    // True when the side not chosen also had a bake going.
+    displaced: hasProgress(from === 'remote' ? mine : theirs)
+      && JSON.stringify(mine || null) !== JSON.stringify(theirs || null),
+  });
+
+  if (!theirs) return pick(mine, 'local');
+  if (!mine) return pick(theirs, 'remote');
+
+  const mineWorking = hasProgress(mine);
+  const theirsWorking = hasProgress(theirs);
+  if (mineWorking !== theirsWorking) {
+    return mineWorking ? pick(mine, 'local') : pick(theirs, 'remote');
+  }
+  return at(theirs) > at(mine) ? pick(theirs, 'remote') : pick(mine, 'local');
 }
 
 export async function sync(state, { envelope }) {
@@ -496,6 +528,8 @@ export async function sync(state, { envelope }) {
     pulled: recipes.pulled + bakes.pulled,
     pushed: recipes.pushed + bakes.pushed,
     sessionFrom: session.from,
+    // The other device also had a bake going, and it is not the one kept.
+    sessionDisplaced: session.displaced,
     /*
      * Whether the bake in progress actually moved, as opposed to both sides
      * already holding the same one.

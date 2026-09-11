@@ -116,10 +116,19 @@ recipe is loaded, the schedule being followed, which protocol steps are ticked
 and when each was really done.
 
 Unlike recipes and bakes this is not a collection and cannot be merged item by
-item, because half of one schedule and half of another is a bake nobody ran. Two
-devices resolve it by `updatedAt` and the later one wins whole. A session nobody
-has edited carries no `updatedAt` at all, which is what stops a freshly opened
-device from replacing a bake in progress with an empty one.
+item, because half of one schedule and half of another is a bake nobody ran. One
+side wins whole.
+
+Which side is not simply the later one. A session with work in it beats one
+without, where work means any ticked step, recorded time, measurement, score or
+note. Only when both have work, or neither does, does it come down to the later
+`updatedAt`. Ranking by time alone looks right and is wrong in the case that
+matters: a device that was merely opened and poked at carries a later stamp
+while carrying no bake, and would otherwise discard a real one.
+
+A session nobody has edited carries no `updatedAt` at all and loses to anything.
+When both sides have work and they differ, one is being set aside, and an
+implementation should say so rather than do it quietly.
 
 ## Reading a bake without the app
 

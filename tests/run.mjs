@@ -917,25 +917,57 @@ test('the bake in progress travels with everything else', () => {
   check(doc, 'export.schema.json');
 });
 
-test('the session that was touched later is the one that survives', () => {
-  const older = { title: 'older', updatedAt: '2026-09-09T09:00:00Z' };
-  const newer = { title: 'newer', updatedAt: '2026-09-09T11:00:00Z' };
-  assert.equal(laterSession(older, newer).current.title, 'newer', 'the other device had it more recently');
-  assert.equal(laterSession(older, newer).from, 'remote');
-  assert.equal(laterSession(newer, older).current.title, 'newer', 'and this one wins when it is this one');
-  assert.equal(laterSession(newer, older).from, 'local');
+test('a bake in progress beats a device that was merely opened later', () => {
+  /*
+   * The reported failure, and a design error rather than a slip. "Last touched
+   * wins" treats opening the app on a second device and changing a temperature
+   * as equal to having four steps ticked on the first. Syncing then discarded a
+   * real bake in favour of an idle screen, which is the one outcome worth
+   * preventing.
+   */
+  const bake = { done: ['p1-3', 'p1-4', 'p2-1', 'p4-1'], updatedAt: '2026-09-10T20:00:00Z' };
+  const idle = { done: [], updatedAt: '2026-09-10T21:30:00Z' };
+
+  assert.equal(laterSession(idle, bake).current.done.length, 4, 'the bake survives from the other device');
+  assert.equal(laterSession(bake, idle).current.done.length, 4, 'and from this one');
+  assert.equal(laterSession(idle, bake).from, 'remote');
 });
 
-test('a device that has just opened the app cannot wipe a bake in progress', () => {
+test('work counts as work however it was recorded', () => {
+  const idle = { done: [], updatedAt: '2026-09-10T23:00:00Z' };
+  const byTicks = { done: ['p1-3'], updatedAt: '2026-09-10T08:00:00Z' };
+  const byTimes = { done: [], doneAt: { 'p1-3': 1 }, updatedAt: '2026-09-10T08:00:00Z' };
+  const byMeasurement = { done: [], actuals: { fdtC: 23.9 }, updatedAt: '2026-09-10T08:00:00Z' };
+  const byScore = { done: [], scores: { canotto: 4 }, updatedAt: '2026-09-10T08:00:00Z' };
+  const byNote = { done: [], notes: 'slack at the end', updatedAt: '2026-09-10T08:00:00Z' };
+
+  for (const [name, real] of [['ticks', byTicks], ['times', byTimes], ['a measurement', byMeasurement], ['a score', byScore], ['a note', byNote]]) {
+    assert.equal(laterSession(idle, real).from, 'remote', `${name} should count as a bake worth keeping`);
+  }
+});
+
+test('when both devices have a bake, the later one wins and says so', () => {
   /*
-   * The dangerous case. A fresh install has a session too, and if it counted
-   * as current it would replace a half-finished bake with an empty one on the
-   * first sync. An untouched session carries no stamp, so it always loses.
+   * Two real sessions cannot be merged, so one is set aside. That is somebody's
+   * evening, so it is reported rather than done quietly.
    */
-  const fresh = { title: 'Contemporary Canotto (house)', done: [] };
-  const inProgress = { title: 'mid bake', done: ['p1-3'], updatedAt: '2026-09-09T11:00:00Z' };
-  assert.equal(laterSession(fresh, inProgress).current.title, 'mid bake', 'the real bake wins');
-  assert.equal(laterSession(inProgress, fresh).current.title, 'mid bake', 'from either side');
+  const older = { done: ['p1-3'], updatedAt: '2026-09-10T09:00:00Z' };
+  const newer = { done: ['p1-3', 'p1-4'], updatedAt: '2026-09-10T11:00:00Z' };
+
+  const pulled = laterSession(older, newer);
+  assert.equal(pulled.from, 'remote', 'the later bake wins');
+  assert.equal(pulled.displaced, true, 'and the app knows one was set aside');
+
+  const kept = laterSession(newer, older);
+  assert.equal(kept.from, 'local');
+  assert.equal(kept.displaced, true, 'reported from either side');
+});
+
+test('nothing is reported as displaced when nothing was', () => {
+  const bake = { done: ['p1-3'], updatedAt: '2026-09-10T09:00:00Z' };
+  const idle = { done: [], updatedAt: '2026-09-10T11:00:00Z' };
+  assert.equal(laterSession(idle, bake).displaced, false, 'an idle screen is not a loss');
+  assert.equal(laterSession(bake, bake).displaced, false, 'and the same bake on both sides is not a conflict');
 });
 
 test('a session is taken whole, never stitched together', () => {
@@ -1049,6 +1081,17 @@ test('the sync card never reports a stale result as current', async () => {
   disconnect();
   assert.equal(lastSync(), null, 'disconnecting forgets what the last sync did');
   globalThis.localStorage.clear();
+});
+
+test('setting a bake aside is said plainly, not buried', async () => {
+  const { describeSync } = await import('../src/views/setup.js');
+  const both = describeSync({ pulled: 0, pushed: 0, sessionMoved: true, sessionFrom: 'remote', sessionDisplaced: true });
+  assert.match(both, /Both devices had a bake going/, 'the conflict is named');
+  assert.match(both, /set aside/, 'and what happened to the other one');
+  assert.match(both, /Download the JSON/, 'and what to do about it');
+
+  const clean = describeSync({ pulled: 0, pushed: 0, sessionMoved: true, sessionFrom: 'remote', sessionDisplaced: false });
+  assert.ok(!/set aside/.test(clean), 'and nothing alarming is said when nothing was lost');
 });
 
 test('what sync writes to Drive is a valid export document', () => {

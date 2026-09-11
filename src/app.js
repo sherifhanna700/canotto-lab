@@ -1,18 +1,18 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe, isDirty, saveCurrent, discardCurrent } from './lib/store.js?v=626e5458';
-import { readRecipeLink } from './lib/share.js?v=626e5458';
-import { countToday } from './lib/count.js?v=626e5458';
-import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=626e5458';
-import { h, $, icon, clear, toast } from './lib/ui.js?v=626e5458';
-import { computeRecipe } from './model/dough.js?v=626e5458';
-import { solveSchedule, activeSteps } from './model/protocol.js?v=626e5458';
+import { load, subscribe, update, addRecipe, isDirty, saveCurrent, discardCurrent } from './lib/store.js?v=ac46926e';
+import { readRecipeLink } from './lib/share.js?v=ac46926e';
+import { countToday } from './lib/count.js?v=ac46926e';
+import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=ac46926e';
+import { h, $, icon, clear, toast } from './lib/ui.js?v=ac46926e';
+import { computeRecipe } from './model/dough.js?v=ac46926e';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=ac46926e';
 
-import renderRecipe from './views/recipe.js?v=626e5458';
-import renderProtocol from './views/protocol.js?v=626e5458';
-import renderBake from './views/bake.js?v=626e5458';
-import renderLog from './views/log.js?v=626e5458';
-import renderSetup from './views/setup.js?v=626e5458';
+import renderRecipe from './views/recipe.js?v=ac46926e';
+import renderProtocol from './views/protocol.js?v=ac46926e';
+import renderBake from './views/bake.js?v=ac46926e';
+import renderLog from './views/log.js?v=ac46926e';
+import renderSetup from './views/setup.js?v=ac46926e';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
