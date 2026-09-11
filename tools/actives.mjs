@@ -9,10 +9,14 @@
 //
 //     node tools/actives.mjs
 //
-// Old rows are worth clearing occasionally, since a device seen once in 2026
-// is not a user any more:
+// Reading the figures also prunes. MAU is the longest window anyone asks for,
+// so a device last seen more than 35 days ago is of no further use and is
+// deleted. Keeping it would mean holding a record for longer than any question
+// it could answer, which is the definition of keeping it for nothing.
 //
-//     node tools/actives.mjs --prune 400
+//     node tools/actives.mjs                 read and prune to 35 days
+//     node tools/actives.mjs --keep 90       read and prune to 90 days instead
+//     node tools/actives.mjs --no-prune      read only
 //
 // The counts can also just be read off the Firestore console, which is the
 // no-tooling way: one document per device, one date in each.
@@ -21,7 +25,13 @@ import { execFileSync } from 'node:child_process';
 
 const PROJECT = 'canotto-lab';
 const args = process.argv.slice(2);
-const pruneAfter = args.includes('--prune') ? Number(args[args.indexOf('--prune') + 1] || 400) : null;
+/*
+ * Thirty-five days by default: thirty for MAU, and a few spare so a month
+ * counted at the edge is not a month missing its first day.
+ */
+const pruneAfter = args.includes('--no-prune')
+  ? null
+  : Number(args.includes('--keep') ? args[args.indexOf('--keep') + 1] : 35);
 
 /**
  * Borrow a token from the signed-in gcloud, so this script holds no credential
@@ -82,5 +92,7 @@ if (pruneAfter) {
       headers: { Authorization: `Bearer ${auth}` },
     });
   }
-  console.log(`  pruned ${stale.length} device${stale.length === 1 ? '' : 's'} last seen before ${cutoff}\n`);
+  console.log(stale.length
+    ? `  pruned ${stale.length} device${stale.length === 1 ? '' : 's'} last seen before ${cutoff}\n`
+    : `  nothing older than ${cutoff} to clear\n`);
 }

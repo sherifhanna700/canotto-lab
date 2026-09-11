@@ -1229,6 +1229,30 @@ test('a returning baker is not asked which account they are', () => {
   assert.match(getToken, /requestAccessToken\(\{[^}]*hint/s, 'and passed to Google with the request');
 });
 
+test('the privacy page does not deny the storage the app actually writes to', () => {
+  /*
+   * The page said we had no server, twice, a few paragraphs from explaining
+   * that the daily count is stored in Firestore. Both cannot be true. "We run
+   * nothing" is the tempting sentence and it is the one to guard against,
+   * because it reads well and is false the moment anything is written down.
+   */
+  const count = readFileSync(new URL('../src/lib/count.js', import.meta.url), 'utf8');
+  const writesSomewhere = /firestore\.googleapis\.com/.test(count);
+  const page = readFileSync(new URL('../privacy.html', import.meta.url), 'utf8');
+
+  if (writesSomewhere) {
+    assert.ok(/Firestore/i.test(page), 'the page must name the store the app writes to');
+    assert.ok(/firestore\.rules/.test(page), 'and point at the rules that bound it');
+    for (const denial of [/no server of ours/i, /we do not have one/i, /because there isn.t one/i, /we have no server/i]) {
+      assert.ok(!denial.test(page), `the page still denies running anything: ${denial}`);
+    }
+  }
+
+  // The app's own Setup card makes the same claim to the same person.
+  const setup = readFileSync(new URL('../src/views/setup.js', import.meta.url), 'utf8');
+  assert.ok(!/no server of ours/i.test(setup), 'and so must the screen that says it in the app');
+});
+
 test('the app asks Google for the hidden folder and nothing wider', () => {
   const drive = readFileSync(new URL('../src/lib/drive.js', import.meta.url), 'utf8');
   assert.match(drive, /auth\/drive\.appdata/, 'the narrow scope');

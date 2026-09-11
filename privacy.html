@@ -38,11 +38,11 @@
   <p class="lede">Canotto Lab, last updated 9 September 2026.</p>
 
   <div class="box">
-    <p style="margin:0">The short version: your recipes and bakes never leave your device unless you choose to sync them, and when you do they go to your own Google account, not to us. We count how many devices use the app each day, and nothing else. We do not sell anything, and there is nothing to sell.</p>
+    <p style="margin:0">The short version: your recipes and bakes never leave your device unless you choose to sync them, and when you do they go to your own Google account, not to us. We keep one database of our own and it holds one thing, a count of how many devices used the app on a given day. We do not sell anything, and there is nothing to sell.</p>
   </div>
 
   <h2>What stays on your device</h2>
-  <p>Everything you make is stored in your browser and goes nowhere else: recipes, bake logs, schedules, scores, notes, equipment, and settings. There is no account to create and no server of ours that holds any of it. Clearing your browser data deletes it, which is why the app offers a JSON download.</p>
+  <p>Everything you make is stored in your browser and goes nowhere else: recipes, bake logs, schedules, scores, notes, equipment, and settings. There is no account to create, and none of it is ever sent to us. We do keep one database, described below, and nothing in this paragraph can reach it. Clearing your browser data deletes all of this, which is why the app offers a JSON download.</p>
   <p>These are the only things written to your browser's storage:</p>
   <table>
     <tr><th>Key</th><th>What it holds</th></tr>
@@ -65,10 +65,19 @@
   <pre>{ "day": "2026-09-09" }</pre>
   <p>A date, not a time, because when you bake is not our business. No page views, no clicks, no recipes, no counts of what you made, no screen size, no name, no email. The rules on our side reject anything that carries more than that one field, so this cannot quietly grow into analytics without a deliberate change in two separate places.</p>
   <p>We cannot tell who you are from it, we cannot tell what you baked, and we cannot connect it to a Google account if you have connected one. It can be switched off in Setup, and off means the request is not made at all rather than made with a flag on it.</p>
+  <p>It is not kept for long either. The longest window anyone asks about is a month, so a device last seen more than thirty-five days ago can answer no question we would ask, and its row is deleted when the figures are read. Holding it longer would mean keeping a record for no reason, which is the only reason worth refusing.</p>
+  <p>There are easier ways to get these numbers and they all collect more. Google Analytics for Firebase would report them without any of this, and would also record device model, operating system, the city it thinks you are in, session lengths and which screens you looked at, under an identifier of its own that follows you. Counting from web server logs would mean counting IP addresses, which identify people rather better than a random number does. This is the smallest thing that answers the question, which is why it is what the app does.</p>
+
+  <h2>What we run, and what is in it</h2>
+  <p>It would read more neatly to claim that nothing of ours runs anywhere. That would be untrue, so here is what there is.</p>
+  <p>The site itself is static files, served by Firebase Hosting. There is no code of ours running on a machine anywhere, no API to call, nothing that could take a recipe if it wanted to.</p>
+  <p>But the count described above has to be written somewhere, and that somewhere is a Cloud Firestore database in a Google Cloud project we own. It has exactly one collection in it, called <code>activity</code>. Each document is one anonymous device. Each document has one field, a date.</p>
+  <p>That limit is enforced rather than promised. The security rules on that collection reject any write carrying a field other than <code>day</code>, reject a value that is not shaped like a date, reject every other path in the database, and refuse to let the app read any of it back. So the app could not send us your recipes even if a future version tried: the write would simply fail until someone deliberately changed the rules as well, and those rules are in the repository where that change would be visible.</p>
+  <p>They are in <code>firestore.rules</code>, and they are short enough to read in a minute.</p>
 
   <h2>If you connect a Google account</h2>
   <p>Sync is optional and off unless you turn it on. If you do, the app asks Google for one narrow permission, <code>drive.appdata</code>: a hidden folder that only this app can see. It cannot see, list or touch any other file in your Drive, and Google's own consent screen says so.</p>
-  <p>Your library, and the bake you have in progress, then go from your browser to your Google account. It does not pass through any server of ours, because we do not have one. We cannot read it. You can delete it from the Setup screen, or revoke the app entirely in your Google account settings.</p>
+  <p>Your library, and the bake you have in progress, then go straight from your browser to your Google account. Nothing we run sits in between, and none of it touches the one database we keep. We cannot read it. You can delete it from the Setup screen, or revoke the app entirely in your Google account settings.</p>
   <p>The app also reads your email address, for one reason: to show you which account is connected, on your own screen, so you are not left guessing when you use two. It is kept in this browser so the app can still tell you after a reload, it is never sent to us, and disconnecting deletes it.</p>
   <p>Signing in is something you start. The app never asks Google for anything because a page loaded; it asks when you press sync, and Google may briefly show its own window then to hand over a fresh key. That key is kept for as long as the tab is open and is discarded when you close it. It is never sent to us, and there is no long-lived credential behind it: Google does not issue one to a page like this, which is why an hour is the most any of it lasts.</p>
 
@@ -78,7 +87,7 @@
     <li>No third-party analytics. No Google Analytics, no Firebase Analytics, no tag manager, no pixels.</li>
     <li>No selling, renting or sharing of anything, to anyone, for any purpose.</li>
     <li>No profiles, no behavioural records, no mailing list. We have no way to contact you and no wish to.</li>
-    <li>No server of ours ever receives a recipe, a bake, a score or a note.</li>
+    <li>Nothing you make is ever sent to us. Not a recipe, a bake, a score or a note. The one database we keep cannot hold any of it, and the rules on it are what stop us, not a promise.</li>
   </ul>
 
   <h2>Requests that reach Google</h2>

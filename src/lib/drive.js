@@ -4,10 +4,10 @@
 // top: connect a Google account and the whole library is kept as a single JSON
 // file, so it follows them between devices.
 //
-// Drive rather than a database because this is a static site with no server. A
-// database would mean every baker creating a cloud project of their own, which
-// nobody is going to do for a pizza tracker. Here the app holds one public
-// client id and the storage belongs to the baker, not to us.
+// Drive rather than a database of ours, because a baker's recipes are not ours
+// to hold. The only store this project keeps counts devices, one date each,
+// and its rules will not accept anything more. Here the app holds one public
+// client id and the storage belongs to the baker.
 //
 // The scope is drive.appdata, which is the narrowest thing Drive offers: a
 // hidden per-application folder that only this app can see. It is not a folder

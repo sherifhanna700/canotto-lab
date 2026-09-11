@@ -1,21 +1,21 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=23f40929';
-import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=23f40929';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=23f40929';
-import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=23f40929';
-import { scheduleStages } from '../model/protocol.js?v=23f40929';
-import { convertYeast } from '../model/dough.js?v=23f40929';
-import { overallScore } from '../model/recipes.js?v=23f40929';
-import { SOURCES, FLOURS } from '../model/flours.js?v=23f40929';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=23f40929';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=23f40929';
-import { lineChart } from '../lib/charts.js?v=23f40929';
-import * as drive from '../lib/drive.js?v=23f40929';
-import { isOff, setCounting } from '../lib/count.js?v=23f40929';
-import { tempField, tempDeltaField, } from './common.js?v=23f40929';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=23f40929';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=626e5458';
+import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=626e5458';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=626e5458';
+import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=626e5458';
+import { scheduleStages } from '../model/protocol.js?v=626e5458';
+import { convertYeast } from '../model/dough.js?v=626e5458';
+import { overallScore } from '../model/recipes.js?v=626e5458';
+import { SOURCES, FLOURS } from '../model/flours.js?v=626e5458';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=626e5458';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=626e5458';
+import { lineChart } from '../lib/charts.js?v=626e5458';
+import * as drive from '../lib/drive.js?v=626e5458';
+import { isOff, setCounting } from '../lib/count.js?v=626e5458';
+import { tempField, tempDeltaField, } from './common.js?v=626e5458';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=626e5458';
 
 let driveAccount = null;
 let syncing = false;
@@ -383,7 +383,7 @@ function countingCard() {
   return card(
     'What this app collects',
     'Almost nothing, and it is worth being exact about which nothing.',
-    h('p', { class: 'note good' }, 'Your recipes, bakes, scores and notes are stored in this browser and are never sent to us. There is no server of ours that could receive them.'),
+    h('p', { class: 'note good' }, 'Your recipes, bakes, scores and notes are stored in this browser and are never sent to us. The one database we keep holds a date per device and nothing else, and its rules reject a write carrying anything more.'),
     h('p', { class: 'note neutral' }, 'The one thing the app sends is a count of how many devices use it. Once a day at most, it reports a random number your browser made up for itself and today\u2019s date, and nothing else. It cannot say who you are, what you baked, or which account you might have connected.'),
     h(
       'div',

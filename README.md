@@ -140,8 +140,23 @@ Hosting, cache headers and deployment are covered in
 ## Privacy
 
 Your recipes and bakes are stored in your browser and are never sent to us. If you
-connect a Google account they go to that account's private storage for this app, not
-through any server of ours, because there isn't one.
+connect a Google account they go straight to that account's private storage for this
+app, with nothing of ours in between.
+
+We do keep one database: a Cloud Firestore collection holding one document per anonymous
+device, each with a single field, a date. Its rules reject any write carrying anything
+else, reject every other path, and refuse reads from the app, so the limit is enforced
+rather than promised. See `firestore.rules`.
+
+Rows older than thirty-five days are deleted when the figures are read, since a month is
+the longest window anyone asks about. `npm run actives` prints DAU, WAU and MAU and does
+that pruning; `--no-prune` reads without it.
+
+Firebase offers easier ways to get these numbers, and all of them collect more. Google
+Analytics for Firebase would also record device model, operating system, approximate city,
+session lengths and screen views under an identifier of its own. Counting from server logs
+would mean counting IP addresses. One random number and one date is the smallest thing
+that answers the question.
 
 The one thing the app sends is a count of how many devices use it, once a day at most:
 a random number the browser generated for itself, and today's date. Nothing else. It
