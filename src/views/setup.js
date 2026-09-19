@@ -1,21 +1,19 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=bbceb21b';
-import { editCurrent, update, exportJSON, exportStateJSON, importJSON, openShared, download, resetAll, load, applySync } from '../lib/store.js?v=bbceb21b';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=bbceb21b';
-import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=bbceb21b';
-import { scheduleStages } from '../model/protocol.js?v=bbceb21b';
-import { convertYeast } from '../model/dough.js?v=bbceb21b';
-import { overallScore } from '../model/recipes.js?v=bbceb21b';
-import { SOURCES, FLOURS } from '../model/flours.js?v=bbceb21b';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=bbceb21b';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=bbceb21b';
-import { lineChart } from '../lib/charts.js?v=bbceb21b';
-import * as drive from '../lib/drive.js?v=bbceb21b';
-import * as photos from '../lib/photos.js?v=bbceb21b';
-import { tempField, tempDeltaField, } from './common.js?v=bbceb21b';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=bbceb21b';
+import { h, card, selectField, textField, numberField, chip, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=2313eb03';
+import { editCurrent, update, exportJSON, exportStateJSON, importJSON, download, resetAll, load, applySync } from '../lib/store.js?v=2313eb03';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=2313eb03';
+import { DEFAULT_MODEL, rateAt, maturationRateAt } from '../model/ferment.js?v=2313eb03';
+import { SOURCES, FLOURS } from '../model/flours.js?v=2313eb03';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=2313eb03';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=2313eb03';
+import { pickFile, openSharedFile } from './open-ui.js?v=2313eb03';
+import { lineChart } from '../lib/charts.js?v=2313eb03';
+import * as drive from '../lib/drive.js?v=2313eb03';
+import * as photos from '../lib/photos.js?v=2313eb03';
+import { tempField, tempDeltaField } from './common.js?v=2313eb03';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=2313eb03';
 
 let driveAccount = null;
 let syncing = false;
@@ -149,48 +147,6 @@ function kitchenCard(ctx) {
 
 /* --------------------------------- saving ------------------------------- */
 
-function pickFile(onText) {
-  const input = h('input', { type: 'file', accept: 'application/json', style: { display: 'none' } });
-  input.addEventListener('change', async () => {
-    const f = input.files?.[0];
-    if (!f) return;
-    try {
-      await onText(await f.text());
-    } catch (e) {
-      toast(e.message);
-    }
-  });
-  document.body.appendChild(input);
-  input.click();
-  input.remove();
-}
-
-/**
- * Open whatever somebody sent, and say what it was.
- *
- * A recipe is meant to travel: crafted here, sent, followed there, edited and
- * sent back. That only works if opening one adds it, so this never replaces
- * anything. A full backup is the exception and is handed to the restore path,
- * which asks first.
- */
-async function openSharedFile(text) {
-  const res = openShared(text);
-  if (res.needsConfirm) {
-    confirmDialog('That is a full backup rather than a single recipe or run. Replacing everything in this browser with it cannot be undone.',
-      () => { importJSON(text); toast('Data restored'); }, 'Replace everything');
-    return;
-  }
-  if (res.kind === 'recipe' || res.kind === 'recipes') {
-    toast(res.added === 1
-      ? `Added ${res.names[0]}. It is on the Recipes screen, ready to load.`
-      : `Added ${res.added} recipes to your library.`);
-    return;
-  }
-  toast(res.added
-    ? `Added ${res.added} run${res.added === 1 ? '' : 's'} to your log.`
-    : 'Nothing new in that file.');
-}
-
 function savingCard(ctx) {
   const { s } = ctx;
   const fileName = currentFileName();
@@ -218,7 +174,7 @@ function savingCard(ctx) {
        */
       h('button', { class: 'btn ghost', onClick: () => pickFile(async (t) => {
         const count = load().recipes.length + load().bakes.length;
-        confirmDialog(`Replace everything in this browser with that backup? ${count} recipe${count === 1 ? '' : 's'} and bakes here now would go. To add a shared recipe or run to what you already have, use Open a shared file instead.`,
+        confirmDialog(`Replace everything in this browser with that backup? ${count} recipe${count === 1 ? '' : 's'} and bakes here now would go. To add a shared recipe to what you already have, use Open a shared file instead.`,
           () => { importJSON(t); toast('Data restored'); }, 'Replace everything');
       }) }, icon('upload'), 'Restore from a backup'),
       canSaveToFile()

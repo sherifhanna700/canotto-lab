@@ -1,21 +1,21 @@
 // Protocol: the schedule solved backwards from your launch time, and the
 // 19 steps with the measurements you take as you go.
 
-import { h, card, numberField, selectField, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=bbceb21b';
-import { update, editCurrent, startNewSession, photosForBake, snapshotBake, addBake } from '../lib/store.js?v=bbceb21b';
-import { PHASES, STEPS, activeSteps, scheduleStages, stampBounds, clampStamp } from '../model/protocol.js?v=bbceb21b';
-import { fermentUnits, maturationUnits } from '../model/ferment.js?v=bbceb21b';
-import { fmtDuration, fmtTemp, round } from '../model/units.js?v=bbceb21b';
-import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=bbceb21b';
-import { tempField, scoreInputs, stars } from './common.js?v=bbceb21b';
-import { photoStrip, dropPhotosFor } from './photos-ui.js?v=bbceb21b';
-import { METRIC_DEFS, metricField, stampField } from './record-ui.js?v=bbceb21b';
-import { MATURATION_TARGET, MATURATION_WINDOW } from '../model/advisor.js?v=bbceb21b';
-import { overallScore } from '../model/recipes.js?v=bbceb21b';
-import { diagnose } from '../model/diagnostics.js?v=bbceb21b';
-import { go } from '../app.js?v=bbceb21b';
-import { heatModulation, faultBrowser } from './oven.js?v=bbceb21b';
-import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, trimmablePhases, trimStage, trimForMaturation } from '../model/timeline.js?v=bbceb21b';
+import { h, card, numberField, selectField, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=2313eb03';
+import { update, editCurrent, startNewSession, photosForBake, snapshotBake, addBake } from '../lib/store.js?v=2313eb03';
+import { PHASES, STEPS, activeSteps, scheduleStages, stampBounds, clampStamp } from '../model/protocol.js?v=2313eb03';
+import { fermentUnits, maturationUnits } from '../model/ferment.js?v=2313eb03';
+import { fmtDuration, fmtTemp, round } from '../model/units.js?v=2313eb03';
+import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=2313eb03';
+import { tempField, scoreInputs, stars } from './common.js?v=2313eb03';
+import { photoStrip, dropPhotosFor } from './photos-ui.js?v=2313eb03';
+import { METRIC_DEFS, metricField, stampField } from './record-ui.js?v=2313eb03';
+import { MATURATION_TARGET, MATURATION_WINDOW } from '../model/advisor.js?v=2313eb03';
+import { overallScore } from '../model/recipes.js?v=2313eb03';
+import { diagnose } from '../model/diagnostics.js?v=2313eb03';
+import { go } from '../app.js?v=2313eb03';
+import { heatModulation, faultBrowser } from './oven.js?v=2313eb03';
+import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, trimmablePhases, trimStage, trimForMaturation } from '../model/timeline.js?v=2313eb03';
 
 export default function renderProtocol(ctx) {
   // Everything about real times is worked out once, here, so a step and the

@@ -5,19 +5,20 @@
 // Edits save straight onto the selected recipe, so there is no save step and
 // the name in the list is always the name in the field.
 
-import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=bbceb21b';
-import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download, exportRecipesJSON, exportRecipeJSON } from '../lib/store.js?v=bbceb21b';
-import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=bbceb21b';
-import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=bbceb21b';
-import { scheduleStages, solveSchedule } from '../model/protocol.js?v=bbceb21b';
-import { fermentUnits, maturationUnits, stageBreakdown, yeastForFU, doughTempFrom, doughTempVerdict, frictionFrom } from '../model/ferment.js?v=bbceb21b';
-import { suggestPlan, reviewPlan, defaultLeadHours, coldProofWindow, coldProofVerdict, hoursForMaturation, HOUSE_REFERENCE } from '../model/advisor.js?v=bbceb21b';
-import { recipeFromBlend, deriveRecipe, recipeRating, overallScore } from '../model/recipes.js?v=bbceb21b';
-import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=bbceb21b';
-import { recipeLink, copyText } from '../lib/share.js?v=bbceb21b';
-import { findMixer, mixerLabel } from '../model/equipment.js?v=bbceb21b';
-import { tempField, tempDeltaField, ratingBadge, stars, } from './common.js?v=bbceb21b';
-import { go } from '../app.js?v=bbceb21b';
+import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=2313eb03';
+import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download, exportRecipesJSON, exportRecipeJSON } from '../lib/store.js?v=2313eb03';
+import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=2313eb03';
+import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=2313eb03';
+import { scheduleStages, solveSchedule } from '../model/protocol.js?v=2313eb03';
+import { fermentUnits, maturationUnits, stageBreakdown, yeastForFU, doughTempFrom, doughTempVerdict, frictionFrom } from '../model/ferment.js?v=2313eb03';
+import { suggestPlan, reviewPlan, defaultLeadHours, coldProofWindow, coldProofVerdict, hoursForMaturation, HOUSE_REFERENCE } from '../model/advisor.js?v=2313eb03';
+import { recipeFromBlend, deriveRecipe, recipeRating, overallScore } from '../model/recipes.js?v=2313eb03';
+import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=2313eb03';
+import { recipeLink, copyText } from '../lib/share.js?v=2313eb03';
+import { openSharedButton } from './open-ui.js?v=2313eb03';
+import { findMixer, mixerLabel } from '../model/equipment.js?v=2313eb03';
+import { tempField, tempDeltaField, ratingBadge, stars, } from './common.js?v=2313eb03';
+import { go } from '../app.js?v=2313eb03';
 
 const setRecipe = (patch) => editCurrent((c) => Object.assign(c.recipe, patch));
 const setSchedule = (patch) => editCurrent((c) => Object.assign(c.schedule, patch));
@@ -209,7 +210,13 @@ function managerCard(ctx) {
       'div',
       { class: 'row tight' },
       h('button', { class: 'btn small', onClick: () => update((st) => { st.ui = { ...st.ui, creating: true, draft: null }; }) }, icon('add'), 'New recipe'),
-      h('button', { class: 'btn ghost small', onClick: () => download('canotto-recipes.json', exportRecipesJSON()) }, icon('download'), 'Download all')
+      h('button', { class: 'btn ghost small', onClick: () => download('canotto-recipes.json', exportRecipesJSON()) }, icon('download'), 'Download all'),
+      /*
+       * Where somebody handed a recipe will look for it. The same button is
+       * on the saving screen, but a person sent a file is thinking about
+       * recipes, not about settings.
+       */
+      openSharedButton('Open a recipe someone sent')
     ),
     h('div', { class: 'list' }, ...s.recipes.map((r) => recipeRow(ctx, r)))
   );
@@ -245,8 +252,9 @@ function recipeRow(ctx, r) {
         ? h('button', { class: 'btn ghost small', onClick: () => go('protocol') }, icon('checklist'), 'Open protocol')
         : h('button', { class: 'btn small', onClick: () => { activateRecipe(r.id); toast(`${r.name} loaded`); } }, icon('play_arrow'), 'Load'),
       h('button', { class: 'btn ghost small', onClick: () => duplicate(ctx, r) }, icon('content_copy'), 'Duplicate'),
-      h('button', { class: 'btn ghost small', onClick: () => download(recipeFileName(r), exportRecipeJSON(r)) }, icon('download'), 'JSON'),
-      h('button', { class: 'btn ghost small', onClick: async () => { const ok = await copyText(recipeLink(r)); toast(ok ? 'Link copied' : 'Could not copy'); } }, icon('link'), 'Share'),
+      // "JSON" said what the file was rather than what the button was for.
+      h('button', { class: 'btn ghost small', onClick: () => download(recipeFileName(r), exportRecipeJSON(r)) }, icon('download'), 'Save as a file'),
+      h('button', { class: 'btn ghost small', onClick: async () => { const ok = await copyText(recipeLink(r)); toast(ok ? 'Link copied' : 'Could not copy'); } }, icon('link'), 'Copy a link'),
       isHouse
         ? h('button', { class: 'btn ghost small', onClick: () => confirmDialog('Put the house protocol back exactly as shipped? Your edits to it are lost.', () => { restoreHouseRecipe(); toast('Restored'); }, 'Restore') }, icon('restart_alt'), 'Restore')
         : h('button', { class: 'btn ghost small', onClick: () => confirmDialog(`Delete ${r.name}? Bakes logged against it are kept.`, () => { deleteRecipe(r.id); toast('Deleted'); }, 'Delete') }, icon('delete'), 'Delete')
