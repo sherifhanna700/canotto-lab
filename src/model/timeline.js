@@ -18,7 +18,7 @@
  * physically changes place or state, which is why they are the ones worth
  * timing: everything between them is the same dough at the same temperature.
  */
-import { DEFAULT_MODEL, maturationRateAt, maturationUnits } from './ferment.js?v=1903f6bd';
+import { DEFAULT_MODEL, maturationRateAt, maturationUnits } from './ferment.js?v=80e891dd';
 
 export const PHASE_BOUNDS = [
   { name: 'Biga ambient rest', from: 'p1-3', to: 'p1-4', tempKey: 'bigaRoomTempC', plan: 'bigaRestHours' },

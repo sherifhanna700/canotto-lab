@@ -1257,7 +1257,15 @@ test('the privacy page describes the storage keys that actually exist', () => {
     .map((f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8'))
     .join('\n');
   const used = new Set([...sources.matchAll(/'(canotto-lab\/[a-z0-9-]+)'/g)].map((m) => m[1]));
+  /*
+   * Keys that appear only in the list of things to delete are not stored, they
+   * are swept up. Requiring the page to describe them would mean documenting
+   * storage the app exists to remove.
+   */
+  const removed = new Set([...sources.matchAll(/ORPHANED_KEYS = \[([^\]]*)\]/g)]
+    .flatMap((m) => [...m[1].matchAll(/'([^']+)'/g)].map((k) => k[1])));
   for (const key of used) {
+    if (removed.has(key)) continue;
     assert.ok(page.includes(key), `privacy.html does not mention the stored key ${key}`);
   }
   assert.ok(used.size >= 4, `expected the known keys, found ${used.size}`);
@@ -1310,6 +1318,26 @@ test('a returning baker is not asked which account they are', () => {
   const getToken = drive.slice(drive.indexOf('async function getToken'), drive.indexOf('async function api'));
   assert.match(getToken, /rememberedAccount\(\)\?\.email/, 'the remembered address is used as the hint');
   assert.match(getToken, /requestAccessToken\(\{[^}]*hint/s, 'and passed to Google with the request');
+});
+
+test('what the usage count left behind is cleared away', async () => {
+  /*
+   * Removing a feature does not remove what it wrote to someone's browser.
+   * Anyone who turned counting off would carry that flag for good, and the
+   * privacy page's list of stored keys would be wrong for exactly the people
+   * who cared enough to switch it off.
+   */
+  globalThis.localStorage.clear();
+  const orphans = ['canotto-lab/device', 'canotto-lab/counted-on', 'canotto-lab/no-count'];
+  for (const k of orphans) globalThis.localStorage.setItem(k, 'left over');
+
+  // The sweep runs when the module is first evaluated, which already happened,
+  // so call it the way a fresh page would.
+  const { forgetRemovedFeatures } = await import('../src/lib/store.js');
+  forgetRemovedFeatures();
+  const stale = orphans.filter((k) => globalThis.localStorage.getItem(k) !== null);
+  assert.deepEqual(stale, [], 'nothing from the counter survives a load');
+  globalThis.localStorage.clear();
 });
 
 test('the app collects nothing, and the page is allowed to say so', () => {

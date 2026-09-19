@@ -4,11 +4,11 @@
 // app touches storage directly, so swapping in a cloud backend later means
 // reimplementing `load` and `save`, not rewriting the views.
 
-import { DEFAULT_RECIPE } from '../model/dough.js?v=1903f6bd';
-import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=1903f6bd';
-import { DEFAULT_MODEL } from '../model/ferment.js?v=1903f6bd';
-import { starterRecipes, houseRecipe } from '../model/recipes.js?v=1903f6bd';
-import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=1903f6bd';
+import { DEFAULT_RECIPE } from '../model/dough.js?v=80e891dd';
+import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=80e891dd';
+import { DEFAULT_MODEL } from '../model/ferment.js?v=80e891dd';
+import { starterRecipes, houseRecipe } from '../model/recipes.js?v=80e891dd';
+import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=80e891dd';
 
 const KEY = 'canotto-lab/v1';
 const LEGACY = { steps: 'canotto_master_steps', frozen: 'canotto_frozen_count', metrics: 'canotto_step_metrics' };
@@ -74,6 +74,28 @@ export function toLocalISO(d) {
 }
 
 let cache = null;
+
+/*
+ * Keys left behind by the usage count, which no longer exists.
+ *
+ * Removing a feature does not remove what it wrote to someone's browser. A
+ * person who once turned counting off would carry that flag for good, and the
+ * privacy page's list of what is stored would be wrong for exactly the people
+ * who cared enough to switch it off. So they are cleared on load, once.
+ */
+const ORPHANED_KEYS = ['canotto-lab/device', 'canotto-lab/counted-on', 'canotto-lab/no-count'];
+
+export function forgetRemovedFeatures() {
+  try {
+    for (const key of ORPHANED_KEYS) localStorage.removeItem(key);
+  } catch {
+    // A browser refusing storage has nothing to clear.
+  }
+}
+
+// Once, when the module loads, rather than inside load(), which returns early
+// from a cache and would skip it for the whole of a session.
+forgetRemovedFeatures();
 
 export function load() {
   if (cache) return cache;
