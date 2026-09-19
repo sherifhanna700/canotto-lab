@@ -4,11 +4,11 @@
 // app touches storage directly, so swapping in a cloud backend later means
 // reimplementing `load` and `save`, not rewriting the views.
 
-import { DEFAULT_RECIPE } from '../model/dough.js?v=53a849de';
-import { DEFAULT_SCHEDULE, orderStamps } from '../model/protocol.js?v=53a849de';
-import { DEFAULT_MODEL } from '../model/ferment.js?v=53a849de';
-import { starterRecipes, houseRecipe } from '../model/recipes.js?v=53a849de';
-import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=53a849de';
+import { DEFAULT_RECIPE } from '../model/dough.js?v=97765f5d';
+import { DEFAULT_SCHEDULE, orderStamps } from '../model/protocol.js?v=97765f5d';
+import { DEFAULT_MODEL } from '../model/ferment.js?v=97765f5d';
+import { starterRecipes, houseRecipe } from '../model/recipes.js?v=97765f5d';
+import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=97765f5d';
 
 const KEY = 'canotto-lab/v1';
 const LEGACY = { steps: 'canotto_master_steps', frozen: 'canotto_frozen_count', metrics: 'canotto_step_metrics' };
@@ -65,7 +65,7 @@ export function defaultState() {
       notes: '',
     },
     bakes: [],
-    experiments: [],
+
     /*
      * What photographs exist, and which bake each belongs to. Metadata only:
      * the bytes are in IndexedDB under the same id, and each one is its own
@@ -79,6 +79,17 @@ export function defaultState() {
      * would arrive back on the next sync along with its bytes.
      */
     photosRemoved: [],
+    /*
+     * Records deliberately deleted, so a sync does not hand them back.
+     *
+     * A merge keeps both sides, which is right for an edit made in two places
+     * and wrong for a deletion: with no record of it, the other device simply
+     * returns what was thrown away. Photographs needed this first, and having
+     * it only there made deleting a bake incoherent, since its pictures went
+     * permanently while the bake itself came back without them.
+     */
+    bakesRemoved: [],
+    recipesRemoved: [],
   };
 }
 
@@ -170,9 +181,10 @@ function mergeState(base, saved) {
     },
     recipes: reconcileRecipes(saved, base),
     bakes: Array.isArray(saved.bakes) ? saved.bakes : [],
-    experiments: Array.isArray(saved.experiments) ? saved.experiments : [],
     photos: Array.isArray(saved.photos) ? saved.photos : [],
     photosRemoved: Array.isArray(saved.photosRemoved) ? saved.photosRemoved : [],
+    bakesRemoved: Array.isArray(saved.bakesRemoved) ? saved.bakesRemoved : [],
+    recipesRemoved: Array.isArray(saved.recipesRemoved) ? saved.recipesRemoved : [],
   };
 }
 
@@ -382,7 +394,21 @@ const sessionShape = (current) => {
 export function update(fn, { stamp = true } = {}) {
   const s = load();
   const before = sessionShape(s.current);
+  const modelBefore = JSON.stringify(s.settings?.model || null);
   fn(s);
+  /*
+   * Stamp the fermentation model when it changes.
+   *
+   * It is edited from half a dozen controls on the setup screen, so stamping
+   * here rather than at each of them means it cannot be forgotten at one. Sync
+   * needs the stamp: the constants are the arithmetic the whole app runs on,
+   * and two devices holding different ones compute different plans from the
+   * same recipe, so they have to agree and something has to say which is the
+   * later word.
+   */
+  if (stamp && s.settings && JSON.stringify(s.settings.model || null) !== modelBefore) {
+    s.settings.modelUpdatedAt = now();
+  }
   /*
    * Stamp the working session when it actually changes.
    *
@@ -422,6 +448,7 @@ export function addRecipe(recipe) {
   const safe = { ...normaliseRecipe(recipe), updatedAt: now() };
   update((s) => {
     s.recipes.unshift(safe);
+    s.recipesRemoved = (s.recipesRemoved || []).filter((id) => id !== safe.id);
   });
   return safe;
 }
@@ -436,6 +463,7 @@ export function updateRecipe(id, patch) {
 export function deleteRecipe(id) {
   return update((s) => {
     s.recipes = s.recipes.filter((r) => r.id !== id);
+    s.recipesRemoved = [...new Set([...(s.recipesRemoved || []), id])];
     if (!s.recipes.length) s.recipes = [houseRecipe()];
     if (s.current.recipeId === id) loadRecipeInto(s, s.recipes[0]);
   });
@@ -609,7 +637,6 @@ export function snapshotBake(s, extra = {}) {
     equipment: { ...c.equipment },
     recipeName: c.title || 'Untitled bake',
     title: c.title || 'Untitled bake',
-    tags: [],
     planned: false,
     recipe: JSON.parse(JSON.stringify(c.recipe)),
     schedule: JSON.parse(JSON.stringify(c.schedule)),
@@ -620,7 +647,6 @@ export function snapshotBake(s, extra = {}) {
     scores: { ...c.scores },
     issues: [],
     notes: c.notes || '',
-    photo: null,
     updatedAt: new Date().toISOString(),
     ...extra,
   };
@@ -648,6 +674,8 @@ export function startNewSession() {
 export function addBake(bake) {
   return update((s) => {
     s.bakes.unshift({ ...bake, updatedAt: now() });
+    // Filing under an id that was once deleted is not a deletion any more.
+    s.bakesRemoved = (s.bakesRemoved || []).filter((id) => id !== bake.id);
   });
 }
 
@@ -659,12 +687,24 @@ export function updateBake(id, patch) {
 }
 
 /** Replace the synced collections with what came back from a merge. */
-export function applySync({ recipes, bakes, current, photos, photosRemoved }) {
+export function applySync({ recipes, bakes, current, photos, photosRemoved, bakesRemoved, recipesRemoved, settings }) {
   return update((s) => {
     if (Array.isArray(recipes) && recipes.length) s.recipes = recipes;
     if (Array.isArray(bakes)) s.bakes = bakes;
     if (Array.isArray(photos)) s.photos = photos;
     if (Array.isArray(photosRemoved)) s.photosRemoved = photosRemoved;
+    if (Array.isArray(bakesRemoved)) s.bakesRemoved = bakesRemoved;
+    if (Array.isArray(recipesRemoved)) s.recipesRemoved = recipesRemoved;
+    /*
+     * The fermentation model travels; the display unit does not.
+     *
+     * They sat together in settings and neither was applied, so two devices
+     * could hold different Q10 constants and compute different plans from the
+     * same recipe, with nothing to say which was right. The constants are the
+     * arithmetic and have to agree. Whether a phone shows Celsius is that
+     * phone's business, and pushing it across would fight the baker.
+     */
+    if (settings?.model) s.settings = { ...s.settings, model: { ...s.settings.model, ...settings.model } };
     if (current) {
       /*
        * A session replaced by another device's brings its photographs across.
@@ -729,6 +769,7 @@ export function removePhotoRecordsFor(bakeId) {
 export function deleteBake(id) {
   return update((s) => {
     s.bakes = s.bakes.filter((b) => b.id !== id);
+    s.bakesRemoved = [...new Set([...(s.bakesRemoved || []), id])];
   });
 }
 
@@ -764,8 +805,29 @@ export function exportJSON() {
  * this: what goes to Drive is the merge of both sides, which does not exist in
  * storage until it comes back and is applied.
  */
+/*
+ * Keys that belong to this screen rather than to the data: which bake is open,
+ * which fault category is showing. They are not the baker's and do not travel.
+ */
+const LOCAL_ONLY = new Set(['ui']);
+
 export function exportStateJSON(state) {
+  /*
+   * Anything this version does not recognise is carried through rather than
+   * dropped. The schema allows a document to hold more than it describes, so a
+   * file written by a later version must survive being opened, synced and
+   * written back by this one, or the older device silently strips the newer
+   * one's work on the way past.
+   */
+  const known = new Set(['version', 'recipes', 'bakes', 'settings', 'photos', 'photosRemoved',
+    'bakesRemoved', 'recipesRemoved', 'current']);
+  const passthrough = {};
+  for (const [k, v] of Object.entries(state || {})) {
+    if (!known.has(k) && !LOCAL_ONLY.has(k)) passthrough[k] = v;
+  }
+
   return envelope('export.schema.json', {
+    ...passthrough,
     version: state.version,
     recipes: state.recipes,
     bakes: state.bakes,
@@ -774,6 +836,9 @@ export function exportStateJSON(state) {
     // separate files alongside this one, named by these ids.
     photos: state.photos || [],
     photosRemoved: state.photosRemoved || [],
+    // Deliberate deletions, so the other device does not return them.
+    bakesRemoved: state.bakesRemoved || [],
+    recipesRemoved: state.recipesRemoved || [],
     // The bake in progress: which recipe is loaded, what is ticked, and when
     // each step really happened. Without it, syncing mid-bake carries the
     // recipe but not the evening.

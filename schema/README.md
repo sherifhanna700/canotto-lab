@@ -90,7 +90,7 @@ A `bake` carries both the plan and the record. `schedule` is what was asked
 for; `doneAt` is when the steps were really checked off, in epoch
 milliseconds, keyed by step id.
 
-Every step is stamped when it is checked off. Ten of them bound the five
+Every step is stamped when it is checked off. Eight of them bound the seven
 phases:
 
 | Phase | From | To |
@@ -119,11 +119,25 @@ actually had, not the hours someone wrote down for it.
 Absolute instants are stored rather than the gaps between them, so a single
 mistimed entry can be corrected without silently shifting everything after it.
 
+**`doneAt` never runs backwards.** The steps happen in an order and the clock
+does not, so a step's time is never earlier than that of the last step ticked
+before it. Two may be equal, since two things can be done at once. The app
+holds a time that would break this at the neighbour it ran into, whether it was
+typed into the editor or stamped by ticking an earlier step off after a later
+one, and repairs any that arrive out of order. You can rely on it: no phase
+computed from these has a negative length.
+
 ## The bake in progress
 
 An `export` also carries `current`: the session as it stands, meaning which
-recipe is loaded, the schedule being followed, which protocol steps are ticked
-and when each was really done.
+recipe is loaded, the schedule being followed, which protocol steps are ticked,
+when each was really done, and everything measured, scored or noted so far. A
+session is a bake that has not been filed yet, so it holds those in the same
+shapes a `bake` does.
+
+It carries an `id`, and the bake record keeps that same id when the run is
+filed. Photographs are attached by it, so a picture taken at the bench belongs
+to the right bake before that bake exists.
 
 Unlike recipes and bakes this is not a collection and cannot be merged item by
 item, because half of one schedule and half of another is a bake nobody ran. One
@@ -139,6 +153,57 @@ while carrying no bake, and would otherwise discard a real one.
 A session nobody has edited carries no `updatedAt` at all and loses to anything.
 When both sides have work and they differ, one is being set aside, and an
 implementation should say so rather than do it quietly.
+
+## Syncing, in both directions
+
+The same document is written, read back, edited elsewhere and written again, so
+these are the rules that make that safe.
+
+**Records merge one at a time, by `updatedAt`.** Two devices editing different
+recipes both keep their work; the same recipe edited in two places keeps
+whichever was saved later. Every record carries `updatedAt`, and one without it
+loses to one with it.
+
+**A deletion is a fact, and is recorded as one.** A merge that only keeps both
+sides cannot express a deletion: the other device simply returns what was
+thrown away. So deleting a bake, a recipe or a photograph writes its id to
+`bakesRemoved`, `recipesRemoved` or `photosRemoved`, and anything listed there
+is removed from the merge on both sides and stays removed. These lists are the
+only thing that deletes data across devices, and they are only ever written by
+a deliberate deletion.
+
+**The session is not a collection and is never merged item by item.** Half of
+one schedule joined to half of another is a bake nobody ran, so one side wins
+whole, by the rule below.
+
+**Only part of `settings` travels.** `settings.model` is shared, ranked by
+`settings.modelUpdatedAt`, because those constants are the arithmetic every
+figure is computed from and two devices disagreeing about them would produce
+different plans for the same recipe. The display unit and the other
+preferences stay on the device that set them.
+
+**A document may carry more than this schema describes, and must survive being
+read by something that does not understand it.** Every schema here allows
+additional properties, and the app carries unknown fields back out unchanged
+rather than rebuilding the document from the keys it knows. If you write your
+own fields into a document, an older client will sync it without stripping
+them. The envelope header is the exception and is rewritten on every write.
+
+**Write the whole document.** There is no partial update: a writer reads it,
+merges, and writes it back in full.
+
+## Photographs
+
+An `export` names the photographs that belong to each bake, in `photos`, but
+does not carry them. The pictures are separate files stored alongside it, named
+`photo-<id>.jpg`, so the document stays small enough to sync in a moment
+however many there are. `bakeId` is the bake or the session they belong to.
+
+Because a picture never changes once taken, these merge as a union by id rather
+than by which copy is newer. Deletion therefore needs its own record, or the
+union would simply hand a deleted photograph back from the other device: ids in
+`photosRemoved` are removed from the union and their files deleted. This is the
+one place the rule that a sync never deletes anything is set aside on purpose.
 
 ## Reading a bake without the app
 

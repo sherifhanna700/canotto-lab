@@ -30,7 +30,7 @@
         },
         "settings": {
           "type": "object",
-          "description": "Display and model preferences. Not needed to read the data.",
+          "description": "Preferences and the fermentation model. Only part of this travels between devices. settings.model, the Q10 constants every figure is computed from, is shared: two devices holding different constants would produce different plans from the same recipe, so the later word wins, ranked by settings.modelUpdatedAt. The display unit and the other preferences stay on the device that set them, because whether a phone shows Celsius is that phone's business.",
           "properties": {
             "unit": {
               "type": "string",
@@ -72,6 +72,11 @@
                 }
               },
               "additionalProperties": true
+            },
+            "modelUpdatedAt": {
+              "type": "string",
+              "format": "date-time",
+              "description": "When the fermentation model was last changed, used to rank the two sides when syncing. Absent on a model nobody has touched, which loses to one that has been."
             }
           },
           "additionalProperties": true
@@ -97,11 +102,23 @@
             "launchISO": {
               "type": "string"
             },
+            "leadHours": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "How many hours from the first mix to the launch, as chosen on the recipe that was loaded. Null when the session follows the schedule's own arithmetic rather than a figure set on the recipe."
+            },
             "recipe": {
               "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/dough.schema.json"
             },
             "schedule": {
               "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/protocol.schema.json"
+            },
+            "equipment": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "The mixer and oven this session is being run on. Equipment belongs to the baker rather than to the recipe, so it travels with the session and is copied onto the bake record when one is filed."
             },
             "done": {
               "type": "array",
@@ -116,6 +133,18 @@
               "additionalProperties": {
                 "type": "integer"
               }
+            },
+            "actuals": {
+              "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/bake.schema.json#/properties/actuals",
+              "description": "What has been measured so far, in the same shape a filed bake carries. A session is a bake that has not been filed yet, so the two hold measurements identically."
+            },
+            "scores": {
+              "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/bake.schema.json#/properties/scores",
+              "description": "The marks given so far, in the same shape a filed bake carries. Present and unscored until the run is judged at the end."
+            },
+            "notes": {
+              "type": "string",
+              "description": "Whatever the baker has written about this run so far. Carried onto the bake record when it is filed."
             },
             "updatedAt": {
               "type": [
@@ -172,6 +201,22 @@
           },
           "title": "Photographs deliberately deleted",
           "description": "Ids of pictures that have been deleted. Because the descriptions above merge as a union, a deletion with no record of itself would simply be undone by the other device on the next sync, bytes and all. Anything listed here is removed from that union and its file deleted from storage. This is the one place the app's usual rule, that a sync never deletes anything, is deliberately set aside: a picture removed on purpose is expensive to carry and obvious when it returns."
+        },
+        "bakesRemoved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Bakes deliberately deleted",
+          "description": "Ids of bakes that have been deleted on purpose. A merge keeps both sides, which is right for an edit made in two places and wrong for a deletion: with no record of it the other device simply returns what was thrown away. Anything listed here is removed from the merge on both sides and stays removed. Deleting a bake also deletes its photographs, so without this a deleted bake came back without its pictures, which is neither the record nor its absence."
+        },
+        "recipesRemoved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Recipes deliberately deleted",
+          "description": "Ids of recipes that have been deleted on purpose, applied to the merge the same way as bakesRemoved. Bakes logged against a deleted recipe are kept: a bake carries its own copy of the dough and protocol, so it stays readable, and its recipeId may point at a recipe that no longer exists."
         }
       }
     }

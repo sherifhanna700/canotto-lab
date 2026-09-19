@@ -27,9 +27,10 @@ import { recipeFromBlend, overallScore, recipeRating, starterRecipes, houseRecip
 import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIXERS } from '../src/model/equipment.js';
 import { diagnose } from '../src/model/diagnostics.js';
 import { laterSession } from '../src/lib/drive.js';
-import { update as storeUpdate, load as storeLoad, resetAll, applySync, addPhotoRecord, removePhotoRecord, removePhotoRecordsFor, snapshotBake, startNewSession, photosForBake } from '../src/lib/store.js';
+import { deleteBake, deleteRecipe, addBake, addRecipe,
+  update as storeUpdate, load as storeLoad, resetAll, applySync, addPhotoRecord, removePhotoRecord, removePhotoRecordsFor, snapshotBake, startNewSession, photosForBake } from '../src/lib/store.js';
 import { derive, findFactor } from '../src/model/metrics.js';
-import { mergeCollections } from '../src/lib/drive.js';
+import { mergeCollections, unknownFields } from '../src/lib/drive.js';
 import { normaliseRecipe, EMPTY_ACTUALS, EMPTY_SCORES, SCHEMA_BASE, exportStateJSON } from '../src/lib/store.js';
 import { DEFAULT_SCHEDULE as SCHED } from '../src/model/protocol.js';
 import { stampBounds, clampStamp, orderStamps, STEP_IDS } from '../src/model/protocol.js';
@@ -970,6 +971,185 @@ test('an export envelope validates, and names its own schema', () => {
   const errors = check(file, 'export.schema.json');
   assert.deepEqual(errors, [], errors.join('\n'));
   assert.ok(file.$schema.endsWith('/export.schema.json'), 'an export should say what it is');
+});
+
+test('what the published notes claim about the protocol is counted, not remembered', async () => {
+  // These notes are the front door for anyone building on this, and they said
+  // ten steps bound five phases long after there were seven of them.
+  const { readFileSync } = await import('node:fs');
+  const notes = readFileSync(new URL('../schema/README.md', import.meta.url), 'utf8');
+  const ids = new Set();
+  for (const b of PHASE_BOUNDS) {
+    for (const i of [].concat(b.from)) ids.add(i);
+    for (const i of [].concat(b.to)) ids.add(i);
+  }
+  const said = notes.match(/(\w+) of them bound the (\w+)\n?phases/);
+  const word = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+  assert.ok(said, 'the notes still say how many steps bound how many phases');
+  assert.equal(said[1].toLowerCase(), word[ids.size], `bounding steps: ${ids.size}`);
+  assert.equal(said[2].toLowerCase(), word[PHASE_BOUNDS.length], `phases: ${PHASE_BOUNDS.length}`);
+});
+
+test('a record deleted on purpose does not come back from the other device', () => {
+  /*
+   * A merge keeps both sides, which is right for an edit made in two places
+   * and wrong for a deletion: the other device simply returns what was thrown
+   * away. Photographs were given a record of their deletions first, and having
+   * it only there made deleting a bake incoherent, since its pictures went
+   * permanently while the bake itself came back without them.
+   */
+  globalThis.localStorage.clear();
+  resetAll();
+  const bake = { id: 'b-gone', createdAt: '2026-09-18T09:00:00Z', updatedAt: '2026-09-18T09:00:00Z', scores: {}, actuals: {} };
+  addBake(bake);
+  const asElsewhere = storeLoad().bakes.map((b) => ({ ...b }));
+
+  deleteBake('b-gone');
+  const merged = mergeCollections(storeLoad().bakes, asElsewhere, storeLoad().bakesRemoved);
+  assert.ok(!merged.merged.some((b) => b.id === 'b-gone'), 'it stays deleted');
+  assert.deepEqual(storeLoad().bakesRemoved, ['b-gone'], 'and the deletion is recorded to say so');
+
+  // Without the record, the other device hands it straight back.
+  const naive = mergeCollections(storeLoad().bakes, asElsewhere);
+  assert.ok(naive.merged.some((b) => b.id === 'b-gone'), 'which is what a merge alone would do');
+  globalThis.localStorage.clear();
+});
+
+test('filing under an id that was once deleted is not a deletion any more', () => {
+  globalThis.localStorage.clear();
+  resetAll();
+  addBake({ id: 'b-again', createdAt: '2026-09-18T09:00:00Z', updatedAt: '2026-09-18T09:00:00Z', scores: {}, actuals: {} });
+  deleteBake('b-again');
+  addBake({ id: 'b-again', createdAt: '2026-09-18T10:00:00Z', updatedAt: '2026-09-18T10:00:00Z', scores: {}, actuals: {} });
+  assert.deepEqual(storeLoad().bakesRemoved, [], 'the tombstone is lifted');
+  globalThis.localStorage.clear();
+});
+
+test('deleting a recipe sticks, and the bakes made on it do not', () => {
+  globalThis.localStorage.clear();
+  resetAll();
+  const mine = addRecipe({ id: 'r-gone', name: 'Gone', recipe: {}, schedule: {} });
+  const asElsewhere = storeLoad().recipes.map((r) => ({ ...r }));
+  deleteRecipe(mine.id);
+  const merged = mergeCollections(storeLoad().recipes, asElsewhere, storeLoad().recipesRemoved);
+  assert.ok(!merged.merged.some((r) => r.id === mine.id), 'the recipe stays deleted');
+  globalThis.localStorage.clear();
+});
+
+test('the fermentation model travels between devices, the display unit does not', () => {
+  /*
+   * The constants are the arithmetic the whole app runs on. Two devices
+   * holding different ones compute different plans from the same recipe with
+   * nothing to say which is right, so they have to agree. Whether a phone
+   * shows Celsius is that phone's business.
+   */
+  globalThis.localStorage.clear();
+  resetAll();
+  storeUpdate((st) => { st.settings.unit = 'F'; });
+  const mineStamp = storeLoad().settings.modelUpdatedAt;
+  assert.ok(!mineStamp, 'a model nobody has touched carries no stamp');
+
+  storeUpdate((st) => { st.settings.model.q10Warm = 2.7; });
+  assert.ok(storeLoad().settings.modelUpdatedAt, 'changing it stamps it, wherever it was changed from');
+
+  // What arrives from the other device.
+  applySync({ settings: { unit: 'C', model: { ...storeLoad().settings.model, q10Warm: 3.1 } } });
+  assert.equal(storeLoad().settings.model.q10Warm, 3.1, 'their constants are adopted');
+  assert.equal(storeLoad().settings.unit, 'F', 'and this device keeps showing what it was showing');
+  globalThis.localStorage.clear();
+});
+
+test('a document written by a later version survives being synced by this one', () => {
+  /*
+   * Open the app on an old phone, sync, and whatever the new phone wrote must
+   * still be in the file afterwards. The schema allows a document to carry
+   * more than it describes, so nothing may be rebuilt from known keys alone.
+   */
+  const remote = {
+    $schema: 'x', app: 'Canotto Lab', exportedAt: '2026-09-18T09:00:00Z',
+    recipes: [], bakes: [], somethingLaterVersionsWrite: { kept: true },
+  };
+  const carried = unknownFields(remote, { recipes: [], bakes: [] });
+  assert.deepEqual(carried, { somethingLaterVersionsWrite: { kept: true } },
+    'the unknown section is carried back out');
+  assert.ok(!('app' in carried) && !('exportedAt' in carried) && !('$schema' in carried),
+    'and the header is rewritten rather than carried');
+});
+
+test('the schema describes everything the app actually writes', async () => {
+  /*
+   * The point of publishing these is that somebody else can build on the
+   * protocol, and a field the app writes but the schema never mentions is a
+   * field they will not know exists. Drift here is silent: adding a property
+   * breaks nothing, so nothing complains.
+   *
+   * Checked against real records rather than a list restated here, which would
+   * itself need remembering. What is declared but absent is fine, since much
+   * of a session is optional until it happens; what is written and undeclared
+   * is not.
+   */
+  const { readFileSync } = await import('node:fs');
+  const BASE = 'https://sherifhanna700.github.io/canotto-lab/schema/';
+  const read = (f) => JSON.parse(readFileSync(new URL(`../schema/${f}`, import.meta.url), 'utf8'));
+
+  // Schemas compose, so a property may sit under allOf, or behind a $ref into
+  // another file. Both count as declared.
+  const declared = (node, seen = new Set()) => {
+    if (!node || typeof node !== 'object') return [];
+    const out = new Set(Object.keys(node.properties || {}));
+    for (const part of node.allOf || []) for (const k of declared(part, seen)) out.add(k);
+    if (node.$ref && node.$ref.startsWith(BASE) && !seen.has(node.$ref)) {
+      seen.add(node.$ref);
+      const [file, pointer] = node.$ref.slice(BASE.length).split('#');
+      let target = read(file);
+      for (const seg of (pointer || '').split('/').filter(Boolean)) target = target?.[seg.replace(/~1/g, '/')];
+      for (const k of declared(target, seen)) out.add(k);
+    }
+    return [...out];
+  };
+  const sub = (node, name) => {
+    if (!node) return null;
+    if (node.properties?.[name]) return node.properties[name];
+    for (const part of node.allOf || []) {
+      const hit = sub(part, name);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const undeclared = (written, node) => {
+    const known = declared(node);
+    return written.filter((k) => !known.includes(k));
+  };
+
+  // A session with a recipe loaded and a bake filed from it: the shape a
+  // developer actually receives, not an untouched one.
+  globalThis.localStorage.clear();
+  resetAll();
+  storeUpdate((st) => {
+    st.current.leadHours = 48;
+    st.current.notes = 'note';
+    st.current.actuals.fdtC = 23;
+    st.current.scores.canotto = 4;
+    st.current.done = ['p1-1'];
+    st.current.doneAt = { 'p1-1': Date.parse('2026-09-18T09:00:00Z') };
+  });
+  const state = storeLoad();
+  const bake = snapshotBake(state);
+  const doc = JSON.parse(exportStateJSON(state));
+
+  const bakeSchema = read('bake.schema.json');
+  assert.deepEqual(undeclared(Object.keys(bake), bakeSchema), [], 'every field of a filed bake is described');
+  assert.deepEqual(undeclared(Object.keys(bake.actuals), sub(bakeSchema, 'actuals')), [], 'every measurement is described');
+  assert.deepEqual(undeclared(Object.keys(bake.scores), sub(bakeSchema, 'scores')), [], 'every mark is described');
+
+  const exportSchema = read('export.schema.json');
+  assert.deepEqual(undeclared(Object.keys(doc), exportSchema), [], 'every field of the export document is described');
+  assert.deepEqual(undeclared(Object.keys(doc.current), sub(exportSchema, 'current')), [],
+    'and every field of the session that travels with it');
+
+  assert.deepEqual(undeclared(Object.keys(state.current.schedule), read('protocol.schema.json')), [],
+    'every setting of the schedule is described');
+  globalThis.localStorage.clear();
 });
 
 test('the schemas compose rather than repeat themselves', async () => {

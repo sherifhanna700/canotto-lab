@@ -11,10 +11,10 @@
 // when it changes, so the run passes the session and the log passes a filed
 // bake, and the rules travel with the control rather than the caller.
 
-import { h, numberField, pill, toast, fmtClock, fmtDay } from '../lib/ui.js?v=53a849de';
-import { tempField } from './common.js?v=53a849de';
-import { fmtTemp, toDisplay } from '../model/units.js?v=53a849de';
-import { stampBounds, clampStamp } from '../model/protocol.js?v=53a849de';
+import { h, numberField, pill, toast, fmtClock, fmtDay } from '../lib/ui.js?v=97765f5d';
+import { tempField } from './common.js?v=97765f5d';
+import { fmtTemp, toDisplay } from '../model/units.js?v=97765f5d';
+import { stampBounds, clampStamp } from '../model/protocol.js?v=97765f5d';
 
 export const METRIC_DEFS = {
   ambientTempC: { label: 'Ambient temperature', kind: 'temp', hint: 'Air where you are cooking' },

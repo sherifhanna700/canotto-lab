@@ -1,12 +1,12 @@
 // CSV export. One row per bake, with the derived numbers already worked out so
 // the file is useful in a spreadsheet without redoing the maths.
 
-import { computeRecipe } from '../model/dough.js?v=53a849de';
-import { scheduleStages } from '../model/protocol.js?v=53a849de';
-import { fermentUnits } from '../model/ferment.js?v=53a849de';
-import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=53a849de';
-import { cToF } from '../model/units.js?v=53a849de';
-import { ovenLabel, mixerLabel } from '../model/equipment.js?v=53a849de';
+import { computeRecipe } from '../model/dough.js?v=97765f5d';
+import { scheduleStages } from '../model/protocol.js?v=97765f5d';
+import { fermentUnits } from '../model/ferment.js?v=97765f5d';
+import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=97765f5d';
+import { cToF } from '../model/units.js?v=97765f5d';
+import { ovenLabel, mixerLabel } from '../model/equipment.js?v=97765f5d';
 
 const COLUMNS = [
   ['id', (b) => b.id],

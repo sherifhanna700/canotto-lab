@@ -538,17 +538,39 @@ export async function syncPhotos({ wanted, removed, photos, onProgress = () => {
 
 /* -------------------------------- merging -------------------------------- */
 
+/**
+ * What the file holds that this version has never heard of.
+ *
+ * A device on a later version writes fields this one does not know, and
+ * rebuilding the document from the keys it does know would quietly strip them
+ * on the way past: open the app on an old phone, sync, and the new phone's
+ * work is gone from the file with nothing to show it happened. The schema
+ * allows a document to carry more than it describes, so this carries it.
+ *
+ * The envelope's own header is rewritten on every write and is not carried.
+ */
+export function unknownFields(remote, state) {
+  const HEADER = new Set(['$schema', 'app', 'exportedAt']);
+  const out = {};
+  for (const [k, v] of Object.entries(remote || {})) {
+    if (!HEADER.has(k) && !(k in (state || {}))) out[k] = v;
+  }
+  return out;
+}
+
 const stamp = (doc) => Date.parse(doc?.updatedAt || doc?.createdAt || 0) || 0;
 
 /**
- * Last write wins, per document.
+ * Last write wins, per document, except where a deletion was recorded.
  *
  * Two devices editing different recipes both keep their work, and the same
- * recipe edited in two places keeps whichever was saved later. Nothing is
- * deleted by a sync: a recipe removed on one device comes back from the other,
+ * recipe edited in two places keeps whichever was saved later. A sync never
+ * decides on its own to delete anything: a record simply missing on one side
+ * comes back from the other,
  * which is the right way round for something that cannot be undone.
  */
-export function mergeCollections(local, remote) {
+export function mergeCollections(local, remote, removed = []) {
+  const gone = new Set(removed);
   const byId = new Map();
   for (const doc of remote) byId.set(doc.id, { doc, from: 'remote' });
   let pulled = 0;
@@ -568,7 +590,13 @@ export function mergeCollections(local, remote) {
   for (const [id, entry] of byId) {
     if (entry.from === 'remote' && !local.some((d) => d.id === id)) pulled += 1;
   }
-  return { merged: [...byId.values()].map((e) => e.doc), pulled, pushed };
+  // Anything either device deliberately deleted stays deleted. Without this
+  // the merge below simply hands it back from the other side.
+  return {
+    merged: [...byId.values()].map((e) => e.doc).filter((d) => !gone.has(d.id)),
+    pulled,
+    pushed,
+  };
 }
 
 /**
@@ -633,8 +661,15 @@ export async function sync(state, { envelope }) {
   const id = await findFile();
   const remote = id ? await readFile(id) : { recipes: [], bakes: [] };
 
-  const recipes = mergeCollections(state.recipes || [], Array.isArray(remote.recipes) ? remote.recipes : []);
-  const bakes = mergeCollections(state.bakes || [], Array.isArray(remote.bakes) ? remote.bakes : []);
+  /*
+   * A deletion is a fact about the library, so it is merged like one: both
+   * sides' tombstones are kept and applied to both sides' records.
+   */
+  const bakesRemoved = [...new Set([...(state.bakesRemoved || []), ...(remote.bakesRemoved || [])])];
+  const recipesRemoved = [...new Set([...(state.recipesRemoved || []), ...(remote.recipesRemoved || [])])];
+
+  const recipes = mergeCollections(state.recipes || [], Array.isArray(remote.recipes) ? remote.recipes : [], recipesRemoved);
+  const bakes = mergeCollections(state.bakes || [], Array.isArray(remote.bakes) ? remote.bakes : [], bakesRemoved);
   const session = laterSession(state.current, remote.current);
 
   /*
@@ -650,13 +685,30 @@ export async function sync(state, { envelope }) {
   }
   const mergedPhotos = [...photoById.values()];
 
+  /*
+   * The constants travel; the display unit does not. Whether this phone shows
+   * Celsius is nobody else's business, but the Q10 curves decide every figure
+   * the app produces, so the later word on them wins and both devices hold it.
+   */
+  const mineAt = Date.parse(state.settings?.modelUpdatedAt || 0) || 0;
+  const theirsAt = Date.parse(remote.settings?.modelUpdatedAt || 0) || 0;
+  const model = theirsAt > mineAt && remote.settings?.model
+    ? { model: remote.settings.model, modelUpdatedAt: remote.settings.modelUpdatedAt }
+    : null;
+
+  const unknown = unknownFields(remote, state);
+
   const merged = {
+    ...unknown,
     ...state,
+    settings: model ? { ...state.settings, ...model } : state.settings,
     recipes: recipes.merged,
     bakes: bakes.merged,
     current: session.current,
     photos: mergedPhotos,
     photosRemoved: removedIds,
+    bakesRemoved,
+    recipesRemoved,
   };
 
   await writeFile(id, envelope(merged));
@@ -679,6 +731,8 @@ export async function sync(state, { envelope }) {
     // What the caller needs to reconcile the picture files themselves.
     photoIds: mergedPhotos.map((p) => p.id),
     photosRemoved: removedIds,
+    bakesRemoved,
+    recipesRemoved,
     /*
      * Whether the bake in progress actually moved, as opposed to both sides
      * already holding the same one.
