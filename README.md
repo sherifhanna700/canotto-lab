@@ -78,7 +78,14 @@ and it lives on the protocol.
 
 **Log.** Every bake, and what the differences between them add up to. Open a run and it
 shows how that bake actually went: the hours each phase really took against the hours it
-was meant to, and the clock time every step was ticked off. Photographs can be attached to
+was meant to, and the clock time every step was ticked off.
+
+A filed run stays open to correction, because noticing a mistake is usually what looking
+at that table prompts. Every time, every measurement, the marks, the notes, the faults,
+the photographs and the name can be put right, through the same controls the run itself
+uses, so a correction is held to the same rules: a time still cannot be moved before the
+step before it. What cannot be changed is the plan it was baked to. The recipe and the
+schedule are what they were on the day, because that is the thing the record is for. Photographs can be attached to
 a run. They are scaled down on the way in, kept in IndexedDB, and synced as their own
 files alongside the library, which names them but does not carry them. That keeps the
 document small enough to sync in a moment however many pictures there are. They are not

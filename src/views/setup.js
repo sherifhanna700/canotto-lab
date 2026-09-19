@@ -1,21 +1,21 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=87d1918f';
-import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=87d1918f';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=87d1918f';
-import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=87d1918f';
-import { scheduleStages } from '../model/protocol.js?v=87d1918f';
-import { convertYeast } from '../model/dough.js?v=87d1918f';
-import { overallScore } from '../model/recipes.js?v=87d1918f';
-import { SOURCES, FLOURS } from '../model/flours.js?v=87d1918f';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=87d1918f';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=87d1918f';
-import { lineChart } from '../lib/charts.js?v=87d1918f';
-import * as drive from '../lib/drive.js?v=87d1918f';
-import * as photos from '../lib/photos.js?v=87d1918f';
-import { tempField, tempDeltaField, } from './common.js?v=87d1918f';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=87d1918f';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=53a849de';
+import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=53a849de';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=53a849de';
+import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=53a849de';
+import { scheduleStages } from '../model/protocol.js?v=53a849de';
+import { convertYeast } from '../model/dough.js?v=53a849de';
+import { overallScore } from '../model/recipes.js?v=53a849de';
+import { SOURCES, FLOURS } from '../model/flours.js?v=53a849de';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=53a849de';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=53a849de';
+import { lineChart } from '../lib/charts.js?v=53a849de';
+import * as drive from '../lib/drive.js?v=53a849de';
+import * as photos from '../lib/photos.js?v=53a849de';
+import { tempField, tempDeltaField, } from './common.js?v=53a849de';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=53a849de';
 
 let driveAccount = null;
 let syncing = false;

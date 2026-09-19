@@ -223,3 +223,15 @@ the step before it. However the time gets there.
 3. Ticking an earlier step off after a later one records it no later than the
    step already done, rather than stamping the clock as it stands.
 4. The run therefore never reads backwards, whatever order it was ticked in.
+
+## J24. Putting a filed run right
+
+Noticing a step was ticked an hour late, or a temperature typed wrong, usually
+happens after filing, with the table of what actually ran in front of you.
+
+1. A filed run can be renamed.
+2. Every measurement the bake records is offered, not a chosen few.
+3. Every recorded time is correctable where it is shown.
+4. A correction that would run backwards is held at the neighbour it ran into,
+   on a filed bake exactly as on a run in progress.
+5. Correcting a filed run edits it rather than filing a second one.

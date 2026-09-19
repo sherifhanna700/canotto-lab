@@ -879,6 +879,65 @@
     }
     await goTab('Recipe');
 
+    /* ------------------------------- J24 -------------------------------- */
+    /*
+     * Putting a filed bake right. Noticing a step was ticked an hour late, or
+     * a dome temperature typed wrong, usually happens after filing, when the
+     * table of what actually ran is in front of you.
+     */
+    await goTab('Log');
+    const openRun = $$('#main button').find((b) => /Open the run/.test(b.textContent));
+    if (openRun) { openRun.click(); await sleep(); await settle(); }
+
+    const titleIn = $$('#main input[type=text]').find((i) => i.dataset.k === 'What this bake is called');
+    if (titleIn) await typeInto(titleIn, 'Friday test bake');
+    check('J24.1 a filed run can be renamed',
+      stored().bakes[0]?.title === 'Friday test bake', stored().bakes[0]?.title || 'unchanged');
+
+    const measured = $$('#main .field-label').filter((l) => /temperature|Humidity|cold hold|Bake time|Floor|Dome/i.test(l.textContent));
+    check('J24.2 every measurement is offered, not a chosen few',
+      measured.length >= 10, `${measured.length} measurement fields`);
+
+    /*
+     * Give the record several times to correct. The bake filed earlier in this
+     * sweep carries one, which would make the ordering check below pass
+     * without ever testing anything.
+     */
+    const j24Build = (document.querySelector('script[type=module]')?.src.match(/\?v=([0-9a-f]+)/) || [])[1];
+    const j24Store = await import(`/src/lib/store.js?v=${j24Build}`);
+    const bakeBefore = stored().bakes[0];
+    const base = Date.parse('2026-09-18T09:00:00Z');
+    j24Store.updateBake(bakeBefore.id, {
+      doneAt: { 'p1-1': base, 'p1-3': base + 3600000, 'p1-4': base + 2 * 3600000 },
+    });
+    await settle();
+
+    // Open the step list and correct a time, the way a late tick is fixed.
+    const j24Fold = $$('#main details').find((d) => /Every step, as it happened/.test(d.textContent));
+    if (j24Fold) { j24Fold.open = true; await settle(); }
+    const stamps = $$('#main .step-log-edit input[type=datetime-local]');
+    const recorded = Object.values(stored().bakes[0].doneAt || {}).filter(Number.isFinite).length;
+    check('J24.3 every recorded time is correctable where it is shown',
+      stamps.length === recorded && recorded >= 3, `${stamps.length} controls for ${recorded} recorded times`);
+
+    if (stamps.length >= 2) {
+      const asLocal = (ms) => new Date(ms - new Date(ms).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      // The middle one, backwards past the step before it: the correction the
+      // order refuses, now attempted on a bake filed rather than in progress.
+      stamps[1].value = asLocal(base - 2 * 3600000);
+      stamps[1].dispatchEvent(new Event('change', { bubbles: true }));
+      await sleep();
+      await settle();
+    }
+    const j24After = stored().bakes[0].doneAt;
+    check('J24.4 and a correction that would run backwards is held, on a filed bake too',
+      j24After['p1-3'] === base && j24After['p1-1'] === base,
+      `${new Date(j24After['p1-3']).toISOString()} against ${new Date(base).toISOString()}`);
+
+    check('J24.5 correcting a filed run does not create a second one',
+      stored().bakes.length === 1 && stored().bakes[0].id === bakeBefore.id,
+      `${stored().bakes.length} bakes`);
+
     /* ------------------------------- J22 -------------------------------- */
     /*
      * One run, photographed from end to end. A bake is a week long and is

@@ -1,34 +1,21 @@
 // Protocol: the schedule solved backwards from your launch time, and the
 // 19 steps with the measurements you take as you go.
 
-import { h, card, numberField, selectField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=87d1918f';
-import { update, editCurrent, startNewSession, photosForBake, snapshotBake, addBake } from '../lib/store.js?v=87d1918f';
-import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages, stampBounds, clampStamp } from '../model/protocol.js?v=87d1918f';
-import { fermentUnits, maturationUnits } from '../model/ferment.js?v=87d1918f';
-import { convertYeast } from '../model/dough.js?v=87d1918f';
-import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=87d1918f';
-import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=87d1918f';
-import { tempField, scoreInputs, stars } from './common.js?v=87d1918f';
-import { photoStrip, dropPhotosFor } from './photos-ui.js?v=87d1918f';
-import { MATURATION_TARGET, MATURATION_WINDOW } from '../model/advisor.js?v=87d1918f';
-import { overallScore } from '../model/recipes.js?v=87d1918f';
-import { diagnose } from '../model/diagnostics.js?v=87d1918f';
-import { go } from '../app.js?v=87d1918f';
-import { heatModulation, faultBrowser } from './oven.js?v=87d1918f';
-import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, trimmablePhases, trimStage, trimForMaturation } from '../model/timeline.js?v=87d1918f';
-
-const METRIC_DEFS = {
-  ambientTempC: { label: 'Ambient temperature', kind: 'temp', hint: 'Air where you are cooking' },
-  humidityPct: { label: 'Humidity', kind: 'percent' },
-  bigaWaterTempC: { label: 'Biga water temperature', kind: 'temp', target: [14, 16] },
-  fdtC: { label: 'Final dough temperature', kind: 'temp', target: [22.8, 23.9] },
-  fridgeTempC: { label: 'Measured fridge temperature', kind: 'temp' },
-  coldHoldHours: { label: 'Actual cold hold', kind: 'hours' },
-  coreTempC: { label: 'Ball core temperature', kind: 'temp', target: [17.2, 18.9] },
-  deckTempC: { label: 'Floor temperature', kind: 'temp', target: [443, 460] },
-  domeTempC: { label: 'Dome temperature', kind: 'temp', target: [482, 499] },
-  bakeSec: { label: 'Bake time', kind: 'seconds' },
-};
+import { h, card, numberField, selectField, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=53a849de';
+import { update, editCurrent, startNewSession, photosForBake, snapshotBake, addBake } from '../lib/store.js?v=53a849de';
+import { PHASES, STEPS, activeSteps, scheduleStages, stampBounds, clampStamp } from '../model/protocol.js?v=53a849de';
+import { fermentUnits, maturationUnits } from '../model/ferment.js?v=53a849de';
+import { fmtDuration, fmtTemp, round } from '../model/units.js?v=53a849de';
+import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=53a849de';
+import { tempField, scoreInputs, stars } from './common.js?v=53a849de';
+import { photoStrip, dropPhotosFor } from './photos-ui.js?v=53a849de';
+import { METRIC_DEFS, metricField, stampField } from './record-ui.js?v=53a849de';
+import { MATURATION_TARGET, MATURATION_WINDOW } from '../model/advisor.js?v=53a849de';
+import { overallScore } from '../model/recipes.js?v=53a849de';
+import { diagnose } from '../model/diagnostics.js?v=53a849de';
+import { go } from '../app.js?v=53a849de';
+import { heatModulation, faultBrowser } from './oven.js?v=53a849de';
+import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, trimmablePhases, trimStage, trimForMaturation } from '../model/timeline.js?v=53a849de';
 
 export default function renderProtocol(ctx) {
   // Everything about real times is worked out once, here, so a step and the
@@ -444,108 +431,23 @@ function stepNode(ctx, step, launch) {
           : null
       ),
       h('p', { class: 'step-body', html: step.body(tctx), onClick: toggle }),
-      Number.isFinite(stampedAt) ? stampEditor(step, stampedAt, s.current.doneAt || {}) : null,
-      metrics.length && !skipped ? h('div', { class: 'step-metrics' }, ...metrics.map((k) => metricField(ctx, k))) : null
+      Number.isFinite(stampedAt)
+        ? stampField({
+            stepId: step.id,
+            at: stampedAt,
+            doneAt: s.current.doneAt || {},
+            onChange: (ms) => update((st) => { st.current.doneAt = { ...(st.current.doneAt || {}), [step.id]: ms }; }),
+          })
+        : null,
+      metrics.length && !skipped ? h('div', { class: 'step-metrics' }, ...metrics.map((k) => metricField({
+          key: k,
+          value: s.current.actuals[k],
+          unit: u,
+          onChange: (v) => update((st) => { st.current.actuals[k] = v; }),
+        }))) : null
     )
   );
 }
-
-/**
- * Ticking a box late is the normal case, not the exception, so the recorded
- * time has to be correctable. A datetime-local input is the one control that
- * a phone offers a decent picker for.
- */
-function stampEditor(step, stampedAt, doneAt) {
-  const local = (ms) => {
-    const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60000);
-    return d.toISOString().slice(0, 16);
-  };
-  /*
-   * The picker is given the window as well as the value, so on a phone the
-   * times that would run backwards are not offered in the first place. The
-   * check below is still needed: min and max are advisory on a typed date and
-   * absent altogether on some keyboards.
-   */
-  const bounds = stampBounds(step.id, doneAt);
-  const said = (ms) => `${fmtDay(new Date(ms))} ${fmtClock(new Date(ms))}`;
-
-  return h(
-    'label',
-    { class: 'field stamp-edit' },
-    h('span', { class: 'field-label' }, 'Actually done at'),
-    h('span', { class: 'field-input' }, h('input', {
-      type: 'datetime-local',
-      value: local(stampedAt),
-      min: Number.isFinite(bounds.min) ? local(bounds.min) : null,
-      max: Number.isFinite(bounds.max) ? local(bounds.max) : null,
-      dataset: { k: `stamp-${step.id}` },
-      onChange: (e) => {
-        const ms = Date.parse(e.target.value);
-        if (!Number.isFinite(ms)) return;
-        const kept = clampStamp(ms, bounds);
-        if (kept !== ms) {
-          toast(ms < kept
-            ? `Held at ${said(kept)}: a step cannot be done before the one before it.`
-            : `Held at ${said(kept)}: a step cannot be done after the one after it.`);
-        }
-        update((st) => { st.current.doneAt = { ...(st.current.doneAt || {}), [step.id]: kept }; });
-      },
-    })),
-    Number.isFinite(bounds.min) || Number.isFinite(bounds.max)
-      ? h('span', { class: 'hint' }, Number.isFinite(bounds.min) && Number.isFinite(bounds.max)
-          ? `Between ${said(bounds.min)} and ${said(bounds.max)}, the steps either side.`
-          : Number.isFinite(bounds.min)
-            ? `No earlier than ${said(bounds.min)}, the step before it.`
-            : `No later than ${said(bounds.max)}, the step after it.`)
-      : null
-  );
-}
-
-/**
- * A measurement taken at the step where it is taken.
- *
- * Measurements only. Judging the bake is the closing act of the run and
- * belongs in one place, not spread over the step that happened to be last.
- */
-function metricField(ctx, key) {
-  const { s, u } = ctx;
-  const def = METRIC_DEFS[key];
-  const val = s.current.actuals[key];
-  const setVal = (v) => update((st) => { st.current.actuals[key] = v; });
-
-  if (def.kind === 'temp') {
-    const hint = def.target ? `target ${fmtTemp(def.target[0], u)} to ${fmtTemp(def.target[1], u)}` : def.hint;
-    const node = tempField({ allowEmpty: true, label: def.label, valueC: val, unit: u, step: 1, hint, onChange: setVal });
-    if (def.target && Number.isFinite(val)) {
-      /*
-       * Judge against the numbers on screen, not the ones underneath.
-       *
-       * Targets are stored in Celsius. 16 °C prints as 61 °F but is really
-       * 60.8, so entering the 61 the app itself asked for came back as above
-       * target. Rounding the bounds the same way they are displayed means the
-       * label and the verdict agree.
-       */
-      const lo = Math.round(toDisplay(def.target[0], u));
-      const hi = Math.round(toDisplay(def.target[1], u));
-      const shown = Math.round(toDisplay(val, u));
-      const ok = shown >= lo && shown <= hi;
-      node.appendChild(h('span', {}, pill(ok ? 'On target' : shown < lo ? 'Below target' : 'Above target', ok ? 'good' : 'warn')));
-    }
-    return node;
-  }
-  if (def.kind === 'percent') {
-    return numberField({ label: def.label, value: val ?? '', min: 0, max: 100, suffix: '%', onInput: setVal });
-  }
-  return numberField({
-    label: def.label,
-    value: val ?? '',
-    step: def.kind === 'hours' ? 0.5 : 1,
-    suffix: def.kind === 'hours' ? 'h' : 'sec',
-    onInput: setVal,
-  });
-}
-
-/* -------------------------------- footer -------------------------------- */
 
 /** What a reset is about to throw away, said before it is thrown away. */
 function resetAsk(ctx) {

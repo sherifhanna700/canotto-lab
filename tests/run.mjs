@@ -1138,6 +1138,32 @@ test('a session synced from elsewhere has its times ordered on the way in', () =
   globalThis.localStorage.clear();
 });
 
+test('every measurement a bake records can be corrected afterwards', async () => {
+  /*
+   * The log used to offer four of the ten, under shortened labels of its own,
+   * so noticing a wrong dome temperature after filing meant living with it.
+   * Read from the source rather than imported, because these controls are DOM
+   * and this suite has no document.
+   */
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/views/record-ui.js', import.meta.url), 'utf8');
+  const block = src.slice(src.indexOf('METRIC_DEFS = {'), src.indexOf('};', src.indexOf('METRIC_DEFS = {')));
+  const offered = [...block.matchAll(/^\s{2}([A-Za-z]\w*):/gm)].map((m) => m[1]);
+  assert.deepEqual(offered.sort(), Object.keys(EMPTY_ACTUALS).sort(),
+    'every measurement the bake carries has a control, and none that it does not');
+});
+
+test('the run and the log correct a bake through the same controls', async () => {
+  // Two sets of fields for one bake is how they drift apart, in labels first
+  // and then in which of them exist at all.
+  const { readFileSync } = await import('node:fs');
+  const read = (f) => readFileSync(new URL(`../src/views/${f}`, import.meta.url), 'utf8');
+  for (const view of ['protocol.js', 'log.js']) {
+    assert.match(read(view), /from '\.\/record-ui\.js/, `${view} uses the shared controls`);
+  }
+  assert.ok(!/tempField\(/.test(read('log.js')), 'and the log rolls none of its own');
+});
+
 test('a bake is recorded in one place', async () => {
   /*
    * The run is one continuous thing: biga on Monday, pizzas on Friday, judged

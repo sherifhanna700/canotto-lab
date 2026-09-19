@@ -474,10 +474,11 @@ table.compact .hint { display: block; font-size: .68rem; }
 .lightbox img { max-width: 100%; max-height: 90vh; border-radius: 12px; }
 
 /* The step-by-step record of a finished bake. */
-.step-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: .8rem; }
-.step-log li { display: grid; grid-template-columns: 8.5rem 1fr; gap: 8px; align-items: baseline; }
-.step-log-when { color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
-@media (max-width: 480px) { .step-log li { grid-template-columns: 1fr; gap: 0; } }
+/* Every step of a filed bake, each time correctable where it is shown. */
+.step-log-edit { display: grid; gap: 10px; margin-top: 4px; }
+.step-log-edit .stamp-edit { margin-top: 0; max-width: none; }
+.step-log-edit .stamp-edit .field-label { font-size: .78rem; }
+@media (min-width: 620px) { .step-log-edit { grid-template-columns: 1fr 1fr; } }
 .photo-missing {
   width: 100%; height: 100%; display: grid; place-content: center; gap: 2px;
   text-align: center; font-size: .66rem; color: var(--on-surface-variant);

@@ -1,21 +1,21 @@
 // Log: every bake, and what the differences between them add up to.
 
-import { h, card, pill, chip, selectField, numberField, toast, icon, confirmDialog } from '../lib/ui.js?v=87d1918f';
-import { update, updateBake, deleteBake, download, exportBakesJSON } from '../lib/store.js?v=87d1918f';
-import { computeRecipe } from '../model/dough.js?v=87d1918f';
-import { scheduleStages } from '../model/protocol.js?v=87d1918f';
-import { fermentUnits } from '../model/ferment.js?v=87d1918f';
-import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=87d1918f';
-import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js?v=87d1918f';
-import { scatterChart, barChart, linearFit } from '../lib/charts.js?v=87d1918f';
-import { fmtTemp, fmtDuration, round } from '../model/units.js?v=87d1918f';
-import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js?v=87d1918f';
-import { stars, scoreInputs, tempField } from './common.js?v=87d1918f';
-import { bakeCSV } from '../lib/csv.js?v=87d1918f';
-import { actualStages, projectedStages, hasTimings, sayDrift, PHASE_BOUNDS } from '../model/timeline.js?v=87d1918f';
-import { STEPS } from '../model/protocol.js?v=87d1918f';
-import { photoStrip, photoCount, dropPhotosFor } from './photos-ui.js?v=87d1918f';
-import { fmtClock, fmtDay } from '../lib/ui.js?v=87d1918f';
+import { h, card, pill, chip, selectField, textField, toast, icon, confirmDialog } from '../lib/ui.js?v=53a849de';
+import { update, updateBake, deleteBake, download, exportBakesJSON } from '../lib/store.js?v=53a849de';
+import { computeRecipe } from '../model/dough.js?v=53a849de';
+import { scheduleStages } from '../model/protocol.js?v=53a849de';
+import { fermentUnits } from '../model/ferment.js?v=53a849de';
+import { overallScore } from '../model/recipes.js?v=53a849de';
+import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js?v=53a849de';
+import { scatterChart, barChart, linearFit } from '../lib/charts.js?v=53a849de';
+import { fmtTemp, fmtDuration, round } from '../model/units.js?v=53a849de';
+import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js?v=53a849de';
+import { stars, scoreInputs } from './common.js?v=53a849de';
+import { bakeCSV } from '../lib/csv.js?v=53a849de';
+import { actualStages, hasTimings, sayDrift } from '../model/timeline.js?v=53a849de';
+import { STEPS, STEP_IDS, orderStamps } from '../model/protocol.js?v=53a849de';
+import { photoStrip, photoCount, dropPhotosFor } from './photos-ui.js?v=53a849de';
+import { metricField, METRIC_KEYS, stampField } from './record-ui.js?v=53a849de';
 
 export default function renderLog(ctx) {
   const { s } = ctx;
@@ -168,9 +168,10 @@ function howItRan(ctx, b) {
   const planned = scheduleStages(b.schedule);
   const stages = actualStages({ doneAt: b.doneAt, schedule: b.schedule, planned });
   const byId = new Map(STEPS.map((st) => [st.id, st]));
-  const ticked = Object.entries(b.doneAt || {})
-    .filter(([, at]) => Number.isFinite(at))
-    .sort((x, y) => x[1] - y[1]);
+  const ticked = Object.entries(b.doneAt || {}).filter(([, at]) => Number.isFinite(at));
+  // In the order the steps happen rather than the order the clock saw them,
+  // so the window each correction is held to reads down the list.
+  const ordered = STEP_IDS.filter((id) => Number.isFinite(b.doneAt?.[id])).map((id) => [id, b.doneAt[id]]);
 
   return h(
     'div',
@@ -195,19 +196,43 @@ function howItRan(ctx, b) {
         }))
       )
     ),
+    /*
+     * And correctable, months later. A time ticked off an hour after the thing
+     * happened is the normal case, and noticing is often what filing the bake
+     * and looking at the table prompts. The same control the run uses, so a
+     * correction here is held to the same order.
+     */
     h(
       'details',
       { class: 'foldout' },
       h('summary', {}, `Every step, as it happened (${ticked.length})`),
-      h('ul', { class: 'step-log' }, ...ticked.map(([id, at]) => {
+      h('div', { class: 'step-log-edit' }, ...ordered.map(([id, at]) => {
         const step = byId.get(id);
-        const when = new Date(at);
-        return h('li', {}, h('span', { class: 'step-log-when' }, `${fmtDay(when)} ${fmtClock(when)}`), h('span', {}, step ? step.title({ c: computeRecipe(b.recipe), S: b.schedule, u: ctx.u, E: b.equipment }) : id));
+        return stampField({
+          stepId: id,
+          at,
+          doneAt: b.doneAt || {},
+          name: step ? step.title({ c: computeRecipe(b.recipe), S: b.schedule, u: ctx.u, E: b.equipment }) : id,
+          onChange: (ms) => updateBake(b.id, { doneAt: orderStamps({ ...(b.doneAt || {}), [id]: ms }) }),
+        });
       }))
     )
   );
 }
 
+/**
+ * A filed bake, open for correction.
+ *
+ * Everything the run recorded can be put right here, through the same controls
+ * the run used: the times each step was ticked at, every measurement, the
+ * marks, the notes, the faults and the photographs. This used to offer four of
+ * the ten measurements under shortened labels of its own and no way at all to
+ * fix a time, so the answer to noticing a mistake after filing was to live
+ * with it.
+ *
+ * A bake is a record of what happened, so nothing here changes the plan it was
+ * baked to: the recipe and the schedule are what they were on the day.
+ */
 function editor(ctx, b) {
   const { u } = ctx;
   const setScore = (k, v) => updateBake(b.id, { scores: { ...b.scores, [k]: v } });
@@ -216,16 +241,20 @@ function editor(ctx, b) {
   return h(
     'div',
     { style: { display: 'grid', gap: '12px', marginTop: '6px' } },
+    textField({ label: 'What this bake is called', value: b.title || b.recipeName || '', placeholder: 'Untitled bake', onInput: (v) => updateBake(b.id, { title: v }) }),
     photoStrip(ctx, b.id),
     howItRan(ctx, b),
     scoreInputs(b.scores, setScore),
     h(
       'div',
-      { class: 'row' },
-      tempField({ allowEmpty: true, label: 'Ambient', valueC: b.actuals?.ambientTempC, unit: u, onChange: setActual('ambientTempC') }),
-      tempField({ allowEmpty: true, label: 'Floor', valueC: b.actuals?.deckTempC, unit: u, step: 5, onChange: setActual('deckTempC') }),
-      tempField({ allowEmpty: true, label: 'Ball core', valueC: b.actuals?.coreTempC, unit: u, onChange: setActual('coreTempC') }),
-      numberField({ allowEmpty: true, label: 'Bake time', value: b.actuals?.bakeSec ?? '', suffix: 'sec', onInput: setActual('bakeSec') })
+      { class: 'field' },
+      h('span', { class: 'field-label' }, 'What you measured'),
+      h('div', { class: 'row' }, ...METRIC_KEYS.map((k) => metricField({
+        key: k,
+        value: b.actuals?.[k],
+        unit: u,
+        onChange: setActual(k),
+      })))
     ),
     h(
       'label',
