@@ -1,21 +1,21 @@
 // Log: every bake, and what the differences between them add up to.
 
-import { h, card, pill, chip, selectField, numberField, toast, icon, confirmDialog } from '../lib/ui.js?v=3796c570';
-import { update, updateBake, deleteBake, download, exportBakesJSON } from '../lib/store.js?v=3796c570';
-import { computeRecipe } from '../model/dough.js?v=3796c570';
-import { scheduleStages } from '../model/protocol.js?v=3796c570';
-import { fermentUnits } from '../model/ferment.js?v=3796c570';
-import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=3796c570';
-import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js?v=3796c570';
-import { scatterChart, barChart, linearFit } from '../lib/charts.js?v=3796c570';
-import { fmtTemp, fmtDuration, round } from '../model/units.js?v=3796c570';
-import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js?v=3796c570';
-import { stars, scoreInputs, tempField } from './common.js?v=3796c570';
-import { bakeCSV } from '../lib/csv.js?v=3796c570';
-import { actualStages, projectedStages, hasTimings, sayDrift, PHASE_BOUNDS } from '../model/timeline.js?v=3796c570';
-import { STEPS } from '../model/protocol.js?v=3796c570';
-import { photoStrip, photoCount, dropPhotosFor } from './photos-ui.js?v=3796c570';
-import { fmtClock, fmtDay } from '../lib/ui.js?v=3796c570';
+import { h, card, pill, chip, selectField, numberField, toast, icon, confirmDialog } from '../lib/ui.js?v=87d1918f';
+import { update, updateBake, deleteBake, download, exportBakesJSON } from '../lib/store.js?v=87d1918f';
+import { computeRecipe } from '../model/dough.js?v=87d1918f';
+import { scheduleStages } from '../model/protocol.js?v=87d1918f';
+import { fermentUnits } from '../model/ferment.js?v=87d1918f';
+import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=87d1918f';
+import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js?v=87d1918f';
+import { scatterChart, barChart, linearFit } from '../lib/charts.js?v=87d1918f';
+import { fmtTemp, fmtDuration, round } from '../model/units.js?v=87d1918f';
+import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js?v=87d1918f';
+import { stars, scoreInputs, tempField } from './common.js?v=87d1918f';
+import { bakeCSV } from '../lib/csv.js?v=87d1918f';
+import { actualStages, projectedStages, hasTimings, sayDrift, PHASE_BOUNDS } from '../model/timeline.js?v=87d1918f';
+import { STEPS } from '../model/protocol.js?v=87d1918f';
+import { photoStrip, photoCount, dropPhotosFor } from './photos-ui.js?v=87d1918f';
+import { fmtClock, fmtDay } from '../lib/ui.js?v=87d1918f';
 
 export default function renderLog(ctx) {
   const { s } = ctx;

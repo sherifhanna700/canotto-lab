@@ -32,6 +32,7 @@ import { derive, findFactor } from '../src/model/metrics.js';
 import { mergeCollections } from '../src/lib/drive.js';
 import { normaliseRecipe, EMPTY_ACTUALS, EMPTY_SCORES, SCHEMA_BASE, exportStateJSON } from '../src/lib/store.js';
 import { DEFAULT_SCHEDULE as SCHED } from '../src/model/protocol.js';
+import { stampBounds, clampStamp, orderStamps, STEP_IDS } from '../src/model/protocol.js';
 import { validate, loadSchemas } from '../tools/validate-schema.mjs';
 import { DEFAULT_EQUIPMENT } from '../src/model/equipment.js';
 import { cToF, fToC, deltaToDisplay, deltaFromDisplay, reconcile, splitDoses } from '../src/model/units.js';
@@ -1074,6 +1075,68 @@ function stripLiterals(src) {
   }
   return out;
 }
+
+const ORD_HOUR = 3600000;
+const ORD_T0 = Date.parse('2026-09-14T09:00:00Z');
+
+test('a recorded time is bounded by the steps either side of it', () => {
+  // Nearest ticked neighbours, not adjacent ones: a step nobody ticked says
+  // nothing about when the ones around it happened.
+  const doneAt = { 'p1-1': ORD_T0, 'p1-4': ORD_T0 + 12 * ORD_HOUR };
+  const b = stampBounds('p1-3', doneAt);
+  assert.equal(b.min, ORD_T0, 'held back by the last step actually ticked');
+  assert.equal(b.max, ORD_T0 + 12 * ORD_HOUR, 'and by the next one');
+
+  const first = stampBounds('p1-1', doneAt);
+  assert.equal(first.min, null, 'nothing before the first step to answer to');
+  assert.equal(first.max, ORD_T0 + 12 * ORD_HOUR);
+});
+
+test('a step cannot be recorded before the step before it', () => {
+  const bounds = { min: ORD_T0, max: ORD_T0 + 2 * ORD_HOUR };
+  assert.equal(clampStamp(ORD_T0 - ORD_HOUR, bounds), ORD_T0, 'an earlier time is held at the step before');
+  assert.equal(clampStamp(ORD_T0 + 3 * ORD_HOUR, bounds), ORD_T0 + 2 * ORD_HOUR, 'and a later one at the step after');
+  assert.equal(clampStamp(ORD_T0 + ORD_HOUR, bounds), ORD_T0 + ORD_HOUR, 'a time in the window is left alone');
+  assert.equal(clampStamp(ORD_T0, bounds), ORD_T0, 'and equal to a neighbour is allowed: two things can happen at once');
+});
+
+test('ticking an earlier step after a later one cannot run the clock backwards', () => {
+  /*
+   * The case this rule exists for. Everything is ticked off late, so the
+   * clock says now, and now is after a step that has already been recorded as
+   * done. Without the bound the biga would be torn before it was mixed.
+   */
+  const doneAt = { 'p2-1': ORD_T0 + 10 * ORD_HOUR };
+  const ticked = clampStamp(ORD_T0 + 11 * ORD_HOUR, stampBounds('p1-4', doneAt));
+  assert.equal(ticked, ORD_T0 + 10 * ORD_HOUR, 'held at the step that was ticked first');
+  assert.ok(ticked <= doneAt['p2-1'], 'and never after it');
+});
+
+test('times that arrive out of order are put back in it', () => {
+  /*
+   * Repaired on the way in rather than coped with everywhere after: a phase
+   * running from a later stamp to an earlier one has a negative length, and
+   * that is wrong in the table, the drift, and the projected launch alike.
+   */
+  const out = orderStamps({ 'p1-1': ORD_T0 + 5 * ORD_HOUR, 'p1-2': ORD_T0, 'p1-3': ORD_T0 + 6 * ORD_HOUR });
+  assert.equal(out['p1-1'], ORD_T0 + 5 * ORD_HOUR, 'the first stamp is believed');
+  assert.equal(out['p1-2'], ORD_T0 + 5 * ORD_HOUR, 'and the one contradicting it is pulled forward to meet it');
+  assert.equal(out['p1-3'], ORD_T0 + 6 * ORD_HOUR, 'a stamp already in order is untouched');
+
+  const ids = STEP_IDS.filter((id) => Number.isFinite(out[id]));
+  const times = ids.map((id) => out[id]);
+  assert.deepEqual(times, [...times].sort((a, b) => a - b), 'and the result never runs backwards');
+});
+
+test('a session synced from elsewhere has its times ordered on the way in', () => {
+  globalThis.localStorage.clear();
+  resetAll();
+  // As if another device, on an older version, had written them backwards.
+  applySync({ current: { ...storeLoad().current, doneAt: { 'p1-1': ORD_T0 + 4 * ORD_HOUR, 'p1-2': ORD_T0 } } });
+  const at = storeLoad().current.doneAt;
+  assert.ok(at['p1-2'] >= at['p1-1'], `${at['p1-2']} is not before ${at['p1-1']}`);
+  globalThis.localStorage.clear();
+});
 
 test('a bake is recorded in one place', async () => {
   /*

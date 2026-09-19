@@ -4,11 +4,11 @@
 // app touches storage directly, so swapping in a cloud backend later means
 // reimplementing `load` and `save`, not rewriting the views.
 
-import { DEFAULT_RECIPE } from '../model/dough.js?v=3796c570';
-import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=3796c570';
-import { DEFAULT_MODEL } from '../model/ferment.js?v=3796c570';
-import { starterRecipes, houseRecipe } from '../model/recipes.js?v=3796c570';
-import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=3796c570';
+import { DEFAULT_RECIPE } from '../model/dough.js?v=87d1918f';
+import { DEFAULT_SCHEDULE, orderStamps } from '../model/protocol.js?v=87d1918f';
+import { DEFAULT_MODEL } from '../model/ferment.js?v=87d1918f';
+import { starterRecipes, houseRecipe } from '../model/recipes.js?v=87d1918f';
+import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=87d1918f';
 
 const KEY = 'canotto-lab/v1';
 const LEGACY = { steps: 'canotto_master_steps', frozen: 'canotto_frozen_count', metrics: 'canotto_step_metrics' };
@@ -459,7 +459,13 @@ export function sanitiseDoneAt(raw) {
     const n = Number(v);
     if (Number.isFinite(n) && n > floor) out[id] = n;
   }
-  return out;
+  /*
+   * And in the order the steps happen in. The app cannot write a time that
+   * runs backwards, but a session synced from a device on an older version,
+   * or a hand-edited export, can arrive holding one, and a phase of negative
+   * length is wrong everywhere it is then used.
+   */
+  return orderStamps(out);
 }
 
 export function loadRecipeInto(s, recipe) {

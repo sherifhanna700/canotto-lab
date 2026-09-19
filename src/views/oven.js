@@ -6,10 +6,10 @@
 // walkthrough now sits on the step it describes and the fault library sits
 // with the diagnosis at the end. Neither records anything.
 
-import { h, card, stat, pill, icon, sliderField } from '../lib/ui.js?v=3796c570';
-import { update } from '../lib/store.js?v=3796c570';
-import { bakeStages, ovenLabel } from '../model/equipment.js?v=3796c570';
-import { DIAGNOSTICS, CATEGORIES, byCategory } from '../model/diagnostics.js?v=3796c570';
+import { h, card, stat, pill, icon, sliderField } from '../lib/ui.js?v=87d1918f';
+import { update } from '../lib/store.js?v=87d1918f';
+import { bakeStages, ovenLabel } from '../model/equipment.js?v=87d1918f';
+import { DIAGNOSTICS, CATEGORIES, byCategory } from '../model/diagnostics.js?v=87d1918f';
 
 let simIndex = 0;
 let timerId = null;

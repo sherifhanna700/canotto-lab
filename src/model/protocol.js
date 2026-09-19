@@ -7,9 +7,9 @@
 //      moment you want the first pizza to hit the deck, which is what makes
 //      "same recipe, different timing" an experiment you can actually run.
 
-import { fmtGrams, fmtTemp, fmtDuration } from './units.js?v=3796c570';
-import { stageFlourLabel } from './dough.js?v=3796c570';
-import { mixerPhrasing, mixerLabel } from './equipment.js?v=3796c570';
+import { fmtGrams, fmtTemp, fmtDuration } from './units.js?v=87d1918f';
+import { stageFlourLabel } from './dough.js?v=87d1918f';
+import { mixerPhrasing, mixerLabel } from './equipment.js?v=87d1918f';
 
 /**
  * Room temperature defaults to 21.1 °C, which is exactly 70 °F.
@@ -349,6 +349,65 @@ export const STEPS = [
 ];
 
 export const STEP_IDS = STEPS.map((s) => s.id);
+
+/**
+ * The window a step's recorded time has to fall in.
+ *
+ * The steps happen in an order, and the clock does not run backwards: the
+ * biga cannot be mixed after the dough it goes into. So a recorded time is
+ * bounded by its nearest ticked neighbours on either side, and by nothing
+ * else. An untouched step in between says nothing about when this one
+ * happened, and a skipped one never happened at all, so neither bounds
+ * anything. A null bound means there is no step on that side to answer to.
+ */
+export function stampBounds(stepId, doneAt = {}, order = STEP_IDS) {
+  const i = order.indexOf(stepId);
+  if (i < 0) return { min: null, max: null };
+  let min = null;
+  let max = null;
+  for (let j = i - 1; j >= 0; j -= 1) {
+    const t = doneAt[order[j]];
+    if (Number.isFinite(t)) { min = t; break; }
+  }
+  for (let j = i + 1; j < order.length; j += 1) {
+    const t = doneAt[order[j]];
+    if (Number.isFinite(t)) { max = t; break; }
+  }
+  return { min, max };
+}
+
+/** A time forced into its window. Equal to a neighbour is allowed; before it is not. */
+export function clampStamp(ms, { min, max } = {}) {
+  let out = ms;
+  if (Number.isFinite(min) && out < min) out = min;
+  if (Number.isFinite(max) && out > max) out = max;
+  return out;
+}
+
+/**
+ * Put a set of recorded times back in order, for data that arrives out of it.
+ *
+ * Everything written through the app is already ordered, but a session synced
+ * from a device running an older version, or an edited export, can hold times
+ * that run backwards. Repairing on the way in means nothing downstream has to
+ * cope with a phase of negative length.
+ *
+ * A time earlier than the step before it is pulled forward to meet it, rather
+ * than the earlier one being pushed back: a stamp already consistent with
+ * everything before it is left exactly as it was recorded, and the repair
+ * touches only what contradicts it.
+ */
+export function orderStamps(doneAt = {}, order = STEP_IDS) {
+  const out = { ...doneAt };
+  let last = null;
+  for (const id of order) {
+    const t = out[id];
+    if (!Number.isFinite(t)) continue;
+    if (Number.isFinite(last) && t < last) out[id] = last;
+    else last = t;
+  }
+  return out;
+}
 
 export function stepsForPhase(n) {
   return STEPS.filter((s) => s.phase === n);

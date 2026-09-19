@@ -211,3 +211,15 @@ which names them but does not carry them, so the document stays small enough to
 sync in a moment however many pictures there are. A picture described but not
 yet fetched shows as such rather than as a broken frame. Removing one deletes
 it from that folder too, and it does not return on the next sync.
+
+## J23. The clock does not run backwards
+
+The steps happen in an order, so a recorded time cannot come before the time of
+the step before it. However the time gets there.
+
+1. The picker is given the window, not just the value, so a phone does not
+   offer a time that would break the order.
+2. A time typed in before the previous step's is held at it rather than taken.
+3. Ticking an earlier step off after a later one records it no later than the
+   step already done, rather than stamping the clock as it stands.
+4. The run therefore never reads backwards, whatever order it was ticked in.

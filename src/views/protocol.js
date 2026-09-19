@@ -1,21 +1,21 @@
 // Protocol: the schedule solved backwards from your launch time, and the
 // 19 steps with the measurements you take as you go.
 
-import { h, card, numberField, selectField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=3796c570';
-import { update, editCurrent, startNewSession, photosForBake, snapshotBake, addBake } from '../lib/store.js?v=3796c570';
-import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=3796c570';
-import { fermentUnits, maturationUnits } from '../model/ferment.js?v=3796c570';
-import { convertYeast } from '../model/dough.js?v=3796c570';
-import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=3796c570';
-import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=3796c570';
-import { tempField, scoreInputs, stars } from './common.js?v=3796c570';
-import { photoStrip, dropPhotosFor } from './photos-ui.js?v=3796c570';
-import { MATURATION_TARGET, MATURATION_WINDOW } from '../model/advisor.js?v=3796c570';
-import { overallScore } from '../model/recipes.js?v=3796c570';
-import { diagnose } from '../model/diagnostics.js?v=3796c570';
-import { go } from '../app.js?v=3796c570';
-import { heatModulation, faultBrowser } from './oven.js?v=3796c570';
-import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, trimmablePhases, trimStage, trimForMaturation } from '../model/timeline.js?v=3796c570';
+import { h, card, numberField, selectField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=87d1918f';
+import { update, editCurrent, startNewSession, photosForBake, snapshotBake, addBake } from '../lib/store.js?v=87d1918f';
+import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages, stampBounds, clampStamp } from '../model/protocol.js?v=87d1918f';
+import { fermentUnits, maturationUnits } from '../model/ferment.js?v=87d1918f';
+import { convertYeast } from '../model/dough.js?v=87d1918f';
+import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=87d1918f';
+import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=87d1918f';
+import { tempField, scoreInputs, stars } from './common.js?v=87d1918f';
+import { photoStrip, dropPhotosFor } from './photos-ui.js?v=87d1918f';
+import { MATURATION_TARGET, MATURATION_WINDOW } from '../model/advisor.js?v=87d1918f';
+import { overallScore } from '../model/recipes.js?v=87d1918f';
+import { diagnose } from '../model/diagnostics.js?v=87d1918f';
+import { go } from '../app.js?v=87d1918f';
+import { heatModulation, faultBrowser } from './oven.js?v=87d1918f';
+import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, trimmablePhases, trimStage, trimForMaturation } from '../model/timeline.js?v=87d1918f';
 
 const METRIC_DEFS = {
   ambientTempC: { label: 'Ambient temperature', kind: 'temp', hint: 'Air where you are cooking' },
@@ -386,6 +386,7 @@ function stepNode(ctx, step, launch) {
 
   const toggle = () => {
     if (skipped) return;
+    let held = '';
     update((st) => {
       const set = new Set(st.current.done);
       const at = { ...(st.current.doneAt || {}) };
@@ -394,15 +395,28 @@ function stepNode(ctx, step, launch) {
         delete at[step.id];
       } else {
         set.add(step.id);
-        // Every step is stamped, not just the ones that bound a phase. The
-        // phase arithmetic only needs the boundaries, but the record of when
-        // each thing actually happened is worth having on its own, and it is
-        // the only way to see afterwards where an evening went.
-        at[step.id] = Date.now();
+        /*
+         * Every step is stamped, not just the ones that bound a phase. The
+         * phase arithmetic only needs the boundaries, but the record of when
+         * each thing actually happened is worth having on its own, and it is
+         * the only way to see afterwards where an evening went.
+         *
+         * Held inside the order the steps happen in. Ticking one off late is
+         * the normal case, and ticking an earlier step after a later one is
+         * how a time ends up before the step it follows: the clock says now,
+         * but now is after something that has already been recorded as done.
+         */
+        const bounds = stampBounds(step.id, at);
+        const stamped = clampStamp(Date.now(), bounds);
+        at[step.id] = stamped;
+        if (stamped !== Date.now() && Number.isFinite(bounds.max)) {
+          held = `Recorded at ${fmtClock(new Date(stamped))}, the time of the step after it, which was ticked off first.`;
+        }
       }
       st.current.done = [...set];
       st.current.doneAt = at;
     });
+    if (held) toast(held);
   };
 
   const stampedAt = s.current.doneAt?.[step.id];
@@ -430,7 +444,7 @@ function stepNode(ctx, step, launch) {
           : null
       ),
       h('p', { class: 'step-body', html: step.body(tctx), onClick: toggle }),
-      Number.isFinite(stampedAt) ? stampEditor(step, stampedAt) : null,
+      Number.isFinite(stampedAt) ? stampEditor(step, stampedAt, s.current.doneAt || {}) : null,
       metrics.length && !skipped ? h('div', { class: 'step-metrics' }, ...metrics.map((k) => metricField(ctx, k))) : null
     )
   );
@@ -441,11 +455,20 @@ function stepNode(ctx, step, launch) {
  * time has to be correctable. A datetime-local input is the one control that
  * a phone offers a decent picker for.
  */
-function stampEditor(step, stampedAt) {
+function stampEditor(step, stampedAt, doneAt) {
   const local = (ms) => {
     const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60000);
     return d.toISOString().slice(0, 16);
   };
+  /*
+   * The picker is given the window as well as the value, so on a phone the
+   * times that would run backwards are not offered in the first place. The
+   * check below is still needed: min and max are advisory on a typed date and
+   * absent altogether on some keyboards.
+   */
+  const bounds = stampBounds(step.id, doneAt);
+  const said = (ms) => `${fmtDay(new Date(ms))} ${fmtClock(new Date(ms))}`;
+
   return h(
     'label',
     { class: 'field stamp-edit' },
@@ -453,13 +476,28 @@ function stampEditor(step, stampedAt) {
     h('span', { class: 'field-input' }, h('input', {
       type: 'datetime-local',
       value: local(stampedAt),
+      min: Number.isFinite(bounds.min) ? local(bounds.min) : null,
+      max: Number.isFinite(bounds.max) ? local(bounds.max) : null,
       dataset: { k: `stamp-${step.id}` },
       onChange: (e) => {
         const ms = Date.parse(e.target.value);
         if (!Number.isFinite(ms)) return;
-        update((st) => { st.current.doneAt = { ...(st.current.doneAt || {}), [step.id]: ms }; });
+        const kept = clampStamp(ms, bounds);
+        if (kept !== ms) {
+          toast(ms < kept
+            ? `Held at ${said(kept)}: a step cannot be done before the one before it.`
+            : `Held at ${said(kept)}: a step cannot be done after the one after it.`);
+        }
+        update((st) => { st.current.doneAt = { ...(st.current.doneAt || {}), [step.id]: kept }; });
       },
-    }))
+    })),
+    Number.isFinite(bounds.min) || Number.isFinite(bounds.max)
+      ? h('span', { class: 'hint' }, Number.isFinite(bounds.min) && Number.isFinite(bounds.max)
+          ? `Between ${said(bounds.min)} and ${said(bounds.max)}, the steps either side.`
+          : Number.isFinite(bounds.min)
+            ? `No earlier than ${said(bounds.min)}, the step before it.`
+            : `No later than ${said(bounds.max)}, the step after it.`)
+      : null
   );
 }
 

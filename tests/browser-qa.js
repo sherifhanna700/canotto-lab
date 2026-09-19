@@ -623,20 +623,29 @@
     /*
      * Rewrite one stamp through the editor the way a person correcting a late
      * tick would, and check the phase length follows it.
+     *
+     * Backwards, because that is the correction people actually make: the
+     * biga went in at nine and was ticked off at one. Pushing a stamp past the
+     * step after it is the contradiction the ordering rule now refuses, so it
+     * cannot be used to stretch a phase.
      */
-    const editor = $$('#main input[type=datetime-local]').find((i) => i.dataset.k === 'stamp-p1-4');
+    const editor = $$('#main input[type=datetime-local]').find((i) => i.dataset.k === 'stamp-p1-3');
     if (editor) {
-      const start = marks['p1-3'];
-      const target = new Date(start + 4 * 3600000 - new Date(start).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      const end = marks['p1-4'];
+      const target = new Date(end - 4 * 3600000 - new Date(end).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
       editor.value = target;
       editor.dispatchEvent(new Event('change', { bubbles: true }));
       await sleep();
     }
     const rows = $$('#main tbody tr').filter((r) => /Biga ambient rest/.test(r.children[0]?.textContent || ''));
-    // The picker only has minute precision, so an edited stamp lands within a
-    // minute of the target rather than exactly on it.
+    /*
+     * The picker only has minute precision, so an edited stamp lands within a
+     * minute of the target rather than exactly on it, either side: the seconds
+     * on the stamp being corrected decide which. Allowing only one of the two
+     * made this pass or fail on what time of the minute the suite was run.
+     */
     check('J17.4 correcting a stamp changes the phase it bounds',
-      !!editor && /^(4 h|3 h 59 m)$/.test((rows[0]?.children[2]?.textContent || '').trim()),
+      !!editor && /^(4 h|4 h 1 m|3 h 59 m)$/.test((rows[0]?.children[2]?.textContent || '').trim()),
       rows[0] ? [...rows[0].children].map((c) => c.textContent.trim()).join(' | ') : 'no row');
 
     check('J17.5 an untimed phase is not claimed as measured',
@@ -648,6 +657,47 @@
     check('J17.6 unchecking a step drops its recorded time',
       !Number.isFinite(stored()?.current?.doneAt?.['p2-1']),
       JSON.stringify(Object.keys(stored()?.current?.doneAt || {})));
+
+    /* ------------------------------- J23 -------------------------------- */
+    /*
+     * The clock does not run backwards. A step cannot be recorded as done
+     * before the step before it, however the time gets there: typed into the
+     * editor, or stamped by ticking an earlier step off after a later one.
+     */
+    const stampIn = (id) => $$('#main input[type=datetime-local]').find((i) => i.dataset.k === `stamp-${id}`);
+    const asLocal = (ms) => new Date(ms - new Date(ms).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+    const at13 = stored().current.doneAt['p1-3'];
+    const later = stampIn('p1-4');
+    check('J23.1 the picker is given the window, not just the value',
+      !!later && later.min === asLocal(at13),
+      later ? `min ${later.min || 'none'}, against ${asLocal(at13)}` : 'no editor');
+
+    if (later) {
+      later.value = asLocal(at13 - 3 * 3600000);
+      later.dispatchEvent(new Event('change', { bubbles: true }));
+      await sleep();
+    }
+    check('J23.2 a time before the step before it is held there, not taken',
+      stored().current.doneAt['p1-4'] === at13,
+      `${new Date(stored().current.doneAt['p1-4']).toISOString()} against ${new Date(at13).toISOString()}`);
+
+    /*
+     * And the same by ticking. p1-2 comes before both and is ticked off last,
+     * so the clock says now, which is after everything already recorded.
+     */
+    await tick(/Coarse cluster mix/);
+    const early = stored().current.doneAt['p1-2'];
+    check('J23.3 ticking an earlier step off later cannot jump the ones after it',
+      !Number.isFinite(early) || early <= stored().current.doneAt['p1-3'],
+      Number.isFinite(early)
+        ? `${new Date(early).toISOString()} against p1-3 at ${new Date(at13).toISOString()}`
+        : 'that step is not on this protocol');
+
+    const order = ['p1-1', 'p1-2', 'p1-3', 'p1-4', 'p2-1'].map((id) => stored().current.doneAt[id]).filter(Number.isFinite);
+    check('J23.4 so the run never reads backwards',
+      order.every((t, i) => i === 0 || t >= order[i - 1]),
+      order.map((t) => new Date(t).toISOString().slice(11, 19)).join(' , '));
 
     await goTab('Recipe');
 

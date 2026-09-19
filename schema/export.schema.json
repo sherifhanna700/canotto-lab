@@ -112,7 +112,7 @@
             },
             "doneAt": {
               "type": "object",
-              "description": "When each step was actually ticked, as milliseconds since the Unix epoch. Same shape and meaning as on a bake.",
+              "description": "When each step was actually ticked, as milliseconds since the Unix epoch. Same shape and meaning as on a bake, including that it never runs backwards: a step is never recorded earlier than the last step ticked before it.",
               "additionalProperties": {
                 "type": "integer"
               }
