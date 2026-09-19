@@ -4,11 +4,11 @@
 // app touches storage directly, so swapping in a cloud backend later means
 // reimplementing `load` and `save`, not rewriting the views.
 
-import { DEFAULT_RECIPE } from '../model/dough.js?v=97765f5d';
-import { DEFAULT_SCHEDULE, orderStamps } from '../model/protocol.js?v=97765f5d';
-import { DEFAULT_MODEL } from '../model/ferment.js?v=97765f5d';
-import { starterRecipes, houseRecipe } from '../model/recipes.js?v=97765f5d';
-import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=97765f5d';
+import { DEFAULT_RECIPE } from '../model/dough.js?v=bbceb21b';
+import { DEFAULT_SCHEDULE, orderStamps } from '../model/protocol.js?v=bbceb21b';
+import { DEFAULT_MODEL } from '../model/ferment.js?v=bbceb21b';
+import { starterRecipes, houseRecipe } from '../model/recipes.js?v=bbceb21b';
+import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=bbceb21b';
 
 const KEY = 'canotto-lab/v1';
 const LEGACY = { steps: 'canotto_master_steps', frozen: 'canotto_frozen_count', metrics: 'canotto_step_metrics' };
@@ -621,8 +621,16 @@ export function restoreHouseRecipe() {
 
 /* ------------------------------ bake records ---------------------------- */
 
-export function newId() {
-  return `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+/**
+ * A fresh id, prefixed by what it names.
+ *
+ * The prefix was always passed and never used, so recipes have been carrying
+ * ids that announce themselves as bakes. Ids are opaque to the app, but they
+ * are not opaque to somebody reading a shared file and working out what a
+ * recipeId points at. Ids already issued keep whatever they were given.
+ */
+export function newId(prefix = 'b') {
+  return `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
 /** Freeze the current session into an immutable bake record. */
@@ -860,6 +868,80 @@ export function exportBakesJSON({ includePlanned = false } = {}) {
 /** One recipe, for sharing as a file. */
 export function exportRecipeJSON(recipe) {
   return JSON.stringify({ $schema: `${SCHEMA_BASE}/recipe.schema.json`, ...recipe }, null, 2);
+}
+
+/** What kind of Canotto Lab file this is, judged by what is in it. */
+export function kindOf(parsed) {
+  if (!parsed || typeof parsed !== 'object') return null;
+  const named = String(parsed.$schema || '').split('/').pop();
+  if (named === 'export.schema.json') return 'backup';
+  if (named === 'recipes.schema.json') return 'recipes';
+  if (named === 'log.schema.json') return 'log';
+  if (named === 'recipe.schema.json') return 'recipe';
+  if (named === 'bake.schema.json') return 'bake';
+  /*
+   * Judged by shape when the header is missing or wrong, because a file that
+   * has been through somebody's editor should still open. A backup is the one
+   * that must not be guessed at, since opening it is the destructive case.
+   */
+  if (Array.isArray(parsed.recipes) && Array.isArray(parsed.bakes)) return 'backup';
+  if (Array.isArray(parsed.recipes)) return 'recipes';
+  if (Array.isArray(parsed.bakes)) return 'log';
+  if (parsed.scores || parsed.doneAt || parsed.bakedAt) return 'bake';
+  if (parsed.recipe && parsed.schedule) return 'recipe';
+  return null;
+}
+
+/**
+ * Open a file somebody shared, without throwing away what is already here.
+ *
+ * Recipes are meant to travel: craft one, send it, have it followed, edited
+ * and sent back. That only works if opening one adds it to the library rather
+ * than replacing the library with it, which is what the only way in used to
+ * do. A full backup still replaces everything, because that is what a backup
+ * is for, but it is the one kind that says so first.
+ *
+ * A shared copy of something already here is added alongside rather than over
+ * the top: two people's versions of the same recipe are two recipes, and which
+ * is right is not this function's to decide.
+ */
+export function openShared(text) {
+  const parsed = JSON.parse(text);
+  const kind = kindOf(parsed);
+  if (!kind) throw new Error('That file does not look like Canotto Lab data.');
+  if (kind === 'backup') return { kind, needsConfirm: true };
+
+  const taken = [];
+  if (kind === 'recipe' || kind === 'recipes') {
+    const incoming = kind === 'recipe' ? [parsed] : parsed.recipes;
+    for (const r of incoming || []) {
+      if (!r || typeof r !== 'object') continue;
+      const clash = load().recipes.some((mine) => mine.id === r.id);
+      const copy = normaliseRecipe(clash
+        ? { ...r, id: newId('r'), derivedFrom: r.id, name: `${r.name || 'Recipe'} (shared)` }
+        : { ...r, id: r.id || newId('r') });
+      addRecipe(copy);
+      taken.push(copy.name);
+    }
+    return { kind, added: taken.length, names: taken };
+  }
+
+  const incoming = kind === 'bake' ? [parsed] : parsed.bakes;
+  let added = 0;
+  update((s) => {
+    const have = new Set(s.bakes.map((b) => b.id));
+    for (const b of incoming || []) {
+      if (!b || typeof b !== 'object') continue;
+      // A shared run keeps its own identity unless it collides with one here.
+      const bake = have.has(b.id) ? { ...b, id: newId(), derivedFrom: b.id } : b;
+      if (!bake.id) continue;
+      s.bakes.push(bake);
+      have.add(bake.id);
+      added += 1;
+    }
+    s.bakes.sort((a, b) => String(b.bakedAt || '').localeCompare(String(a.bakedAt || '')));
+  });
+  return { kind, added };
 }
 
 export function importJSON(text) {

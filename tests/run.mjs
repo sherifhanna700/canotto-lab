@@ -27,7 +27,8 @@ import { recipeFromBlend, overallScore, recipeRating, starterRecipes, houseRecip
 import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIXERS } from '../src/model/equipment.js';
 import { diagnose } from '../src/model/diagnostics.js';
 import { laterSession } from '../src/lib/drive.js';
-import { deleteBake, deleteRecipe, addBake, addRecipe,
+import { openShared, kindOf, exportRecipeJSON,
+  deleteBake, deleteRecipe, addBake, addRecipe,
   update as storeUpdate, load as storeLoad, resetAll, applySync, addPhotoRecord, removePhotoRecord, removePhotoRecordsFor, snapshotBake, startNewSession, photosForBake } from '../src/lib/store.js';
 import { derive, findFactor } from '../src/model/metrics.js';
 import { mergeCollections, unknownFields } from '../src/lib/drive.js';
@@ -1076,6 +1077,88 @@ test('a document written by a later version survives being synced by this one', 
     'and the header is rewritten rather than carried');
 });
 
+test('a recipe can be crafted here, sent, and opened there', () => {
+  /*
+   * The whole point of publishing a format: craft a recipe, send the file,
+   * have somebody follow it, edit it and send it back. Opening one used to be
+   * possible only through Restore, which replaced the recipient's entire
+   * library with the sender's single recipe.
+   */
+  globalThis.localStorage.clear();
+  resetAll();
+  const mine = addRecipe({ id: 'r-mine', name: 'My 70%', recipe: { hydrationPct: 70 }, schedule: { coldProofHours: 48 } });
+  const sent = exportRecipeJSON(mine);
+
+  // The other person, with a library of their own.
+  globalThis.localStorage.clear();
+  resetAll();
+  const theirsBefore = storeLoad().recipes.length;
+  const res = openShared(sent);
+
+  assert.equal(res.kind, 'recipe');
+  assert.equal(storeLoad().recipes.length, theirsBefore + 1, 'it is added, not swapped in');
+  const landed = storeLoad().recipes.find((r) => r.id === 'r-mine');
+  assert.equal(landed.recipe.hydrationPct, 70, 'the dough came with it');
+  assert.equal(landed.schedule.coldProofHours, 48, 'and the protocol');
+  globalThis.localStorage.clear();
+});
+
+test('a shared copy of a recipe you already have arrives alongside it', () => {
+  // Two people's versions of the same recipe are two recipes, and which is
+  // right is not the app's to decide.
+  globalThis.localStorage.clear();
+  resetAll();
+  const mine = addRecipe({ id: 'r-same', name: 'Ours', recipe: { hydrationPct: 70 }, schedule: {} });
+  const theirs = exportRecipeJSON({ ...mine, recipe: { hydrationPct: 75 } });
+
+  openShared(theirs);
+  const all = storeLoad().recipes.filter((r) => r.name.startsWith('Ours'));
+  assert.equal(all.length, 2, 'both are kept');
+  assert.equal(all.find((r) => r.id === 'r-same').recipe.hydrationPct, 70, 'mine is untouched');
+  const copy = all.find((r) => r.id !== 'r-same');
+  assert.equal(copy.recipe.hydrationPct, 75, 'and theirs came in whole');
+  assert.equal(copy.derivedFrom, 'r-same', 'saying what it came from');
+  globalThis.localStorage.clear();
+});
+
+test('opening a log still adds the runs in it, as it always did', () => {
+  // Sharing results between people is not a thing yet, but merging a log file
+  // was already here and must keep working.
+  globalThis.localStorage.clear();
+  resetAll();
+  const doc = JSON.stringify({
+    $schema: 'https://x/log.schema.json',
+    bakes: [{ id: 'b-in', bakedAt: '2026-09-18T17:00', scores: {}, actuals: {} }],
+  });
+  const res = openShared(doc);
+  assert.equal(res.kind, 'log');
+  assert.equal(res.added, 1);
+  assert.equal(storeLoad().bakes[0].id, 'b-in');
+  globalThis.localStorage.clear();
+});
+
+test('what a file is, is judged by what is in it', () => {
+  // A file that has been through somebody's editor should still open, so the
+  // header is read first and the shape second.
+  assert.equal(kindOf({ $schema: 'https://x/recipe.schema.json' }), 'recipe');
+  assert.equal(kindOf({ $schema: 'https://x/export.schema.json' }), 'backup');
+  assert.equal(kindOf({ recipe: {}, schedule: {} }), 'recipe', 'by shape when the header is gone');
+  assert.equal(kindOf({ bakes: [] }), 'log');
+  assert.equal(kindOf({ recipes: [], bakes: [] }), 'backup', 'the destructive one is never guessed loosely');
+  assert.equal(kindOf({ hello: 'world' }), null, 'and something else is refused');
+});
+
+test('opening a full backup asks before it replaces anything', () => {
+  globalThis.localStorage.clear();
+  resetAll();
+  addRecipe({ id: 'r-keep', name: 'Keep me', recipe: {}, schedule: {} });
+  const before = storeLoad().recipes.length;
+  const res = openShared(JSON.stringify({ $schema: 'https://x/export.schema.json', recipes: [], bakes: [] }));
+  assert.equal(res.needsConfirm, true, 'it says it needs confirming');
+  assert.equal(storeLoad().recipes.length, before, 'and nothing has happened yet');
+  globalThis.localStorage.clear();
+});
+
 test('the schema describes everything the app actually writes', async () => {
   /*
    * The point of publishing these is that somebody else can build on the
@@ -1149,6 +1232,20 @@ test('the schema describes everything the app actually writes', async () => {
 
   assert.deepEqual(undeclared(Object.keys(state.current.schedule), read('protocol.schema.json')), [],
     'every setting of the schedule is described');
+
+  /*
+   * The recipe matters most of all: it is the one meant to pass between
+   * people, as a file, into an app the sender does not control. A field it
+   * carries that the schema never mentions is a field the recipient's
+   * validator will not expect and their code will not read.
+   */
+  const recipeSchema = read('recipe.schema.json');
+  const shared = storeLoad().recipes[0];
+  assert.deepEqual(undeclared(Object.keys(shared), recipeSchema), [], 'every field of a recipe is described');
+  assert.deepEqual(undeclared(Object.keys(shared.recipe), read('dough.schema.json')), [],
+    'every part of the dough is described');
+  assert.deepEqual(undeclared(Object.keys(shared.schedule), read('protocol.schema.json')), [],
+    'and every part of the protocol it is made to');
   globalThis.localStorage.clear();
 });
 

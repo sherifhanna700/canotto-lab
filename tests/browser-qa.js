@@ -879,6 +879,39 @@
     }
     await goTab('Recipe');
 
+    /* ------------------------------- J25 -------------------------------- */
+    /*
+     * A recipe crossing between two people. The file is the format meant to
+     * travel, so opening one has to add it to the library rather than replace
+     * the library with it, which is what the only way in used to do.
+     */
+    const j25Build = (document.querySelector('script[type=module]')?.src.match(/\?v=([0-9a-f]+)/) || [])[1];
+    const j25Store = await import(`/src/lib/store.js?v=${j25Build}`);
+
+    const mine = j25Store.load().recipes[0];
+    const sent = j25Store.exportRecipeJSON({ ...mine, id: 'r-from-a-friend', name: 'Friend 75%', recipe: { ...mine.recipe, hydrationPct: 75 } });
+    const had = j25Store.load().recipes.length;
+    const opened = j25Store.openShared(sent);
+    await settle();
+
+    check('J25.1 a shared recipe file is recognised', opened.kind === 'recipe', `read as ${opened.kind}`);
+    check('J25.2 and is added to the library rather than replacing it',
+      j25Store.load().recipes.length === had + 1 && j25Store.load().recipes.some((r) => r.id === mine.id),
+      `${had} before, ${j25Store.load().recipes.length} after, mine still here`);
+    const landed = j25Store.load().recipes.find((r) => r.id === 'r-from-a-friend');
+    check('J25.3 the dough and the protocol came with it',
+      !!landed && landed.recipe.hydrationPct === 75 && !!landed.schedule.coldProofHours,
+      landed ? `${landed.recipe.hydrationPct}% and a schedule` : 'not found');
+
+    await goTab('Recipe');
+    check('J25.4 and it is on the Recipes screen, ready to load',
+      $$('#main .item-title').some((t) => /Friend 75%/.test(t.textContent)),
+      $$('#main .item-title').map((t) => t.textContent.trim()).join(', ').slice(0, 70));
+
+    // Put the library back, so later journeys count what they expect.
+    j25Store.deleteRecipe('r-from-a-friend');
+    await settle();
+
     /* ------------------------------- J24 -------------------------------- */
     /*
      * Putting a filed bake right. Noticing a step was ticked an hour late, or

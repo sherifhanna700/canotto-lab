@@ -1,21 +1,21 @@
 // Log: every bake, and what the differences between them add up to.
 
-import { h, card, pill, chip, selectField, textField, toast, icon, confirmDialog } from '../lib/ui.js?v=97765f5d';
-import { update, updateBake, deleteBake, download, exportBakesJSON } from '../lib/store.js?v=97765f5d';
-import { computeRecipe } from '../model/dough.js?v=97765f5d';
-import { scheduleStages } from '../model/protocol.js?v=97765f5d';
-import { fermentUnits } from '../model/ferment.js?v=97765f5d';
-import { overallScore } from '../model/recipes.js?v=97765f5d';
-import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js?v=97765f5d';
-import { scatterChart, barChart, linearFit } from '../lib/charts.js?v=97765f5d';
-import { fmtTemp, fmtDuration, round } from '../model/units.js?v=97765f5d';
-import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js?v=97765f5d';
-import { stars, scoreInputs } from './common.js?v=97765f5d';
-import { bakeCSV } from '../lib/csv.js?v=97765f5d';
-import { actualStages, hasTimings, sayDrift } from '../model/timeline.js?v=97765f5d';
-import { STEPS, STEP_IDS, orderStamps } from '../model/protocol.js?v=97765f5d';
-import { photoStrip, photoCount, dropPhotosFor } from './photos-ui.js?v=97765f5d';
-import { metricField, METRIC_KEYS, stampField } from './record-ui.js?v=97765f5d';
+import { h, card, pill, chip, selectField, textField, toast, icon, confirmDialog } from '../lib/ui.js?v=bbceb21b';
+import { update, updateBake, deleteBake, download, exportBakesJSON } from '../lib/store.js?v=bbceb21b';
+import { computeRecipe } from '../model/dough.js?v=bbceb21b';
+import { scheduleStages } from '../model/protocol.js?v=bbceb21b';
+import { fermentUnits } from '../model/ferment.js?v=bbceb21b';
+import { overallScore } from '../model/recipes.js?v=bbceb21b';
+import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js?v=bbceb21b';
+import { scatterChart, barChart, linearFit } from '../lib/charts.js?v=bbceb21b';
+import { fmtTemp, fmtDuration, round } from '../model/units.js?v=bbceb21b';
+import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js?v=bbceb21b';
+import { stars, scoreInputs } from './common.js?v=bbceb21b';
+import { bakeCSV } from '../lib/csv.js?v=bbceb21b';
+import { actualStages, hasTimings, sayDrift } from '../model/timeline.js?v=bbceb21b';
+import { STEPS, STEP_IDS, orderStamps } from '../model/protocol.js?v=bbceb21b';
+import { photoStrip, photoCount, dropPhotosFor } from './photos-ui.js?v=bbceb21b';
+import { metricField, METRIC_KEYS, stampField } from './record-ui.js?v=bbceb21b';
 
 export default function renderLog(ctx) {
   const { s } = ctx;

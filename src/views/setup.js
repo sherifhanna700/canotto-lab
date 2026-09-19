@@ -1,21 +1,21 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=97765f5d';
-import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=97765f5d';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=97765f5d';
-import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=97765f5d';
-import { scheduleStages } from '../model/protocol.js?v=97765f5d';
-import { convertYeast } from '../model/dough.js?v=97765f5d';
-import { overallScore } from '../model/recipes.js?v=97765f5d';
-import { SOURCES, FLOURS } from '../model/flours.js?v=97765f5d';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=97765f5d';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=97765f5d';
-import { lineChart } from '../lib/charts.js?v=97765f5d';
-import * as drive from '../lib/drive.js?v=97765f5d';
-import * as photos from '../lib/photos.js?v=97765f5d';
-import { tempField, tempDeltaField, } from './common.js?v=97765f5d';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=97765f5d';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=bbceb21b';
+import { editCurrent, update, exportJSON, exportStateJSON, importJSON, openShared, download, resetAll, load, applySync } from '../lib/store.js?v=bbceb21b';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=bbceb21b';
+import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=bbceb21b';
+import { scheduleStages } from '../model/protocol.js?v=bbceb21b';
+import { convertYeast } from '../model/dough.js?v=bbceb21b';
+import { overallScore } from '../model/recipes.js?v=bbceb21b';
+import { SOURCES, FLOURS } from '../model/flours.js?v=bbceb21b';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=bbceb21b';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=bbceb21b';
+import { lineChart } from '../lib/charts.js?v=bbceb21b';
+import * as drive from '../lib/drive.js?v=bbceb21b';
+import * as photos from '../lib/photos.js?v=bbceb21b';
+import { tempField, tempDeltaField, } from './common.js?v=bbceb21b';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=bbceb21b';
 
 let driveAccount = null;
 let syncing = false;
@@ -165,6 +165,32 @@ function pickFile(onText) {
   input.remove();
 }
 
+/**
+ * Open whatever somebody sent, and say what it was.
+ *
+ * A recipe is meant to travel: crafted here, sent, followed there, edited and
+ * sent back. That only works if opening one adds it, so this never replaces
+ * anything. A full backup is the exception and is handed to the restore path,
+ * which asks first.
+ */
+async function openSharedFile(text) {
+  const res = openShared(text);
+  if (res.needsConfirm) {
+    confirmDialog('That is a full backup rather than a single recipe or run. Replacing everything in this browser with it cannot be undone.',
+      () => { importJSON(text); toast('Data restored'); }, 'Replace everything');
+    return;
+  }
+  if (res.kind === 'recipe' || res.kind === 'recipes') {
+    toast(res.added === 1
+      ? `Added ${res.names[0]}. It is on the Recipes screen, ready to load.`
+      : `Added ${res.added} recipes to your library.`);
+    return;
+  }
+  toast(res.added
+    ? `Added ${res.added} run${res.added === 1 ? '' : 's'} to your log.`
+    : 'Nothing new in that file.');
+}
+
 function savingCard(ctx) {
   const { s } = ctx;
   const fileName = currentFileName();
@@ -184,13 +210,22 @@ function savingCard(ctx) {
       'div',
       { class: 'row tight' },
       h('button', { class: 'btn', onClick: () => download('canotto-lab.json', exportJSON()) }, icon('download'), 'Download a backup'),
-      h('button', { class: 'btn ghost', onClick: () => pickFile(async (t) => { importJSON(t); toast('Data restored'); }) }, icon('upload'), 'Restore from a backup'),
-      h('button', { class: 'btn ghost', onClick: () => pickFile(async (t) => { const n = mergeBakes(t); toast(n ? `${n} bakes merged in` : 'Nothing new in that file'); }) }, icon('merge'), 'Merge someone else’s bakes'),
+      h('button', { class: 'btn ghost', onClick: () => pickFile(openSharedFile) }, icon('folder_open'), 'Open a shared file'),
+      /*
+       * Restoring is the one way in that throws work away, so it says so
+       * first. It used to be the only way in at all, which meant opening a
+       * recipe a friend sent replaced the whole library with it.
+       */
+      h('button', { class: 'btn ghost', onClick: () => pickFile(async (t) => {
+        const count = load().recipes.length + load().bakes.length;
+        confirmDialog(`Replace everything in this browser with that backup? ${count} recipe${count === 1 ? '' : 's'} and bakes here now would go. To add a shared recipe or run to what you already have, use Open a shared file instead.`,
+          () => { importJSON(t); toast('Data restored'); }, 'Replace everything');
+      }) }, icon('upload'), 'Restore from a backup'),
       canSaveToFile()
         ? h('button', { class: 'btn ghost', onClick: async () => { try { const n = await saveToFile(exportJSON()); toast(`Saved to ${n}`); } catch (e) { if (e.name !== 'AbortError') toast('Could not save to that file'); } } }, icon('save'), fileName ? `Save to ${fileName}` : 'Save to a file')
         : null,
       canSaveToFile()
-        ? h('button', { class: 'btn ghost', onClick: async () => { try { importJSON(await openFromFile()); toast('Loaded'); } catch (e) { if (e.name !== 'AbortError') toast('Could not open that file'); } } }, icon('folder_open'), 'Open a file')
+        ? h('button', { class: 'btn ghost', onClick: async () => { try { await openSharedFile(await openFromFile()); } catch (e) { if (e.name !== 'AbortError') toast(e.message || 'Could not open that file'); } } }, icon('description'), 'Open a file')
         : null
     ),
     canSaveToFile()

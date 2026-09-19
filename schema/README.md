@@ -4,6 +4,23 @@ Everything the app exports is plain JSON, and every file names the schema it
 follows. If you want to build something on top of this data, or feed it your
 own, these are the shapes.
 
+Two of them are worth separating, because they answer different questions.
+
+**A recipe is a plan somebody else can follow.** It is the format meant to
+travel between people: craft one, send the file, and whoever opens it gets the
+dough and the protocol whole, loads it, and bakes to it. Opening a shared
+recipe adds it to the library alongside whatever is already there; if it
+collides with a recipe already held, both are kept, because two people's
+versions of the same recipe are two recipes. `recipe.schema.json` describes it,
+and a recipe can also be sent as a link with the whole definition packed into
+the URL.
+
+**A bake is the record of one run of that plan.** What was really measured,
+when each step was really done, how it scored and what it looked like. It is
+kept, synced between the baker's own devices, and stays open to correction long
+after it is filed, because noticing a mistake is usually what reading the
+record prompts. Sending a run to somebody else is not a thing yet.
+
 Schemas are [JSON Schema 2020-12](https://json-schema.org/) and live at:
 
 ```

@@ -4,9 +4,9 @@
 // added to it afterwards are the same picture, and the session keeps the id it
 // will be filed under, so nothing is re-attached when the bake is filed.
 
-import { h, toast, icon, confirmDialog } from '../lib/ui.js?v=97765f5d';
-import { update, photosForBake, addPhotoRecord, removePhotoRecord, removePhotoRecordsFor } from '../lib/store.js?v=97765f5d';
-import * as photos from '../lib/photos.js?v=97765f5d';
+import { h, toast, icon, confirmDialog } from '../lib/ui.js?v=bbceb21b';
+import { update, photosForBake, addPhotoRecord, removePhotoRecord, removePhotoRecordsFor } from '../lib/store.js?v=bbceb21b';
+import * as photos from '../lib/photos.js?v=bbceb21b';
 
 export const urlCache = new Map();
 const urlLoading = new Set();
