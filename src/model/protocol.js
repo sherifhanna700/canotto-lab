@@ -7,9 +7,9 @@
 //      moment you want the first pizza to hit the deck, which is what makes
 //      "same recipe, different timing" an experiment you can actually run.
 
-import { fmtGrams, fmtTemp, fmtDuration } from './units.js?v=4a2bd96a';
-import { stageFlourLabel } from './dough.js?v=4a2bd96a';
-import { mixerPhrasing, mixerLabel } from './equipment.js?v=4a2bd96a';
+import { fmtGrams, fmtTemp, fmtDuration } from './units.js?v=3796c570';
+import { stageFlourLabel } from './dough.js?v=3796c570';
+import { mixerPhrasing, mixerLabel } from './equipment.js?v=3796c570';
 
 /**
  * Room temperature defaults to 21.1 °C, which is exactly 70 °F.
@@ -329,7 +329,7 @@ export const STEPS = [
     badge: ({ S }) => `${S.preheatMin} min soak`,
     body: ({ S, u }) =>
       `Preheat on full. Target floor temperature ${b(fmtTemp(S.deckTempC, u))} in the centre of the deck, dome ${b(fmtTemp(S.domeTempC, u))}. A cold floor is the single most common cause of a pale, sluggish bake.`,
-    metrics: ['deckTempC', 'domeTempC'],
+    metrics: ['deckTempC', 'domeTempC', 'ambientTempC', 'humidityPct'],
   },
   {
     id: 'p5-3', phase: 5, n: 3,
@@ -344,7 +344,7 @@ export const STEPS = [
     badge: ({ S }) => `${S.bakeSec} sec`,
     body: ({ S }) =>
       `Turn the heat down 30 seconds before launch. Land away from the burner and leave it untouched while the base sets. Rotate 180°, go to full heat, then quarter-turn every 10 to 15 seconds for blistering. Target ${b(`${S.bakeSec} seconds`)}.`,
-    metrics: ['bakeSec', 'canotto', 'honeycomb', 'blistering'],
+    metrics: ['bakeSec'],
   },
 ];
 

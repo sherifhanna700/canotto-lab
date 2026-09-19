@@ -1,19 +1,25 @@
 // Protocol: the schedule solved backwards from your launch time, and the
 // 19 steps with the measurements you take as you go.
 
-import { h, card, numberField, selectField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=4a2bd96a';
-import { update, editCurrent, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=4a2bd96a';
-import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=4a2bd96a';
-import { fermentUnits, maturationUnits } from '../model/ferment.js?v=4a2bd96a';
-import { convertYeast } from '../model/dough.js?v=4a2bd96a';
-import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=4a2bd96a';
-import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=4a2bd96a';
-import { tempField, } from './common.js?v=4a2bd96a';
-import { MATURATION_TARGET, MATURATION_WINDOW } from '../model/advisor.js?v=4a2bd96a';
-import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, trimmablePhases, trimStage, trimForMaturation } from '../model/timeline.js?v=4a2bd96a';
+import { h, card, numberField, selectField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=3796c570';
+import { update, editCurrent, startNewSession, photosForBake, snapshotBake, addBake } from '../lib/store.js?v=3796c570';
+import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=3796c570';
+import { fermentUnits, maturationUnits } from '../model/ferment.js?v=3796c570';
+import { convertYeast } from '../model/dough.js?v=3796c570';
+import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=3796c570';
+import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=3796c570';
+import { tempField, scoreInputs, stars } from './common.js?v=3796c570';
+import { photoStrip, dropPhotosFor } from './photos-ui.js?v=3796c570';
+import { MATURATION_TARGET, MATURATION_WINDOW } from '../model/advisor.js?v=3796c570';
+import { overallScore } from '../model/recipes.js?v=3796c570';
+import { diagnose } from '../model/diagnostics.js?v=3796c570';
+import { go } from '../app.js?v=3796c570';
+import { heatModulation, faultBrowser } from './oven.js?v=3796c570';
+import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, trimmablePhases, trimStage, trimForMaturation } from '../model/timeline.js?v=3796c570';
 
 const METRIC_DEFS = {
-  ambientTempC: { label: 'Ambient temperature', kind: 'temp', hint: 'Where the dough is sitting right now' },
+  ambientTempC: { label: 'Ambient temperature', kind: 'temp', hint: 'Air where you are cooking' },
+  humidityPct: { label: 'Humidity', kind: 'percent' },
   bigaWaterTempC: { label: 'Biga water temperature', kind: 'temp', target: [14, 16] },
   fdtC: { label: 'Final dough temperature', kind: 'temp', target: [22.8, 23.9] },
   fridgeTempC: { label: 'Measured fridge temperature', kind: 'temp' },
@@ -22,9 +28,6 @@ const METRIC_DEFS = {
   deckTempC: { label: 'Floor temperature', kind: 'temp', target: [443, 460] },
   domeTempC: { label: 'Dome temperature', kind: 'temp', target: [482, 499] },
   bakeSec: { label: 'Bake time', kind: 'seconds' },
-  canotto: { label: 'Canotto height', kind: 'score' },
-  honeycomb: { label: 'Honeycomb', kind: 'score' },
-  blistering: { label: 'Blistering', kind: 'score' },
 };
 
 export default function renderProtocol(ctx) {
@@ -36,11 +39,18 @@ export default function renderProtocol(ctx) {
     doneAt,
     drift: drifts({ doneAt, at: ctx.sched.at, launchISO: ctx.s.current.launchISO }),
   };
+  /*
+   * The whole run, in the order it happens: the schedule it is solved from,
+   * what has really happened so far, the five phases, the flame walkthrough
+   * for the bake itself, how it came out, and the fault library to read when
+   * it came out wrong. There is no second screen; a bake exists here.
+   */
   return [
     scheduleCard(tctx),
     hasTimings(doneAt) ? actualCard(tctx) : null,
-    ...PHASES.map((p) => phaseCard(tctx, p)),
-    footerCard(tctx),
+    ...PHASES.flatMap((p) => [phaseCard(tctx, p), p.n === 5 ? heatModulation(tctx) : null]),
+    closingCard(tctx),
+    faultBrowser(tctx),
   ].filter(Boolean);
 }
 
@@ -311,6 +321,18 @@ function scheduleCard(ctx) {
       ),
       numberField({ label: 'Bake time', value: S.bakeSec, min: 20, max: 600, step: 5, suffix: 'sec', onInput: (v) => editCurrent((c) => { c.schedule.bakeSec = v; }) })
     ),
+    /*
+     * What the oven is aimed at. These were on a screen of their own, which
+     * also edited the bake time that has always been in this card: the same
+     * number, in two places, disagreeing with nothing but itself.
+     */
+    h(
+      'div',
+      { class: 'row' },
+      tempField({ label: 'Target floor', valueC: S.deckTempC, unit: u, step: 5, onChange: (v) => editCurrent((c) => { c.schedule.deckTempC = v; }) }),
+      tempField({ label: 'Target dome', valueC: S.domeTempC, unit: u, step: 5, onChange: (v) => editCurrent((c) => { c.schedule.domeTempC = v; }) }),
+      numberField({ label: 'Preheat soak', value: S.preheatMin, min: 10, max: 120, step: 5, suffix: 'min', onInput: (v) => editCurrent((c) => { c.schedule.preheatMin = v; }) })
+    ),
     h(
       'div',
       { class: 'stats' },
@@ -441,17 +463,17 @@ function stampEditor(step, stampedAt) {
   );
 }
 
+/**
+ * A measurement taken at the step where it is taken.
+ *
+ * Measurements only. Judging the bake is the closing act of the run and
+ * belongs in one place, not spread over the step that happened to be last.
+ */
 function metricField(ctx, key) {
   const { s, u } = ctx;
   const def = METRIC_DEFS[key];
-  const isScore = def.kind === 'score';
-  const val = isScore ? s.current.scores[key] : s.current.actuals[key];
-
-  const setVal = (v) =>
-    update((st) => {
-      if (isScore) st.current.scores[key] = v;
-      else st.current.actuals[key] = v;
-    });
+  const val = s.current.actuals[key];
+  const setVal = (v) => update((st) => { st.current.actuals[key] = v; });
 
   if (def.kind === 'temp') {
     const hint = def.target ? `target ${fmtTemp(def.target[0], u)} to ${fmtTemp(def.target[1], u)}` : def.hint;
@@ -473,22 +495,8 @@ function metricField(ctx, key) {
     }
     return node;
   }
-  if (def.kind === 'score') {
-    return h(
-      'label',
-      { class: 'field' },
-      h('span', { class: 'field-label' }, def.label),
-      h(
-        'span',
-        { class: 'field-input' },
-        h(
-          'select',
-          { onChange: (e) => setVal(e.target.value === '' ? null : Number(e.target.value)) },
-          h('option', { value: '', selected: val === null || val === undefined }, 'Not scored'),
-          ...[5, 4, 3, 2, 1].map((n) => h('option', { value: n, selected: Number(val) === n }, String(n)))
-        )
-      )
-    );
+  if (def.kind === 'percent') {
+    return numberField({ label: def.label, value: val ?? '', min: 0, max: 100, suffix: '%', onInput: setVal });
   }
   return numberField({
     label: def.label,
@@ -501,21 +509,102 @@ function metricField(ctx, key) {
 
 /* -------------------------------- footer -------------------------------- */
 
-function footerCard(ctx) {
+/** What a reset is about to throw away, said before it is thrown away. */
+function resetAsk(ctx) {
+  const n = photosForBake(ctx.s, ctx.s.current.id).length;
+  return n
+    ? `Clear the checkmarks, measurements, scores and ${n} photograph${n === 1 ? '' : 's'} for this run? The recipe is untouched, and filed bakes keep theirs.`
+    : 'Clear the checkmarks, measurements and scores for this run? The recipe is untouched.';
+}
+
+/**
+ * The end of the run: judge what came out, and file it.
+ *
+ * A bake is one continuous thing, from building the biga to pulling the last
+ * pizza, and this is its last step. It used to be a separate screen, which
+ * meant the same bake was recorded in two places: measurements ticked off
+ * against the protocol here, conditions and scores entered over there, with
+ * three of the five marks appearing in both. Nothing said which was the real
+ * one, because both were.
+ */
+function closingCard(ctx) {
   const { s } = ctx;
+  const scores = s.current.scores;
+  const overall = overallScore(scores);
+  const hits = diagnose({ scores, actuals: s.current.actuals });
+  const shots = photosForBake(s, s.current.id).length;
+  const ticked = (s.current.done || []).length;
+
   return card(
-    'Session',
-    'Progress and measurements live here until you file the bake.',
+    'How it came out',
+    'The last step of the run. Score what you pulled out of the oven, then file it: the schedule, the times you ticked, every measurement and these photographs go with it.',
+    scoreInputs(scores, (k, v) => update((st) => { st.current.scores[k] = v; })),
+    h(
+      'div',
+      { class: 'stats' },
+      h(
+        'div',
+        { class: 'stat' },
+        h('span', { class: 'stat-label' }, 'Overall'),
+        h('span', { class: 'stat-value' }, overall === null ? 'Not scored' : `${overall.toFixed(1)} / 5`),
+        overall === null ? null : h('span', { class: 'stat-sub' }, stars(overall))
+      )
+    ),
+    hits.length
+      ? h(
+          'div',
+          {},
+          h('p', { class: 'note warn' }, 'Based on what you recorded, these are the likely causes:'),
+          h('ul', { class: 'src-list' }, ...hits.map((d) => h('li', {}, h('strong', {}, d.title), ' — ', d.fix)))
+        )
+      : null,
     h(
       'label',
       { class: 'field' },
       h('span', { class: 'field-label' }, 'Notes for this bake'),
       h('span', { class: 'field-input' }, h('textarea', { rows: 3, placeholder: 'What you changed, what you noticed…', onInput: (e) => update((st) => { st.current.notes = e.target.value; }) }, s.current.notes || ''))
     ),
+    /*
+     * The photographs of the whole run, not of the moment it was filed: the
+     * biga at twelve hours, the dough out of the fridge, the rim out of the
+     * oven. They hang off the session's id, which the record keeps when it is
+     * filed, so they are on the right bake from the moment they are taken.
+     */
+    photoStrip(ctx, s.current.id, {
+      label: 'Photographs of this run',
+      empty: 'None yet. Anything added here, at any point in the week, is filed with the bake.',
+    }),
     h(
       'div',
       { class: 'row tight' },
-      h('button', { class: 'btn ghost', onClick: () => confirmDialog('Clear the checkmarks and measurements for this session? The recipe is untouched.', () => update((st) => { st.current.done = []; st.current.actuals = { ...EMPTY_ACTUALS }; st.current.scores = { ...EMPTY_SCORES }; st.current.notes = ''; }), 'Reset') }, icon('restart_alt'), 'Reset session')
-    )
+      h('button', { class: 'btn', onClick: () => fileRun(ctx, hits) }, icon('save'), 'File this bake in the log'),
+      h('button', { class: 'btn ghost', onClick: () => confirmDialog(resetAsk(ctx), async () => {
+        // The pictures are of this run, so a reset takes them with it. Filing
+        // is the other way out, and keeps them by keeping the id.
+        await dropPhotosFor(s.current.id);
+        startNewSession();
+        toast('Run cleared');
+      }, 'Reset') }, icon('restart_alt'), 'Start a new run')
+    ),
+    h('p', { class: 'hint' }, ticked
+      ? `${ticked} step${ticked === 1 ? '' : 's'} ticked, ${shots} photograph${shots === 1 ? '' : 's'}.`
+      : 'Nothing ticked yet. The run keeps everything here until you file it.')
   );
+}
+
+/**
+ * File the run as a bake.
+ *
+ * The record takes the session's id, so the photographs taken across the week
+ * are already attached to it. The run then starts again on a new id.
+ */
+function fileRun(ctx, hits) {
+  const shots = photosForBake(ctx.s, ctx.s.current.id).length;
+  const bake = snapshotBake(ctx.s, { issues: hits.map((d) => d.id) });
+  addBake(bake);
+  startNewSession();
+  toast(shots
+    ? `Filed, with ${shots} photograph${shots === 1 ? '' : 's'}. The comparison screen picks it up straight away.`
+    : 'Filed. The comparison screen picks it up straight away.');
+  go('log');
 }

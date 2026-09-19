@@ -27,7 +27,7 @@ import { recipeFromBlend, overallScore, recipeRating, starterRecipes, houseRecip
 import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIXERS } from '../src/model/equipment.js';
 import { diagnose } from '../src/model/diagnostics.js';
 import { laterSession } from '../src/lib/drive.js';
-import { update as storeUpdate, load as storeLoad, resetAll, applySync, addPhotoRecord, removePhotoRecord, removePhotoRecordsFor } from '../src/lib/store.js';
+import { update as storeUpdate, load as storeLoad, resetAll, applySync, addPhotoRecord, removePhotoRecord, removePhotoRecordsFor, snapshotBake, startNewSession, photosForBake } from '../src/lib/store.js';
 import { derive, findFactor } from '../src/model/metrics.js';
 import { mergeCollections } from '../src/lib/drive.js';
 import { normaliseRecipe, EMPTY_ACTUALS, EMPTY_SCORES, SCHEMA_BASE, exportStateJSON } from '../src/lib/store.js';
@@ -48,6 +48,8 @@ let passed = 0;
  */
 let queue = Promise.resolve();
 
+const failures = [];
+
 const test = (name, fn) => {
   queue = queue.then(async () => {
     try {
@@ -55,6 +57,7 @@ const test = (name, fn) => {
       passed += 1;
     } catch (err) {
       console.error(`FAIL  ${name}\n      ${err.message}`);
+      failures.push(name);
       process.exitCode = 1;
     }
   });
@@ -1001,6 +1004,104 @@ test('the schemas actually reject malformed data', () => {
   assert.ok(check({ ...sampleBake(), bakedAt: undefined }, 'bake.schema.json').length, 'a bake with no date should fail');
 });
 
+/**
+ * Blank out comments and the text of strings, leaving the code.
+ *
+ * Done in one left-to-right pass, because doing it as a series of regexes
+ * cannot work: stripping single-quoted strings first means an apostrophe in a
+ * double-quoted string ("Baker's percentages") opens a string that runs to the
+ * next apostrophe, swallowing whatever code lies between. That is how the
+ * import guard came to be silently blind to parts of two files.
+ *
+ * Code inside a template's ${...} is kept, since it is code and can call
+ * something that was never imported. Assumes no view holds a quote character
+ * inside a regular expression literal, which none does.
+ */
+function stripLiterals(src) {
+  let out = '';
+  let i = 0;
+  const n = src.length;
+  const skipString = (q) => {
+    i += 1;
+    while (i < n && src[i] !== q) i += src[i] === '\\' ? 2 : 1;
+    i += 1;
+  };
+  while (i < n) {
+    const c = src[i];
+    if (c === '/' && src[i + 1] === '*') {
+      const end = src.indexOf('*/', i + 2);
+      i = end < 0 ? n : end + 2;
+      out += ' ';
+      continue;
+    }
+    if (c === '/' && src[i + 1] === '/') {
+      const end = src.indexOf('\n', i);
+      i = end < 0 ? n : end;
+      out += ' ';
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      skipString(c);
+      out += "''";
+      continue;
+    }
+    if (c === '`') {
+      i += 1;
+      out += '``';
+      while (i < n) {
+        if (src[i] === '\\') { i += 2; continue; }
+        if (src[i] === '`') { i += 1; break; }
+        if (src[i] === '$' && src[i + 1] === '{') {
+          let level = 1;
+          i += 2;
+          const start = i;
+          while (i < n && level) {
+            const ch = src[i];
+            if (ch === '"' || ch === "'" || ch === '`') { skipString(ch); continue; }
+            if (ch === '{') level += 1;
+            else if (ch === '}') level -= 1;
+            i += 1;
+          }
+          out += ` ${stripLiterals(src.slice(start, i - 1))} `;
+          continue;
+        }
+        i += 1;
+      }
+      continue;
+    }
+    out += c;
+    i += 1;
+  }
+  return out;
+}
+
+test('a bake is recorded in one place', async () => {
+  /*
+   * The run is one continuous thing: biga on Monday, pizzas on Friday, judged
+   * the moment they come out. It used to be written down twice, because a Bake
+   * screen recorded conditions and all five marks while the protocol recorded
+   * measurements and three of the same marks at its last step. Nothing said
+   * which was the real one, because both were, and a second surface is easy to
+   * add back without noticing.
+   *
+   * Editing a bake already filed is a different thing and stays in the log.
+   */
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const dir = new URL('../src/views', import.meta.url).pathname;
+  const writers = [];
+  const scorers = [];
+  for (const file of readdirSync(dir).filter((f) => f.endsWith('.js'))) {
+    const src = readFileSync(`${dir}/${file}`, 'utf8');
+    if (/current\.(actuals|scores)\s*\[[^\]]*\]\s*=/.test(src)) writers.push(file);
+    // Calls, not the definition and not the import naming it.
+    const calls = [...src.matchAll(/^(?!import\b)(?!export function\b).*\bscoreInputs\s*\(/gm)];
+    if (calls.length) scorers.push(file);
+  }
+  assert.deepEqual(writers, ['protocol.js'], 'only the run records what happened');
+  assert.deepEqual(scorers.sort(), ['log.js', 'protocol.js'],
+    'scored once at the end of the run, and afterwards only by editing the filed bake');
+});
+
 test('every view imports what it uses', async () => {
   /*
    * A missing import throws inside a click handler, where nothing surfaces it:
@@ -1024,16 +1125,8 @@ test('every view imports what it uses', async () => {
   const problems = [];
   for (const file of readdirSync(dir).filter((f) => f.endsWith('.js'))) {
     const raw = readFileSync(`${dir}/${file}`, 'utf8');
-    /*
-     * Scan the code, not the prose. English inside a string or a comment has
-     * words followed by brackets too, and "as it happened (" is not a call.
-     */
-    const text = raw
-      .replace(/\/\*[\s\S]*?\*\//g, ' ')
-      .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ')
-      .replace(/'(?:\\.|[^'\\])*'/g, "''")
-      .replace(/"(?:\\.|[^"\\])*"/g, '""')
-      .replace(/`(?:\\.|\$\{[^}]*\}|[^`\\])*`/g, '``');
+    // Scan the code, not the prose: "as it happened (" is not a call.
+    const text = stripLiterals(raw);
     const known = new Set([...KEYWORDS, ...GLOBALS]);
 
     for (const m of raw.matchAll(/import \{([^}]*)\} from/g)) {
@@ -1377,6 +1470,64 @@ test('deleting a bake buries its photographs with it', () => {
   globalThis.localStorage.clear();
 });
 
+test('a photograph taken during the bake is already on it when it is filed', () => {
+  /*
+   * Pictures are taken at the bench, not after the record exists, so the
+   * session carries the id the bake will be filed under. If filing minted a
+   * fresh id instead, every picture would point at a session that had just
+   * ended and would have to be moved across by hand.
+   */
+  globalThis.localStorage.clear();
+  resetAll();
+  const sessionId = storeLoad().current.id;
+  assert.ok(sessionId, 'a session has an id from the start');
+  addPhotoRecord({ id: 'ph1', bakeId: sessionId, bytes: 1, addedAt: '2026-09-19T10:00:00Z' });
+
+  const bake = snapshotBake(storeLoad());
+  assert.equal(bake.id, sessionId, 'the record takes the session it came from');
+  startNewSession();
+
+  assert.deepEqual(photosForBake(storeLoad(), bake.id).map((p) => p.id), ['ph1'], 'still on the bake');
+  assert.notEqual(storeLoad().current.id, sessionId, 'and the next session is a different one');
+  assert.deepEqual(photosForBake(storeLoad(), storeLoad().current.id), [], 'starting with no pictures');
+  globalThis.localStorage.clear();
+});
+
+test('clearing a session takes its wall clock with it', () => {
+  // Filing used to leave doneAt behind, so the next bake started already
+  // holding the times the last one was ticked at.
+  globalThis.localStorage.clear();
+  resetAll();
+  storeUpdate((st) => { st.current.done = ['p1-1']; st.current.doneAt = { 'p1-1': '2026-09-19T09:00:00Z' }; st.current.notes = 'x'; });
+  startNewSession();
+  const c = storeLoad().current;
+  assert.deepEqual(c.done, [], 'nothing ticked');
+  assert.deepEqual(c.doneAt, {}, 'and no times left over');
+  assert.equal(c.notes, '');
+  globalThis.localStorage.clear();
+});
+
+test('a session replaced by another device brings its photographs across', () => {
+  /*
+   * Pictures are attached by id. If the other device's session wins, the ones
+   * taken here would point at a session that no longer exists: not deleted,
+   * but unreachable from any screen. Both are the same bake in progress.
+   */
+  globalThis.localStorage.clear();
+  resetAll();
+  const mine = storeLoad().current.id;
+  addPhotoRecord({ id: 'ph-mine', bakeId: mine, bytes: 1, addedAt: '2026-09-19T10:00:00Z' });
+  addPhotoRecord({ id: 'ph-filed', bakeId: 'b-old', bytes: 1, addedAt: '2026-09-19T09:00:00Z' });
+
+  applySync({ current: { ...storeLoad().current, id: 'sess-theirs' }, photos: storeLoad().photos });
+
+  const s = storeLoad();
+  assert.equal(s.current.id, 'sess-theirs', 'their session won');
+  assert.deepEqual(photosForBake(s, 'sess-theirs').map((p) => p.id), ['ph-mine'], 'the picture came with it');
+  assert.deepEqual(photosForBake(s, 'b-old').map((p) => p.id), ['ph-filed'], 'a filed bake is left alone');
+  globalThis.localStorage.clear();
+});
+
 test('what sync writes to Drive is a valid export document', () => {
   /*
    * Sync uploads the merge of both sides, which is not the state in storage,
@@ -1566,4 +1717,15 @@ test('the app asks Google for the hidden folder and nothing wider', () => {
 });
 
 await queue;
-console.log(`\n${passed} model tests passed.`);
+/*
+ * Say what failed, last, where it is read.
+ *
+ * This used to print only the number that passed, which is true and useless:
+ * a failure scrolls off the top and the final line still reads like success.
+ * A run checked by its last line was reported as green with a test failing.
+ */
+if (failures.length) {
+  console.error(`\n${failures.length} FAILED, ${passed} passed:\n  ${failures.join('\n  ')}`);
+} else {
+  console.log(`\n${passed} model tests passed.`);
+}

@@ -63,10 +63,18 @@ contribute the same maturation per hour and a flour's budget applies to their su
 the split changes is the dough rather than the arithmetic: in bulk the gluten stays
 continuous, and hours after balling are hours each piece spends relaxing on its own.
 
-**Bake.** Heat modulation scaled to your bake time and your oven, a timer, and the
-conditions on the day including ambient temperature, which is what actually varies for an
-outdoor oven. Score the bake out of five on rim height, honeycomb, blistering, flavour and
-base, and the app names the likely faults from the numbers you recorded.
+A run ends where it should: the flame walkthrough for the bake itself, scaled to your
+oven and your bake time with a timer to work it, then **How it came out**. Score it out of
+five on rim height, honeycomb, blistering, flavour and base, add the photographs taken at
+any point in the week, and file it. The app names the likely faults from the numbers you
+recorded, with the whole library of them underneath.
+
+Conditions on the day are recorded on the step where they are taken: ambient temperature
+and humidity when you fire the oven, the floor and dome you measured, the core temperature
+of a ball coming out of the fridge. This used to be a Bake screen of its own, which meant
+the same bake was written down twice, three of the five marks and the bake time appearing
+in both places with nothing to say which was the real one. A bake is one continuous thing
+and it lives on the protocol.
 
 **Log.** Every bake, and what the differences between them add up to. Open a run and it
 shows how that bake actually went: the hours each phase really took against the hours it

@@ -1,22 +1,20 @@
 // App shell: tab routing, the shared render context, and the unit toggle.
 
-import { load, subscribe, update, addRecipe, isDirty, saveCurrent, discardCurrent } from './lib/store.js?v=4a2bd96a';
-import { readRecipeLink } from './lib/share.js?v=4a2bd96a';
-import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=4a2bd96a';
-import { h, $, icon, clear, toast } from './lib/ui.js?v=4a2bd96a';
-import { computeRecipe } from './model/dough.js?v=4a2bd96a';
-import { solveSchedule, activeSteps } from './model/protocol.js?v=4a2bd96a';
+import { load, subscribe, update, addRecipe, isDirty, saveCurrent, discardCurrent } from './lib/store.js?v=3796c570';
+import { readRecipeLink } from './lib/share.js?v=3796c570';
+import { THEMES, readTheme, setTheme, nextTheme, applyTheme, watchSystem, resolved } from './lib/theme.js?v=3796c570';
+import { h, $, icon, clear, toast } from './lib/ui.js?v=3796c570';
+import { computeRecipe } from './model/dough.js?v=3796c570';
+import { solveSchedule, activeSteps } from './model/protocol.js?v=3796c570';
 
-import renderRecipe from './views/recipe.js?v=4a2bd96a';
-import renderProtocol from './views/protocol.js?v=4a2bd96a';
-import renderBake from './views/bake.js?v=4a2bd96a';
-import renderLog from './views/log.js?v=4a2bd96a';
-import renderSetup from './views/setup.js?v=4a2bd96a';
+import renderRecipe from './views/recipe.js?v=3796c570';
+import renderProtocol from './views/protocol.js?v=3796c570';
+import renderLog from './views/log.js?v=3796c570';
+import renderSetup from './views/setup.js?v=3796c570';
 
 const TABS = [
   { id: 'recipe', label: 'Recipe', icon: 'menu_book', render: renderRecipe },
   { id: 'protocol', label: 'Protocol', icon: 'checklist', render: renderProtocol },
-  { id: 'bake', label: 'Bake', icon: 'local_fire_department', render: renderBake },
   { id: 'log', label: 'Log', icon: 'history_edu', render: renderLog },
   { id: 'setup', label: 'Setup', icon: 'tune', render: renderSetup },
 ];
@@ -28,6 +26,12 @@ const TABS = [
 export const BUILD = new URL(import.meta.url).searchParams.get('v') || 'dev';
 
 let activeTab = location.hash.replace('#', '') || 'recipe';
+/*
+ * Bake was a tab of its own until it turned out to be a second place the same
+ * bake was written down. A bookmark or an open phone still asks for it, so it
+ * lands on the run, which is where all of it now lives.
+ */
+if (activeTab === 'bake') activeTab = 'protocol';
 if (!TABS.some((t) => t.id === activeTab)) activeTab = 'recipe';
 
 /** Everything a view needs, recomputed on each render. */

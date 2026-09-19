@@ -3,15 +3,15 @@
 // Compare and Lab both work off this list, so adding a field here makes it
 // available as an axis, a grouping and a correlation candidate everywhere.
 
-import { computeRecipe } from './dough.js?v=4a2bd96a';
-import { scheduleStages } from './protocol.js?v=4a2bd96a';
-import { projectedStages, PHASE_BOUNDS, hasTimings } from './timeline.js?v=4a2bd96a';
-import { fermentUnits, maturationUnits } from './ferment.js?v=4a2bd96a';
-import { convertYeast } from './dough.js?v=4a2bd96a';
-import { overallScore, SCORE_KEYS } from './recipes.js?v=4a2bd96a';
-import { maturationCeilingForW } from './flours.js?v=4a2bd96a';
-import { toDisplay } from './units.js?v=4a2bd96a';
-import { ovenLabel, mixerLabel } from './equipment.js?v=4a2bd96a';
+import { computeRecipe } from './dough.js?v=3796c570';
+import { scheduleStages } from './protocol.js?v=3796c570';
+import { projectedStages, PHASE_BOUNDS, hasTimings } from './timeline.js?v=3796c570';
+import { fermentUnits, maturationUnits } from './ferment.js?v=3796c570';
+import { convertYeast } from './dough.js?v=3796c570';
+import { overallScore, SCORE_KEYS } from './recipes.js?v=3796c570';
+import { maturationCeilingForW } from './flours.js?v=3796c570';
+import { toDisplay } from './units.js?v=3796c570';
+import { ovenLabel, mixerLabel } from './equipment.js?v=3796c570';
 
 /** One phase's length, found by name so inserting a phase cannot shift it. */
 const phaseHours = (d, name) => d.stages.find((x) => x.name === name)?.hours ?? 0;

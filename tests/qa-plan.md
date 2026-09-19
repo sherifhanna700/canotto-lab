@@ -16,7 +16,7 @@ plan is weighted accordingly.
 
 A new visitor with no saved data.
 
-1. All five tabs render without error.
+1. All four tabs render without error, and none of them is a second Bake screen.
 2. Exactly one recipe exists, the house protocol.
 3. Defaults are sane: 70% hydration, 37 °F cold ferment, 70 °F room, 8 × 275 g.
 4. The footer shows a build id.
@@ -83,8 +83,13 @@ can be opened, played with, and walked away from without harm.
 
 ## J8. Baking and logging
 
-1. Conditions and scores accept input, including being left blank.
-2. Filing a bake clears the session and the bake appears in the log.
+A bake is one run, from building the biga to judging what came out, and it is
+recorded in one place. Conditions are taken at the step where they are
+measured; the marks are given at the end of the same run.
+
+1. A condition is recorded on the step it belongs to, not on a screen of its own.
+2. The mark is given at the end of that run, and filing it clears the run and
+   puts the bake in the log.
 3. The log shows it with the right hydration, proof and score.
 
 ## J9. Export
@@ -182,6 +187,20 @@ like.
    own files, and that they are not in the JSON export.
 5. Scores stay editable from the same place, so opening a run is one surface
    rather than two.
+
+## J22. Photographing a run
+
+A bake takes a week and is photographed while it happens, so the pictures
+belong to the run rather than to the record it becomes.
+
+1. The run ends with somewhere to add photographs.
+2. It says they belong to the whole week, not to the moment of filing.
+3. Scoring, photographing and filing are one card, not three screens.
+4. A picture added during the run shows on it.
+5. Starting a new run warns that it takes the photographs with it, counting
+   them.
+6. No other screen records or scores the bake in progress. Editing a filed
+   bake in the log is correcting history and does not count.
 
 Photographs are scaled down before they are stored: a 4000 pixel phone photo
 should land at 1600 pixels and a couple of hundred kilobytes. They live in

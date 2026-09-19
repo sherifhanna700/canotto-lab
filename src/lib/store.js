@@ -4,11 +4,11 @@
 // app touches storage directly, so swapping in a cloud backend later means
 // reimplementing `load` and `save`, not rewriting the views.
 
-import { DEFAULT_RECIPE } from '../model/dough.js?v=4a2bd96a';
-import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=4a2bd96a';
-import { DEFAULT_MODEL } from '../model/ferment.js?v=4a2bd96a';
-import { starterRecipes, houseRecipe } from '../model/recipes.js?v=4a2bd96a';
-import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=4a2bd96a';
+import { DEFAULT_RECIPE } from '../model/dough.js?v=3796c570';
+import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=3796c570';
+import { DEFAULT_MODEL } from '../model/ferment.js?v=3796c570';
+import { starterRecipes, houseRecipe } from '../model/recipes.js?v=3796c570';
+import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=3796c570';
 
 const KEY = 'canotto-lab/v1';
 const LEGACY = { steps: 'canotto_master_steps', frozen: 'canotto_frozen_count', metrics: 'canotto_step_metrics' };
@@ -36,6 +36,17 @@ export function defaultState() {
     settings: { unit: 'F', model: { ...DEFAULT_MODEL }, autoCalibrate: true },
     recipes,
     current: {
+      /*
+       * The session's own id, which the bake keeps when it is filed.
+       *
+       * Photographs are attached to a bake by id, and they are taken during
+       * the bake rather than after it, so the session needs an id from the
+       * start. Filing hands this one to the record and mints a fresh one, so a
+       * picture taken at the bench is already on the right bake and nothing is
+       * re-attached. A session loaded from storage keeps the id it was saved
+       * with; only a session that has never had one gets a new one.
+       */
+      id: newId(),
       // Taken from the shipped recipe rather than restated. Stating it twice
       // meant the draft and the recipe disagreed from the first load, so the
       // app believed there were unsaved changes before anything was touched.
@@ -148,6 +159,7 @@ function mergeState(base, saved) {
     current: {
       ...base.current,
       ...saved.current,
+      id: saved.current?.id || base.current.id,
       recipe: { ...base.current.recipe, ...(saved.current?.recipe || {}) },
       schedule: { ...base.current.schedule, ...(saved.current?.schedule || {}) },
       equipment: { ...DEFAULT_EQUIPMENT, ...(saved.current?.equipment || {}) },
@@ -583,7 +595,8 @@ export function newId() {
 export function snapshotBake(s, extra = {}) {
   const c = s.current;
   return {
-    id: newId(),
+    // The session's id, so its photographs are already on this bake.
+    id: c.id || newId(),
     createdAt: new Date().toISOString(),
     bakedAt: c.launchISO,
     recipeId: c.recipeId || null,
@@ -607,6 +620,25 @@ export function snapshotBake(s, extra = {}) {
   };
 }
 
+/**
+ * Clear the session and give it a fresh id.
+ *
+ * Called after filing, where the old id has just gone to the bake record and
+ * its photographs with it, and on a deliberate reset, where the caller deletes
+ * the photographs first. Either way the new session starts with no pictures of
+ * its own, because nothing points at the new id yet.
+ */
+export function startNewSession() {
+  return update((s) => {
+    s.current.id = newId();
+    s.current.done = [];
+    s.current.doneAt = {};
+    s.current.actuals = { ...EMPTY_ACTUALS };
+    s.current.scores = { ...EMPTY_SCORES };
+    s.current.notes = '';
+  });
+}
+
 export function addBake(bake) {
   return update((s) => {
     s.bakes.unshift({ ...bake, updatedAt: now() });
@@ -628,6 +660,20 @@ export function applySync({ recipes, bakes, current, photos, photosRemoved }) {
     if (Array.isArray(photos)) s.photos = photos;
     if (Array.isArray(photosRemoved)) s.photosRemoved = photosRemoved;
     if (current) {
+      /*
+       * A session replaced by another device's brings its photographs across.
+       *
+       * Pictures are attached by id, so if that device's session wins, the
+       * ones taken here point at a session that no longer exists: not deleted,
+       * but not reachable from any screen either. Both sessions are the same
+       * bake in progress, so the pictures move to the one that survived. An
+       * extra picture on the right bake can be removed; one that is merely
+       * invisible cannot.
+       */
+      const mine = s.current?.id;
+      if (mine && current.id && mine !== current.id) {
+        s.photos = (s.photos || []).map((p) => (p.bakeId === mine ? { ...p, bakeId: current.id } : p));
+      }
       // Already decided by the merge; this only writes the winner down. Passed
       // through mergeState so a session from an older version still lands with
       // every field the app expects.

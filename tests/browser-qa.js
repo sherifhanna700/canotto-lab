@@ -55,8 +55,17 @@
   const statValue = (name) =>
     $$('#main .stat').find((s) => s.querySelector('.stat-label').textContent === name)?.querySelector('.stat-value').textContent;
 
-  async function goTab(i) {
-    tabs()[i].click();
+  /*
+   * By name, not by position. The Bake tab was removed when it turned out to
+   * be a second place the same bake was recorded, and every index after it
+   * shifted: a suite that counts tabs silently tests the wrong screen.
+   */
+  const tabNames = () => tabs().map((t) => t.textContent.replace(/^[a-z_]+/, '').trim());
+
+  async function goTab(name) {
+    const tab = tabs().find((t) => t.textContent.replace(/^[a-z_]+/, '').trim() === name);
+    if (!tab) throw new Error(`no tab called ${name}`);
+    tab.click();
     await sleep(120);
   }
 
@@ -134,7 +143,7 @@
      * reload leaves it running on the old data and every check downstream
      * fails for the wrong reason.
      */
-    await goTab(0);
+    await goTab('Recipe');
     const openingRows = $$('#main .item-title').length;
     const opening = stored();
     if (openingRows > 1 || (opening && opening.bakes.length)) {
@@ -145,18 +154,20 @@
       };
     }
     location.hash = '#recipe';
-    await goTab(0);
+    await goTab('Recipe');
 
     const names = [];
-    for (let i = 0; i < tabs().length; i += 1) {
-      await goTab(i);
+    for (const name of tabNames()) {
+      await goTab(name);
       const broke = $$('#main .note.bad').some((n) => /went wrong/.test(n.textContent));
       names.push(tabName());
       check(`J1.1 ${tabName()} renders`, !broke && cards().length > 0, `${cards().length} cards`);
     }
-    check('J1.1 five tabs', names.length === 5, names.join(', '));
+    check('J1.1 four tabs, one of them the whole run',
+      names.length === 4 && names.includes('Protocol') && !names.includes('Bake'),
+      names.join(', '));
 
-    await goTab(0);
+    await goTab('Recipe');
     check('J1.2 one recipe, the house protocol',
       $$('#main .item-title').length === 1 && /house/i.test($$('#main .item-title')[0].textContent),
       $$('#main .item-title').map((e) => e.textContent).join(', '));
@@ -169,8 +180,8 @@
     check('J1.4 build id shown', /Build \w+/.test($('.foot p').textContent), $('.foot p').textContent.split('Build ')[1] || '');
 
     /* -------------------------------- J2 -------------------------------- */
-    for (let t = 0; t < tabs().length; t += 1) {
-      await goTab(t);
+    for (const name of tabNames()) {
+      await goTab(name);
       const tab = tabName();
       const keys = numberFields().map((e) => e.dataset.k);
       for (const key of keys) {
@@ -193,7 +204,7 @@
     }
 
     // J2.5 decimals, on the field with the finest step
-    await goTab(0);
+    await goTab('Recipe');
     const yeast = byKey('Inoculation');
     if (yeast) {
       const r = await typeInto(yeast, '0.085');
@@ -209,13 +220,13 @@
     }
 
     /* -------------------------------- J3 -------------------------------- */
-    await goTab(4);
+    await goTab('Setup');
     const make = labelled('Make')?.querySelector('input');
     const r3 = await typeInto(make, 'Gozney');
     check('J3.1 capitals survive, element kept', r3.typed === 'Gozney' && r3.nodeSurvived, `"${r3.typed}" node ${r3.nodeSurvived ? 'kept' : 'REPLACED'}`);
     check('J3.3 derived summary catches up', statValue('Oven') === 'Gozney', `summary "${statValue('Oven')}"`);
 
-    await goTab(0);
+    await goTab('Recipe');
     const nameField = labelled('Recipe name')?.querySelector('input');
     const r3b = await typeInto(nameField, 'Friday Dough');
     check('J3.2 name persists', byKey('Recipe name')?.value === 'Friday Dough', `"${r3b.typed}"`);
@@ -238,12 +249,12 @@
     const titles = $$('#main .item-title').map((e) => e.textContent);
     check('J4.3 created and loaded', titles.includes('Nuvola test') && $$('#main .item.active .item-title')[0]?.textContent === 'Nuvola test', titles.join(', '));
 
-    await goTab(1);
+    await goTab('Protocol');
     const bigaStep = $('#main .step-body')?.textContent || '';
     check('J4.4 protocol reflects the recipe', /Nuvola Super/.test(bigaStep), bigaStep.slice(0, 80));
 
     /* -------------------------------- J5 -------------------------------- */
-    await goTab(0);
+    await goTab('Recipe');
     const beforeCount = $$('#main .item').length;
     button('Duplicate').click();
     await sleep(200);
@@ -268,7 +279,7 @@
     check('J6.3 recompute settles', recompute().disabled === true);
 
     /* -------------------------------- J7 -------------------------------- */
-    await goTab(1);
+    await goTab('Protocol');
     const firstTime = () => $('#main .step-time')?.textContent;
     const t0 = firstTime();
     const launch = $('#main input[type="datetime-local"]');
@@ -285,15 +296,15 @@
     check('J7.1 a date picker commit is honoured', firstTime() !== t1, `${t1} -> ${firstTime()}`);
 
     // And the phases drive the start time.
-    await goTab(0);
+    await goTab('Recipe');
     const proof = byKey('Cold proof');
     const startBefore = () => { const c = $$('#main .stat').find((x) => x.querySelector('.stat-label').textContent === 'Start mixing'); return c?.querySelector('.stat-value').textContent; };
     await typeInto(proof, String(Number(proof.value) - 24));
-    await goTab(1);
+    await goTab('Protocol');
     const startAfter = startBefore();
-    await goTab(0);
+    await goTab('Recipe');
     await typeInto(byKey('Cold proof'), String(Number(byKey('Cold proof').value) + 24));
-    await goTab(1);
+    await goTab('Protocol');
     check('J7.2 shortening the cold proof moves the first mix later',
       startAfter !== startBefore(), `${startAfter} with 24 h less, ${startBefore()} with it back`);
 
@@ -303,7 +314,7 @@
     check('J7.3 progress counts', $('#progress-text').textContent !== beforeChecks, `${beforeChecks} -> ${$('#progress-text').textContent}`);
 
     /* ------------------------------- J12 -------------------------------- */
-    await goTab(0);
+    await goTab('Recipe');
     const grams = (label) => {
       const row = $$('#main table tr').find((r) => r.textContent.trim().startsWith(label));
       return row ? [...row.children].map((c) => parseFloat(c.textContent)) : null;
@@ -325,7 +336,7 @@
     check('J12.3 doses sum to the bassinage', Math.abs(doseSum - bass) < 0.01, `${doseText} -> ${doseSum} vs ${bass}`);
 
     /* ------------------------------- J15 -------------------------------- */
-    await goTab(1);
+    await goTab('Protocol');
     const targetField = $$('#main label.field').find((l) => l.querySelector('.field-label').textContent.trim() === 'Biga water temperature');
     const hintText = targetField?.querySelector('.hint')?.textContent || '';
     const bounds = (hintText.match(/-?\d+/g) || []).map(Number);
@@ -351,7 +362,7 @@
       `prevented ${ev.defaultPrevented}, focus left ${document.activeElement !== enterField}, scroll ${scrollBefore} -> ${window.scrollY}`);
 
     // A foldout must survive a redraw, or it snaps shut mid-edit.
-    await goTab(0);
+    await goTab('Recipe');
     const fold = $$('#main details')[0];
     fold.open = true;
     const summary = fold.querySelector('summary').textContent;
@@ -360,7 +371,7 @@
     check('J15.4 an open foldout stays open through a redraw', !!still?.open, `"${summary}" ${still?.open ? 'still open' : 'CLOSED'}`);
 
     /* ------------------------------- J13 -------------------------------- */
-    await goTab(0);
+    await goTab('Recipe');
     const slider = $$('#main input[type=range]').find((e) => e.dataset.k === 'Hydration');
     check('J13.1 sliders leave vertical gestures to the page',
       getComputedStyle(slider).touchAction.includes('pan-y'),
@@ -390,14 +401,26 @@
       `model ${stored().current.recipe.hydrationPct}, thumb ${held}`);
 
     /* -------------------------------- J8 -------------------------------- */
-    await goTab(2);
+    /*
+     * The whole of a bake, recorded in the one place it happens: a condition
+     * measured at the step it is taken at, the mark given at the end, and the
+     * filing, without ever leaving the run.
+     */
+    await goTab('Protocol');
     const ambient = labelled('Ambient temperature')?.querySelector('input');
     await typeInto(ambient, '64');
-    check('J8.1 conditions take input', Number(byKey('Ambient temperature')?.value) === 64, byKey('Ambient temperature')?.value);
-    const score = $$('#main select').find((s) => s.closest('label')?.textContent.includes('Canotto height'));
+    check('J8.1 a condition is recorded at the step it is taken at',
+      Number(byKey('Ambient temperature')?.value) === 64
+        && !!labelled('Ambient temperature')?.closest('.step'),
+      `${byKey('Ambient temperature')?.value}, on ${labelled('Ambient temperature')?.closest('.step') ? 'a step' : 'no step'}`);
+    const closing = () => cards().find((c) => /How it came out/.test(c.textContent));
+    const score = $$('select', closing()).find((el) => el.closest('label')?.textContent.includes('Canotto height'));
     score.value = '4';
     score.dispatchEvent(new Event('change', { bubbles: true }));
     await sleep(120);
+    check('J8.1b and the mark is given at the end of the same run',
+      stored().current.scores.canotto === 4 && !!closing(),
+      `canotto ${stored().current.scores.canotto}`);
     button('File this bake in the log').click();
     await sleep(250);
     check('J8.2 filed and shown in the log', tabName() === 'Log' && stored().bakes.length === 1, `${stored().bakes.length} bakes, on ${tabName()}`);
@@ -424,7 +447,7 @@
     check('J9.2 log CSV has a header and a row', csvText.split('\n').length === 2 && csvText.startsWith('id,'), `${csvText.split('\n').length} lines`);
 
     /* ------------------------------- J10 -------------------------------- */
-    await goTab(4);
+    await goTab('Setup');
     const beforeUnit = byKey('Cold ferment temperature')?.value;
     $('#unit-toggle').click();
     await sleep(150);
@@ -447,7 +470,7 @@
      * screen, because the point is what the pizzaiolo is told, not what the
      * model computes.
      */
-    await goTab(0);
+    await goTab('Recipe');
     const setNum = async (label, v) => {
       const el = labelled(label, false)?.querySelector('input[type=number]');
       if (!el) return false;
@@ -496,10 +519,10 @@
      * constants on Setup are number fields, so the model itself needs putting
      * back before any of the advice below means anything.
      */
-    await goTab(4);
+    await goTab('Setup');
     button('Reset to defaults')?.click();
     await sleep();
-    await goTab(0);
+    await goTab('Recipe');
     button('Restore')?.click();
     await sleep();
     $$('.modal-actions button').find((b) => b.textContent.trim() === 'Restore')?.click();
@@ -575,7 +598,7 @@
      * whole point of ticking a box is that the app records when it actually
      * happened rather than when it was supposed to.
      */
-    await goTab(1);
+    await goTab('Protocol');
     const stepBy = (re) => $$('#main .step').find((el) => re.test(el.querySelector('.step-title')?.textContent || ''));
     const tick = async (re) => { stepBy(re)?.querySelector('.step-check')?.click(); await sleep(); };
 
@@ -626,14 +649,14 @@
       !Number.isFinite(stored()?.current?.doneAt?.['p2-1']),
       JSON.stringify(Object.keys(stored()?.current?.doneAt || {})));
 
-    await goTab(0);
+    await goTab('Recipe');
 
     /* ------------------------------- J20 -------------------------------- */
     /*
      * Splitting the cold ferment. The dough is divided partway through, so
      * balling has to move between the two cold phases rather than before both.
      */
-    await goTab(0);
+    await goTab('Recipe');
     const numIn = (label) => labelled(label, false)?.querySelector('input[type=number]');
     const setNumber = async (label, v) => {
       const el = numIn(label);
@@ -662,7 +685,7 @@
       /total/.test(numIn('Balled cold proof')?.closest('label')?.querySelector('.hint')?.textContent || ''),
       numIn('Balled cold proof')?.closest('label')?.querySelector('.hint')?.textContent);
 
-    await goTab(1);
+    await goTab('Protocol');
     const stepTitles = $$('#main .step .step-title').map((t) => t.textContent);
     const iVeil = stepTitles.findIndex((t) => /oil veil/i.test(t));
     const iBulk = stepTitles.findIndex((t) => /Bulk cold ferment/i.test(t));
@@ -678,9 +701,9 @@
       `${when(iBulk)} -> ${when(iBall)}`);
 
     /* Back to one cold phase, and the protocol must read as it always did. */
-    await goTab(0);
+    await goTab('Recipe');
     await setNumber('Bulk cold ferment', 0);
-    await goTab(1);
+    await goTab('Protocol');
     const after = $$('#main .step .step-title').map((t) => t.textContent);
     const skipped = $$('#main .step').find((el) => /Bulk cold ferment/i.test(el.querySelector('.step-title')?.textContent || ''));
     check('J20.7 with no bulk phase the step drops out',
@@ -693,9 +716,9 @@
      * tick, and every check above still passed because they only looked at
      * order and timing.
      */
-    await goTab(0);
+    await goTab('Recipe');
     await setNumber('Bulk cold ferment', 48);
-    await goTab(1);
+    await goTab('Protocol');
     const bulkStep = $$('#main .step').find((el) => /Bulk cold ferment/i.test(el.querySelector('.step-title')?.textContent || ''));
     const bulkBadge = bulkStep?.querySelector('.pill')?.textContent || '';
     check('J20.9 the bulk step is live, not faded, when it is in use',
@@ -709,13 +732,13 @@
       stored()?.current?.done?.includes('p3-bulk'),
       `progress ${countBefore} -> ${$('#progress-text')?.textContent}`);
 
-    await goTab(0);
+    await goTab('Recipe');
     await setNumber('Bulk cold ferment', 0);
-    await goTab(0);
+    await goTab('Recipe');
     check('J20.8 and balling runs straight into the cold proof',
       after.findIndex((t) => /Ball on a dry counter/i.test(t)) < after.findIndex((t) => /balls into the/i.test(t)),
       'order restored');
-    await goTab(0);
+    await goTab('Recipe');
 
     /* ------------------------------- J18 -------------------------------- */
     /*
@@ -729,7 +752,7 @@
      * focus() call, so the events are dispatched by hand here, and the thing
      * that matters is whether the tapped field is still the same node.
      */
-    await goTab(0);
+    await goTab('Recipe');
     const nameOf = (el) => el?.closest?.('label')?.querySelector('.field-label')?.textContent || '(none)';
     const nums = () => $$('#main label.field input[type=number]');
     const from = nums()[0];
@@ -776,7 +799,7 @@
      * Opening an old run. A score says a bake was good; this says which bake
      * it was, and lets a picture of it sit alongside.
      */
-    await goTab(3);
+    await goTab('Log');
     /*
      * Find the button, not a card that mentions bakes. The first attempt
      * matched the summary card headed "1 bake" and then looked inside it for a
@@ -804,7 +827,72 @@
         !!opened && /Canotto height/.test(opened.textContent),
         'scoring is in the run view');
     }
-    await goTab(0);
+    await goTab('Recipe');
+
+    /* ------------------------------- J22 -------------------------------- */
+    /*
+     * One run, photographed from end to end. A bake is a week long and is
+     * pictured while it happens, so the pictures hang off the run rather than
+     * off the record it becomes, and the run is the only place they are added.
+     */
+    const build = (document.querySelector('script[type=module]')?.src.match(/\?v=([0-9a-f]+)/) || [])[1];
+    const store = await import(`/src/lib/store.js?v=${build}`);
+
+    await goTab('Protocol');
+    const runEnd = () => cards().find((c) => /How it came out/.test(c.textContent));
+    check('J22.1 the run ends with somewhere for photographs',
+      !!runEnd() && $$('button', runEnd()).some((b) => /Add photograph|Add more/.test(b.textContent)),
+      'an add control closes the run');
+    check('J22.2 and says they belong to the whole week, not the moment of filing',
+      !!runEnd() && /at any point in the week/i.test(runEnd().textContent),
+      'anything added at any point is filed with the bake');
+    check('J22.3 judging and picturing the bake are the same act',
+      !!runEnd() && /Canotto height/.test(runEnd().textContent)
+        && $$('button', runEnd()).some((b) => /File this bake/.test(b.textContent)),
+      'score, photographs and filing in one card');
+
+    // Added through the store, because clicking the control opens a file
+    // dialog the harness cannot answer. The bytes are absent on purpose: this
+    // is also the placeholder shown for a picture that has not synced yet.
+    store.addPhotoRecord({ id: 'qa-photo', bakeId: store.load().current.id, bytes: 1, addedAt: new Date().toISOString() });
+    await settle();
+    check('J22.4 a picture taken during the run shows on it',
+      !!runEnd() && !!$$('.photo', runEnd()).length,
+      `${$$('.photo', runEnd()).length} on the run`);
+
+    const resetBtn = $$('button', runEnd()).find((b) => /Start a new run/.test(b.textContent));
+    resetBtn?.click();
+    await sleep();
+    const dialog = document.querySelector('.modal-backdrop .modal');
+    check('J22.5 and starting over warns it will take the photographs with it',
+      !!dialog && /1 photograph/.test(dialog.textContent),
+      dialog ? dialog.textContent.slice(0, 80) : 'no dialog');
+    [...(dialog?.querySelectorAll('button') || [])].find((b) => /Cancel/.test(b.textContent))?.click();
+    await settle();
+
+    /*
+     * The point of the redesign, checked rather than asserted: no other screen
+     * records or scores a bake in progress. The log scores filed bakes, which
+     * is editing history, and only when one is opened.
+     */
+    const elsewhere = [];
+    for (const name of tabNames().filter((n) => n !== 'Protocol')) {
+      await goTab(name);
+      // A filed bake opened for editing is history being corrected, not a
+      // second place to record the run, so close it before looking.
+      const open = $$('#main button').find((b) => /^\s*(expand_less)?Close$/.test(b.textContent.trim()));
+      if (open) { open.click(); await settle(); }
+      const scoring = cards().some((c) => /Canotto height/.test(c.textContent));
+      const adding = $$('#main button').some((b) => /Add photograph/.test(b.textContent));
+      if (scoring || adding) elsewhere.push(`${name}${scoring ? ' scores' : ''}${adding ? ' takes photographs' : ''}`);
+    }
+    check('J22.6 and no other screen records the bake in progress',
+      elsewhere.length === 0, elsewhere.join('; ') || 'the run is the only one');
+
+    await goTab('Protocol');
+    store.removePhotoRecord('qa-photo');
+    await settle();
+    await goTab('Log');
 
     /* ------------------------------- J11 -------------------------------- */
     const snapshot = stored();
