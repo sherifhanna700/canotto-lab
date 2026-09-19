@@ -147,35 +147,25 @@ Hosting, cache headers and deployment are covered in
 
 ## Privacy
 
-Your recipes and bakes are stored in your browser and are never sent to us. If you
-connect a Google account they go straight to that account's private storage for this
-app, with nothing of ours in between.
+Nothing is collected. The app counts no one, keeps no record of anyone, and writes to no
+service of ours at all.
 
-We do keep one database: a Cloud Firestore collection holding one document per anonymous
-device, each with a single field, a date. Its rules reject any write carrying anything
-else, reject every other path, and refuse reads from the app, so the limit is enforced
-rather than promised. See `firestore.rules`.
+Your recipes and bakes are stored in your browser. If you connect a Google account they go
+straight to that account's private storage for this app, with nothing of ours in between,
+and we cannot read them.
 
-Rows older than thirty-five days are deleted when the figures are read, since a month is
-the longest window anyone asks about. `npm run actives` prints DAU, WAU and MAU and does
-that pruning; `--no-prune` reads without it.
+There is no build step, so the JavaScript running in your browser is the same text as the
+source here, and the claims above can be checked rather than taken on trust. Optional sync
+is in [`src/lib/drive.js`](src/lib/drive.js) and is the only part of the app that talks to
+anything. [`firestore.rules`](firestore.rules) closes every path in the database this
+project once used for a usage count, and is kept so that deploying publishes those
+closures. The tests in `tests/run.mjs` fail if any of this stops being true.
 
-Firebase offers easier ways to get these numbers, and all of them collect more. Google
-Analytics for Firebase would also record device model, operating system, approximate city,
-session lengths and screen views under an identifier of its own. Counting from server logs
-would mean counting IP addresses. One random number and one date is the smallest thing
-that answers the question.
-
-The one thing the app sends is a count of how many devices use it, once a day at most:
-a random number the browser generated for itself, and today's date. Nothing else. It
-can be switched off in Setup, and off means the request is not made rather than made
-with a flag on it.
-
-There is no build step, so the JavaScript running in your browser is the same text as
-the source here. The counting is [`src/lib/count.js`](src/lib/count.js), the rules that
-constrain what it may write are [`firestore.rules`](firestore.rules), and the sync is
-[`src/lib/drive.js`](src/lib/drive.js). The tests in `tests/run.mjs` check the code
-against the claims in [privacy.html](privacy.html), so the two cannot drift apart.
+Two things still reach Google, because they are how the page is served rather than
+anything the app chose. It is hosted on Firebase Hosting, whose request logs record IP
+addresses as every web host's do, and the page loads its typefaces from Google Fonts. We
+do not read either and cannot identify anyone from them. [privacy.html](privacy.html) says
+all of this in full.
 
 ## Data formats
 

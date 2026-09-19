@@ -26,7 +26,6 @@ import { suggestPlan, reviewPlan, defaultLeadHours, strengthBand, coldProofWindo
 import { recipeFromBlend, overallScore, recipeRating, starterRecipes, houseRecipe } from '../src/model/recipes.js';
 import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIXERS } from '../src/model/equipment.js';
 import { diagnose } from '../src/model/diagnostics.js';
-import { countToday, today, isOff, setCounting } from '../src/lib/count.js';
 import { laterSession } from '../src/lib/drive.js';
 import { update as storeUpdate, load as storeLoad, resetAll, applySync } from '../src/lib/store.js';
 import { derive, findFactor } from '../src/model/metrics.js';
@@ -1252,95 +1251,16 @@ test('a sync merge keeps both sides and never drops a record', () => {
  * sends, so the two cannot drift apart quietly.
  */
 
-test('the daily count sends one field and nothing else', async () => {
-  const sent = [];
-  const fetcher = async (url, opts) => {
-    sent.push({ url, body: JSON.parse(opts.body), method: opts.method });
-    return { ok: true };
-  };
-  const res = await countToday({ now: new Date('2026-09-09T12:00:00'), fetcher });
-
-  assert.equal(res.counted, true);
-  assert.equal(sent.length, 1, 'one request, not one per anything else');
-  const { fields } = sent[0].body;
-  assert.deepEqual(Object.keys(fields), ['day'], 'the payload carries a date and nothing more');
-  assert.match(fields.day.stringValue, /^\d{4}-\d{2}-\d{2}$/, 'a date, not a timestamp');
-  assert.ok(!/T\d/.test(fields.day.stringValue), 'no time of day is sent');
-});
-
-test('the identifier is random and is not derived from anything', async () => {
-  const ids = new Set();
-  for (let i = 0; i < 3; i += 1) {
-    globalThis.localStorage.clear();
-    const sent = [];
-    // eslint-disable-next-line no-await-in-loop
-    await countToday({ fetcher: async (url) => { sent.push(url); return { ok: true }; } });
-    ids.add(sent[0].split('/').pop().split('?')[0]);
-  }
-  assert.equal(ids.size, 3, 'a fresh browser is a fresh number, unrelated to the last');
-  for (const id of ids) assert.match(id, /^[0-9a-f]{32}$/, 'a random value, not a hash of anything');
-});
-
-test('a device is counted once a day, not once a visit', async () => {
-  globalThis.localStorage.clear();
-  let calls = 0;
-  const fetcher = async () => { calls += 1; return { ok: true }; };
-  const now = new Date('2026-09-09T08:00:00');
-  await countToday({ now, fetcher });
-  await countToday({ now: new Date('2026-09-09T23:00:00'), fetcher });
-  assert.equal(calls, 1, 'the second visit the same day sends nothing');
-  await countToday({ now: new Date('2026-09-10T08:00:00'), fetcher });
-  assert.equal(calls, 2, 'a new day counts again');
-});
-
-test('a failed count is retried, not silently dropped', async () => {
-  globalThis.localStorage.clear();
-  let calls = 0;
-  const fetcher = async () => { calls += 1; return { ok: calls > 1, status: 503 }; };
-  const now = new Date('2026-09-09T08:00:00');
-  const first = await countToday({ now, fetcher });
-  assert.equal(first.counted, false, 'a rejected write is not treated as done');
-  const second = await countToday({ now, fetcher });
-  assert.equal(second.counted, true, 'so the next open tries again');
-});
-
-test('switched off means no request at all', async () => {
-  globalThis.localStorage.clear();
-  setCounting(false);
-  let calls = 0;
-  const res = await countToday({ fetcher: async () => { calls += 1; return { ok: true }; } });
-  assert.equal(calls, 0, 'not a request with a flag on it: no request');
-  assert.equal(res.reason, 'off');
-  setCounting(true);
-  assert.equal(isOff(), false);
-});
-
-test('the date is the local one, because that is what a person means by today', () => {
-  const noon = new Date(2026, 8, 9, 12, 0, 0);
-  assert.equal(today(noon), '2026-09-09');
-  const lateEvening = new Date(2026, 8, 9, 23, 30, 0);
-  assert.equal(today(lateEvening), '2026-09-09', 'still today where they are, whatever UTC says');
-});
-
-test('the rules reject anything the privacy page does not mention', () => {
-  const rules = readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8');
-  assert.match(rules, /hasOnly\(\['day'\]\)/, 'writes are limited to the one field');
-  assert.match(rules, /matches\('\[0-9\]\{4\}-\[0-9\]\{2\}-\[0-9\]\{2\}'\)/, 'and to something shaped like a date');
-  assert.match(rules, /allow read: if false/, 'the app cannot read the collection back');
-  assert.match(rules, /allow delete: if false/, 'and cannot delete from it');
-  assert.match(rules, /match \/\{document=\*\*\}[\s\S]*allow read, write: if false/, 'nothing else is writable');
-});
-
 test('the privacy page describes the storage keys that actually exist', () => {
   const page = readFileSync(new URL('../privacy.html', import.meta.url), 'utf8');
-  const sources = ['src/lib/count.js', 'src/lib/drive.js', 'src/lib/store.js', 'src/lib/theme.js', 'src/app.js']
+  const sources = ['src/lib/drive.js', 'src/lib/store.js', 'src/lib/theme.js', 'src/app.js']
     .map((f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8'))
     .join('\n');
   const used = new Set([...sources.matchAll(/'(canotto-lab\/[a-z0-9-]+)'/g)].map((m) => m[1]));
   for (const key of used) {
     assert.ok(page.includes(key), `privacy.html does not mention the stored key ${key}`);
   }
-  assert.ok(used.size >= 6, `expected the known keys, found ${used.size}`);
+  assert.ok(used.size >= 4, `expected the known keys, found ${used.size}`);
 });
 
 test('a page load never asks Google for anything', () => {
@@ -1392,30 +1312,37 @@ test('a returning baker is not asked which account they are', () => {
   assert.match(getToken, /requestAccessToken\(\{[^}]*hint/s, 'and passed to Google with the request');
 });
 
-test('the privacy page does not deny the storage the app actually writes to', () => {
+test('the app collects nothing, and the page is allowed to say so', () => {
   /*
-   * The page said we had no server, twice, a few paragraphs from explaining
-   * that the daily count is stored in Firestore. Both cannot be true. "We run
-   * nothing" is the tempting sentence and it is the one to guard against,
-   * because it reads well and is false the moment anything is written down.
+   * This guard used to run the other way. The page denied having a server while
+   * the app wrote a daily count to Firestore, and the test existed to stop that
+   * contradiction coming back. The counting has since been removed outright, so
+   * the same test now holds the stronger claim: no part of the app may write to
+   * a service of ours, and if that ever changes this fails until the page is
+   * rewritten to admit it.
    */
-  const count = readFileSync(new URL('../src/lib/count.js', import.meta.url), 'utf8');
-  const writesSomewhere = /firestore\.googleapis\.com/.test(count);
-  const page = readFileSync(new URL('../privacy.html', import.meta.url), 'utf8');
+  const sources = ['src/lib/drive.js', 'src/lib/store.js', 'src/lib/theme.js', 'src/app.js', 'src/views/setup.js']
+    .map((f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8'))
+    .join('\n');
 
-  if (writesSomewhere) {
-    assert.ok(/Firestore/i.test(page), 'the page must name the store the app writes to');
-    assert.ok(/firestore\.rules/.test(page), 'and point at the rules that bound it');
-    for (const denial of [/no server of ours/i, /we do not have one/i, /because there isn.t one/i, /we have no server/i]) {
-      assert.ok(!denial.test(page), `the page still denies running anything: ${denial}`);
-    }
+  assert.ok(!/firestore\.googleapis\.com/.test(sources), 'nothing writes to our database');
+  assert.ok(!/firebase(app|io)\.com|firebasedatabase/.test(sources), 'nor to any other store of ours');
+
+  // Only Google's own endpoints, and only for a sync the person asked for.
+  const hosts = [...sources.matchAll(/https:\/\/([a-z0-9.-]+)/g)].map((m) => m[1]);
+  const allowed = new Set(['www.googleapis.com', 'accounts.google.com', 'sherifhanna700.github.io', 'github.com', 'json-schema.org']);
+  for (const host of new Set(hosts)) {
+    assert.ok(allowed.has(host), `unexpected host in app code: ${host}`);
   }
 
-  // The app's own Setup card makes the same claim to the same person.
-  const setup = readFileSync(new URL('../src/views/setup.js', import.meta.url), 'utf8');
-  assert.ok(!/no server of ours/i.test(setup), 'and so must the screen that says it in the app');
-});
+  const page = readFileSync(new URL('../privacy.html', import.meta.url), 'utf8');
+  assert.match(page, /No counting/i, 'and the page states it plainly');
 
+  // The database that counting used must stay shut.
+  const rules = readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8');
+  assert.match(rules, /match \/\{document=\*\*\}[\s\S]*allow read, write: if false/, 'every path is closed');
+  assert.ok(!/allow (create|update|write): if request/.test(rules), 'and nothing is writable under any condition');
+});
 test('the app asks Google for the hidden folder and nothing wider', () => {
   const drive = readFileSync(new URL('../src/lib/drive.js', import.meta.url), 'utf8');
   assert.match(drive, /auth\/drive\.appdata/, 'the narrow scope');

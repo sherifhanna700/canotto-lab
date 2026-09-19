@@ -1,21 +1,20 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=4272b453';
-import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=4272b453';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=4272b453';
-import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=4272b453';
-import { scheduleStages } from '../model/protocol.js?v=4272b453';
-import { convertYeast } from '../model/dough.js?v=4272b453';
-import { overallScore } from '../model/recipes.js?v=4272b453';
-import { SOURCES, FLOURS } from '../model/flours.js?v=4272b453';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=4272b453';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=4272b453';
-import { lineChart } from '../lib/charts.js?v=4272b453';
-import * as drive from '../lib/drive.js?v=4272b453';
-import { isOff, setCounting } from '../lib/count.js?v=4272b453';
-import { tempField, tempDeltaField, } from './common.js?v=4272b453';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=4272b453';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=1903f6bd';
+import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=1903f6bd';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=1903f6bd';
+import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=1903f6bd';
+import { scheduleStages } from '../model/protocol.js?v=1903f6bd';
+import { convertYeast } from '../model/dough.js?v=1903f6bd';
+import { overallScore } from '../model/recipes.js?v=1903f6bd';
+import { SOURCES, FLOURS } from '../model/flours.js?v=1903f6bd';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=1903f6bd';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=1903f6bd';
+import { lineChart } from '../lib/charts.js?v=1903f6bd';
+import * as drive from '../lib/drive.js?v=1903f6bd';
+import { tempField, tempDeltaField, } from './common.js?v=1903f6bd';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=1903f6bd';
 
 let driveAccount = null;
 let syncing = false;
@@ -31,7 +30,7 @@ drive.onAccount((a) => {
 if (drive.isConfigured() && drive.hasConnected() && !driveAccount) drive.resume();
 
 export default function renderSetup(ctx) {
-  return [equipmentCard(ctx), kitchenCard(ctx), savingCard(ctx), driveCard(ctx), countingCard(), calibrationCard(ctx), sourcesCard()];
+  return [equipmentCard(ctx), kitchenCard(ctx), savingCard(ctx), driveCard(ctx), calibrationCard(ctx), sourcesCard()];
 }
 
 /* ------------------------------- equipment ------------------------------ */
@@ -196,6 +195,11 @@ function savingCard(ctx) {
       ? h('p', { class: 'note neutral' }, 'Point "Save to a file" at a folder your cloud storage already syncs, such as a Google Drive or iCloud folder on this machine. The browser remembers the file, so later saves are one click and the sync happens on its own.')
       : h('p', { class: 'note neutral' }, 'This browser cannot save straight to a file. Download a backup and keep it wherever you like, including a cloud folder.'),
     h('p', { class: 'note neutral' }, 'Every recipe also has a share link on the Recipes screen. The link carries the whole definition, so whoever opens it needs no account.'),
+    /*
+     * Worth one line on the screen where people look for it, now that the
+     * counting card that used to say it is gone.
+     */
+    h('p', { class: 'note good' }, 'Nothing here is collected. Your recipes, bakes, scores and notes stay in this browser, the app counts nothing and writes to no service of ours, and the only thing that ever leaves is what you export or sync to a Google account of your own.'),
     h('button', { class: 'btn danger small', onClick: () => confirmDialog('Delete everything stored in this browser? Download a backup first if you want to keep it.', () => { resetAll(); toast('Everything cleared'); }, 'Delete everything') }, icon('delete_forever'), 'Clear all data')
   );
 }
@@ -398,36 +402,6 @@ export function describeSync(res) {
     return `${summary}. Both devices had a bake going, so the ${res.sessionFrom === 'remote' ? 'other one' : 'one on this device'} was kept and the other set aside. Download the JSON above before syncing again if you want the one that lost.`;
   }
   return summary;
-}
-
-/* -------------------------------- counting ------------------------------- */
-
-function countingCard() {
-  return card(
-    'What this app collects',
-    'Almost nothing, and it is worth being exact about which nothing.',
-    h('p', { class: 'note good' }, 'Your recipes, bakes, scores and notes are stored in this browser and are never sent to us. The one database we keep holds a date per device and nothing else, and its rules reject a write carrying anything more.'),
-    h('p', { class: 'note neutral' }, 'The one thing the app sends is a count of how many devices use it. Once a day at most, it reports a random number your browser made up for itself and today\u2019s date, and nothing else. It cannot say who you are, what you baked, or which account you might have connected.'),
-    h(
-      'div',
-      { style: { margin: '10px 0 4px' } },
-      toggleField({
-        label: 'Count this device in the usage figures',
-        checked: !isOff(),
-        hint: 'Switched off, no request is made at all, rather than one with a flag on it. Everything else works the same.',
-        onChange: (on) => { setCounting(on); toast(on ? 'Counting this device' : 'Not counting this device'); update(() => {}); },
-      })
-    ),
-    h(
-      'p',
-      { class: 'note neutral' },
-      'The whole of it is ',
-      h('a', { href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'written down here'),
-      ', and because this app has no build step, the code running in your browser is the same text as the source. ',
-      h('a', { href: 'https://github.com/sherifhanna700/canotto-lab/blob/main/src/lib/count.js', target: '_blank', rel: 'noopener' }, 'Read the counter'),
-      ' and check.'
-    )
-  );
 }
 
 /* -------------------------------- sources ------------------------------- */

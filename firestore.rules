@@ -1,38 +1,18 @@
 rules_version = '2';
 
-// The only thing stored here is how many devices used the app on a given day.
+// Nothing is stored here, and nothing may be.
 //
-// A document is one anonymous device. Its id is a random value the browser
-// generated for itself, and the only field is the date it was last active.
-// Everything else about a bake stays on the device, or in the baker's own
-// Google account if they connected one.
+// This project once kept a count of how many devices used the app: one
+// document per anonymous browser, one field holding a date. That has been
+// removed. The app no longer writes anything anywhere, so there is no reason
+// for any path in this database to be writable, and every one of them is
+// closed.
 //
-// Writes are constrained to that single field so this cannot quietly become
-// analytics. Adding anything to the payload starts failing until someone
-// deliberately changes these rules as well, which is the point.
-//
-// Nothing can be read back by the app, and nothing can be deleted by it.
-// Counts are read by whoever owns the project.
+// The file is kept, rather than deleted, precisely so that a deploy publishes
+// this. Removing it would leave the older and more permissive rules live on a
+// database nothing is watching, which is the worse of the two outcomes.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /activity/{deviceId} {
-      allow read: if false;
-      allow delete: if false;
-
-      // Exactly one field, and it must look like a date. The date is not
-      // checked against the server clock: time zones make "today" ambiguous
-      // by up to a day either way, and a rule that rejects honest writes from
-      // one side of the world is worse than one that trusts the format.
-      // matches() is a full-string match in this language, so the pattern
-      // carries no anchors. With ^ and $ it silently matched nothing and
-      // rejected every write, which is the failure that looks like working
-      // security until you test that the allowed case is allowed.
-      allow create, update: if request.resource.data.keys().hasOnly(['day'])
-        && request.resource.data.day is string
-        && request.resource.data.day.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}');
-    }
-
-    // Nothing else is stored, so nothing else is writable.
     match /{document=**} {
       allow read, write: if false;
     }
