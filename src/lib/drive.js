@@ -420,6 +420,122 @@ export async function deleteRemote() {
   return true;
 }
 
+/* ------------------------------ photo files ------------------------------ */
+
+/*
+ * One file per photograph, in the same hidden folder as the library.
+ *
+ * The library itself only names them, so it stays small and syncs in a moment
+ * whatever else is stored. Pictures are immutable once taken: a given id always
+ * means the same bytes, so a file that is already there never needs sending
+ * again and either side can stop and resume without losing its place.
+ */
+const photoName = (id) => `photo-${id}.jpg`;
+
+/** Which photographs the Drive folder already holds, as id to file id. */
+async function listRemotePhotos() {
+  const q = encodeURIComponent("name contains 'photo-' and trashed=false");
+  const found = new Map();
+  let pageToken = '';
+  do {
+    const url = `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=nextPageToken,files(id,name)&pageSize=200${pageToken ? `&pageToken=${pageToken}` : ''}`;
+    // eslint-disable-next-line no-await-in-loop
+    const res = await api(url);
+    // eslint-disable-next-line no-await-in-loop
+    const body = await res.json();
+    for (const file of body.files || []) {
+      const match = /^photo-(.+)\.jpg$/.exec(file.name || '');
+      if (match) found.set(match[1], file.id);
+    }
+    pageToken = body.nextPageToken || '';
+  } while (pageToken);
+  return found;
+}
+
+async function uploadPhoto(id, blob) {
+  const meta = { name: photoName(id), mimeType: 'image/jpeg', parents: ['appDataFolder'] };
+  const boundary = `canotto${Math.random().toString(36).slice(2)}`;
+  // The bytes go up as base64 inside the multipart body, which is what the
+  // simple upload endpoint accepts without a second round trip to start a
+  // resumable session. A photograph of this size does not need one.
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1]);
+    reader.onerror = () => reject(new Error('Could not read that photograph.'));
+    reader.readAsDataURL(blob);
+  });
+  const body =
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n` +
+    `--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64}\r\n--${boundary}--`;
+  const res = await api('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'POST',
+    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body,
+  });
+  return (await res.json()).id;
+}
+
+async function downloadPhoto(fileId) {
+  const res = await api(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+  return res.blob();
+}
+
+async function deleteRemotePhoto(fileId) {
+  await api(`https://www.googleapis.com/drive/v3/files/${fileId}`, { method: 'DELETE' });
+}
+
+/**
+ * Make the folder and this device agree about which pictures exist.
+ *
+ * Sends what is here and missing there, fetches what is there and missing
+ * here, and removes what has been deleted on either side. Everything is by id,
+ * so a sync interrupted halfway simply picks up the rest next time.
+ */
+export async function syncPhotos({ wanted, removed, photos, onProgress = () => {} }) {
+  const remote = await listRemotePhotos();
+  const gone = new Set(removed || []);
+
+  // A photograph deleted on either device is deleted from the folder, or the
+  // next sync would hand it straight back.
+  let deleted = 0;
+  for (const [id, fileId] of remote) {
+    if (!gone.has(id)) continue;
+    // eslint-disable-next-line no-await-in-loop
+    await deleteRemotePhoto(fileId).catch(() => {});
+    remote.delete(id);
+    deleted += 1;
+  }
+
+  const live = wanted.filter((id) => !gone.has(id));
+  const here = await photos.whichArePresent(live);
+
+  const toSend = live.filter((id) => here.has(id) && !remote.has(id));
+  const toFetch = live.filter((id) => !here.has(id) && remote.has(id));
+  let sent = 0;
+  let fetched = 0;
+
+  for (const id of toSend) {
+    onProgress({ stage: 'up', done: sent, total: toSend.length });
+    // eslint-disable-next-line no-await-in-loop
+    const blob = await photos.getBlob(id);
+    if (!blob) continue;
+    // eslint-disable-next-line no-await-in-loop
+    await uploadPhoto(id, blob);
+    sent += 1;
+  }
+
+  for (const id of toFetch) {
+    onProgress({ stage: 'down', done: fetched, total: toFetch.length });
+    // eslint-disable-next-line no-await-in-loop
+    const blob = await downloadPhoto(remote.get(id));
+    // eslint-disable-next-line no-await-in-loop
+    await photos.putBlob(id, blob);
+    fetched += 1;
+  }
+
+  return { sent, fetched, deleted };
+}
+
 /* -------------------------------- merging -------------------------------- */
 
 const stamp = (doc) => Date.parse(doc?.updatedAt || doc?.createdAt || 0) || 0;
@@ -520,7 +636,28 @@ export async function sync(state, { envelope }) {
   const recipes = mergeCollections(state.recipes || [], Array.isArray(remote.recipes) ? remote.recipes : []);
   const bakes = mergeCollections(state.bakes || [], Array.isArray(remote.bakes) ? remote.bakes : []);
   const session = laterSession(state.current, remote.current);
-  const merged = { ...state, recipes: recipes.merged, bakes: bakes.merged, current: session.current };
+
+  /*
+   * Photographs are immutable, so their descriptions merge as a union by id
+   * rather than by which is newer. Anything either side has deleted is taken
+   * out of that union and stays out.
+   */
+  const removedIds = [...new Set([...(state.photosRemoved || []), ...(remote.photosRemoved || [])])];
+  const gone = new Set(removedIds);
+  const photoById = new Map();
+  for (const p of [...(remote.photos || []), ...(state.photos || [])]) {
+    if (p?.id && !gone.has(p.id)) photoById.set(p.id, p);
+  }
+  const mergedPhotos = [...photoById.values()];
+
+  const merged = {
+    ...state,
+    recipes: recipes.merged,
+    bakes: bakes.merged,
+    current: session.current,
+    photos: mergedPhotos,
+    photosRemoved: removedIds,
+  };
 
   await writeFile(id, envelope(merged));
   return {
@@ -539,6 +676,9 @@ export async function sync(state, { envelope }) {
      */
     sessionHasProgress: hasProgress(session.current),
     remoteHadSession: hasProgress(remote.current),
+    // What the caller needs to reconcile the picture files themselves.
+    photoIds: mergedPhotos.map((p) => p.id),
+    photosRemoved: removedIds,
     /*
      * Whether the bake in progress actually moved, as opposed to both sides
      * already holding the same one.

@@ -796,9 +796,10 @@
       check('J21.3 and offers somewhere for photographs',
         !!opened && $$('button', opened).some((b) => /Add photograph|Add more/.test(b.textContent)),
         'an add control is there');
-      check('J21.4 and says photographs stay on the device',
-        !!opened && /do not sync|stay in this browser/i.test(opened.textContent),
-        'the limitation is stated, not hidden');
+      check('J21.4 and says where photographs go and do not go',
+        !!opened && /sync to your Google account/i.test(opened.textContent)
+          && /not in the JSON export/i.test(opened.textContent),
+        'they follow you between devices, and the export stays small');
       check('J21.5 the scores are still editable from the same place',
         !!opened && /Canotto height/.test(opened.textContent),
         'scoring is in the run view');

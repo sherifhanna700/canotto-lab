@@ -1,20 +1,23 @@
-// Photographs of a bake, kept on the device.
+// The pictures themselves. Nothing else.
 //
-// Pictures do not belong in localStorage: it holds a few megabytes of text and
-// one photograph would eat the lot, taking the recipes with it. So they live in
-// IndexedDB, which is meant for binary data and measures its room in hundreds
-// of megabytes, and the bake record in localStorage carries nothing of them.
-// They are joined by the bake's id and nothing else.
+// This file holds bytes, keyed by a photograph's id, and knows nothing about
+// which bake they belong to or when they were taken. That belongs with the
+// rest of the library, in the state that syncs, so a photograph is described
+// in the same document as everything else and its bytes are fetched by id.
 //
-// They are also the one thing the app does not sync. A Drive file that fits in
-// a pocket is what makes the sync quick and the storage small, and a dozen
-// crumb shots would end that. It is said plainly on screen rather than left to
-// be discovered when a phone comes up empty.
+// The bytes live in IndexedDB rather than localStorage, which holds a few
+// megabytes of text and would lose the recipes to a single photograph.
 //
-// Every photograph is scaled down and re-encoded before it is stored. A modern
-// phone camera produces four thousand pixels across and eight megabytes, and
-// nothing here is ever displayed larger than a card, so keeping the original
-// would cost a hundred times what the picture is worth.
+// They sync. Each picture is its own file in the same hidden Drive folder as
+// the library, named by its id, and the library only points at it. An earlier
+// version of this did not sync them at all, on the reasoning that a file small
+// enough to sync quickly is a file with no photographs in it. That was true
+// only of putting them inside the one file, which was never the way to do it.
+//
+// Every photograph is scaled down and re-encoded on the way in. A modern phone
+// camera produces four thousand pixels across, nothing here is ever displayed
+// larger than a card, and every one of those pixels would otherwise be carried
+// to Drive and back.
 
 const DB_NAME = 'canotto-lab';
 const DB_VERSION = 1;
@@ -37,9 +40,9 @@ function open() {
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE)) {
-        const store = db.createObjectStore(STORE, { keyPath: 'id' });
-        // Photographs are always asked for by the bake they belong to.
-        store.createIndex('bakeId', 'bakeId', { unique: false });
+        // Keyed by the photograph's id. Which bake it belongs to is recorded
+        // with the rest of the library, not here.
+        db.createObjectStore(STORE, { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -60,7 +63,13 @@ const tx = async (mode, fn) => {
       reject(err);
       return;
     }
-    t.oncomplete = () => resolve(out?.result !== undefined ? out.result : out);
+    /*
+     * An IndexedDB request that finds nothing still succeeds, with a result of
+     * undefined. Treating undefined as "there was no request" and handing back
+     * the request object instead made every lookup truthy, so a photograph the
+     * device did not have looked present and was never fetched.
+     */
+    t.oncomplete = () => resolve(out instanceof IDBRequest ? out.result : out);
     t.onerror = () => reject(t.error);
     t.onabort = () => reject(t.error || new Error('The photo store refused that.'));
   });
@@ -92,40 +101,42 @@ export async function shrink(file, { maxEdge = MAX_EDGE, quality = QUALITY } = {
   return { blob, width, height };
 }
 
-const newId = () => `ph${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+export const newPhotoId = () => `ph${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
-export async function addPhoto(bakeId, file) {
+/** Put bytes in, under an id chosen by the caller. */
+export async function putBlob(id, blob) {
+  await tx('readwrite', (store) => store.put({ id, blob, bytes: blob.size }));
+  return id;
+}
+
+/**
+ * Shrink a file and store it. Returns what the library needs to describe it.
+ * The record is metadata only: the bytes stay here, addressed by the id.
+ */
+export async function addPhoto(file) {
   if (!file?.type?.startsWith('image/')) throw new Error('That is not an image.');
   const { blob, width, height } = await shrink(file);
-  const record = {
-    id: newId(),
-    bakeId,
-    blob,
-    type: 'image/jpeg',
-    width,
-    height,
-    bytes: blob.size,
-    addedAt: new Date().toISOString(),
-  };
-  await tx('readwrite', (store) => store.put(record));
-  return record;
+  const id = newPhotoId();
+  await putBlob(id, blob);
+  return { id, width, height, bytes: blob.size, addedAt: new Date().toISOString() };
 }
 
-/** Every photograph for one bake, oldest first, without their blobs. */
-export async function listPhotos(bakeId) {
-  const rows = await tx('readonly', (store) => store.index('bakeId').getAll(bakeId));
-  return (rows || [])
-    .sort((a, b) => String(a.addedAt).localeCompare(String(b.addedAt)))
-    .map(({ blob, ...rest }) => rest);
+export async function hasBlob(id) {
+  const key = await tx('readonly', (store) => store.getKey(id));
+  return key !== undefined && key !== null;
 }
 
-export async function countPhotos(bakeId) {
-  const n = await tx('readonly', (store) => store.index('bakeId').count(bakeId));
-  return n || 0;
+/** Which of these ids this device actually holds the bytes for. */
+export async function whichArePresent(ids) {
+  const present = new Set();
+  await Promise.all(ids.map(async (id) => {
+    if (await hasBlob(id)) present.add(id);
+  }));
+  return present;
 }
 
 /*
- * Object URLs are cached and reused.
+ * Object URLs are minted once and held.
  *
  * The screen is rebuilt from scratch on every change, so minting a fresh URL
  * per render would hand the browser a new copy of every photograph several
@@ -149,18 +160,9 @@ function forgetUrl(id) {
   urls.delete(id);
 }
 
-export async function removePhoto(id) {
+export async function removeBlob(id) {
   forgetUrl(id);
   await tx('readwrite', (store) => store.delete(id));
-}
-
-export async function removePhotosFor(bakeId) {
-  const rows = await listPhotos(bakeId);
-  for (const row of rows) forgetUrl(row.id);
-  await tx('readwrite', (store) => {
-    for (const row of rows) store.delete(row.id);
-  });
-  return rows.length;
 }
 
 /** The whole store, for a total to show next to the other storage figures. */

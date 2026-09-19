@@ -178,11 +178,17 @@ like.
 2. Opening it shows how the bake actually went, phase by phase, planned against
    actual.
 3. Photographs can be added to it.
-4. The screen says photographs stay on the device and do not sync, rather than
-   leaving that to be discovered on a second device.
+4. The screen says photographs sync to the connected Google account as their
+   own files, and that they are not in the JSON export.
 5. Scores stay editable from the same place, so opening a run is one surface
    rather than two.
 
 Photographs are scaled down before they are stored: a 4000 pixel phone photo
 should land at 1600 pixels and a couple of hundred kilobytes. They live in
 IndexedDB, survive a reload, and are deleted along with their bake.
+
+They sync as their own files in the same hidden Drive folder as the library,
+which names them but does not carry them, so the document stays small enough to
+sync in a moment however many pictures there are. A picture described but not
+yet fetched shows as such rather than as a broken frame. Removing one deletes
+it from that folder too, and it does not return on the next sync.

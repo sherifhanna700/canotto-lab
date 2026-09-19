@@ -71,9 +71,10 @@ base, and the app names the likely faults from the numbers you recorded.
 **Log.** Every bake, and what the differences between them add up to. Open a run and it
 shows how that bake actually went: the hours each phase really took against the hours it
 was meant to, and the clock time every step was ticked off. Photographs can be attached to
-a run and are kept on the device, scaled down on the way in; they are not in the JSON
-export and do not sync, because a file small enough to sync quickly is a file with no
-photographs in it. Once three bakes are
+a run. They are scaled down on the way in, kept in IndexedDB, and synced as their own
+files alongside the library, which names them but does not carry them. That keeps the
+document small enough to sync in a moment however many pictures there are. They are not
+in the JSON export, which stays small and readable. Once three bakes are
 scored, it ranks each variable by how it correlates with the score and will plot any
 factor against any outcome.
 

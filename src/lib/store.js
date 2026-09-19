@@ -4,11 +4,11 @@
 // app touches storage directly, so swapping in a cloud backend later means
 // reimplementing `load` and `save`, not rewriting the views.
 
-import { DEFAULT_RECIPE } from '../model/dough.js?v=fb9656d1';
-import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=fb9656d1';
-import { DEFAULT_MODEL } from '../model/ferment.js?v=fb9656d1';
-import { starterRecipes, houseRecipe } from '../model/recipes.js?v=fb9656d1';
-import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=fb9656d1';
+import { DEFAULT_RECIPE } from '../model/dough.js?v=4a2bd96a';
+import { DEFAULT_SCHEDULE } from '../model/protocol.js?v=4a2bd96a';
+import { DEFAULT_MODEL } from '../model/ferment.js?v=4a2bd96a';
+import { starterRecipes, houseRecipe } from '../model/recipes.js?v=4a2bd96a';
+import { DEFAULT_EQUIPMENT } from '../model/equipment.js?v=4a2bd96a';
 
 const KEY = 'canotto-lab/v1';
 const LEGACY = { steps: 'canotto_master_steps', frozen: 'canotto_frozen_count', metrics: 'canotto_step_metrics' };
@@ -55,6 +55,19 @@ export function defaultState() {
     },
     bakes: [],
     experiments: [],
+    /*
+     * What photographs exist, and which bake each belongs to. Metadata only:
+     * the bytes are in IndexedDB under the same id, and each one is its own
+     * file in Drive. Keeping the description here means it travels in the same
+     * document as everything else and merges the same way.
+     */
+    photos: [],
+    /*
+     * Photographs deliberately deleted. Without this a delete would not stick:
+     * the other device still lists the photograph, the merge is a union, and it
+     * would arrive back on the next sync along with its bytes.
+     */
+    photosRemoved: [],
   };
 }
 
@@ -146,6 +159,8 @@ function mergeState(base, saved) {
     recipes: reconcileRecipes(saved, base),
     bakes: Array.isArray(saved.bakes) ? saved.bakes : [],
     experiments: Array.isArray(saved.experiments) ? saved.experiments : [],
+    photos: Array.isArray(saved.photos) ? saved.photos : [],
+    photosRemoved: Array.isArray(saved.photosRemoved) ? saved.photosRemoved : [],
   };
 }
 
@@ -606,10 +621,12 @@ export function updateBake(id, patch) {
 }
 
 /** Replace the synced collections with what came back from a merge. */
-export function applySync({ recipes, bakes, current }) {
+export function applySync({ recipes, bakes, current, photos, photosRemoved }) {
   return update((s) => {
     if (Array.isArray(recipes) && recipes.length) s.recipes = recipes;
     if (Array.isArray(bakes)) s.bakes = bakes;
+    if (Array.isArray(photos)) s.photos = photos;
+    if (Array.isArray(photosRemoved)) s.photosRemoved = photosRemoved;
     if (current) {
       // Already decided by the merge; this only writes the winner down. Passed
       // through mergeState so a session from an older version still lands with
@@ -626,6 +643,35 @@ export function applySync({ recipes, bakes, current }) {
      */
     stamp: false,
   });
+}
+
+/* -------------------------------- photos --------------------------------- */
+
+export const photosForBake = (s, bakeId) =>
+  (s.photos || []).filter((p) => p.bakeId === bakeId).sort((a, b) => String(a.addedAt).localeCompare(String(b.addedAt)));
+
+export function addPhotoRecord(record) {
+  return update((s) => {
+    s.photos = [...(s.photos || []).filter((p) => p.id !== record.id), record];
+    // Adding back something previously deleted should not stay deleted.
+    s.photosRemoved = (s.photosRemoved || []).filter((id) => id !== record.id);
+  });
+}
+
+export function removePhotoRecord(id) {
+  return update((s) => {
+    s.photos = (s.photos || []).filter((p) => p.id !== id);
+    s.photosRemoved = [...new Set([...(s.photosRemoved || []), id])];
+  });
+}
+
+export function removePhotoRecordsFor(bakeId) {
+  const ids = photosForBake(load(), bakeId).map((p) => p.id);
+  update((s) => {
+    s.photos = (s.photos || []).filter((p) => p.bakeId !== bakeId);
+    s.photosRemoved = [...new Set([...(s.photosRemoved || []), ...ids])];
+  });
+  return ids;
 }
 
 export function deleteBake(id) {
@@ -672,6 +718,10 @@ export function exportStateJSON(state) {
     recipes: state.recipes,
     bakes: state.bakes,
     settings: state.settings,
+    // What pictures exist and what they belong to. The pictures themselves are
+    // separate files alongside this one, named by these ids.
+    photos: state.photos || [],
+    photosRemoved: state.photosRemoved || [],
     // The bake in progress: which recipe is loaded, what is ticked, and when
     // each step really happened. Without it, syncing mid-bake carries the
     // recipe but not the evening.

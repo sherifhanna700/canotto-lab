@@ -123,6 +123,51 @@
             }
           },
           "additionalProperties": true
+        },
+        "photos": {
+          "type": "array",
+          "title": "Photographs",
+          "description": "What pictures exist and which bake each belongs to. Descriptions only: the pictures themselves are separate files stored alongside this one and named photo-<id>.jpg, so this document stays small enough to sync in a moment however many photographs there are. A picture never changes once taken, so these merge as a union by id rather than by which copy is newer, and a file already present never needs sending again.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Names the picture file: photo-<id>.jpg."
+              },
+              "bakeId": {
+                "type": "string",
+                "description": "The bake this belongs to."
+              },
+              "width": {
+                "type": "integer"
+              },
+              "height": {
+                "type": "integer"
+              },
+              "bytes": {
+                "type": "integer",
+                "description": "Size after scaling down, not the size of the original."
+              },
+              "addedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "id",
+              "bakeId"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "photosRemoved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "Photographs deliberately deleted",
+          "description": "Ids of pictures that have been deleted. Because the descriptions above merge as a union, a deletion with no record of itself would simply be undone by the other device on the next sync, bytes and all. Anything listed here is removed from that union and its file deleted from storage. This is the one place the app's usual rule, that a sync never deletes anything, is deliberately set aside: a picture removed on purpose is expensive to carry and obvious when it returns."
         }
       }
     }

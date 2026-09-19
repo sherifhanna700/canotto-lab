@@ -1,23 +1,25 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=fb9656d1';
-import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=fb9656d1';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=fb9656d1';
-import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=fb9656d1';
-import { scheduleStages } from '../model/protocol.js?v=fb9656d1';
-import { convertYeast } from '../model/dough.js?v=fb9656d1';
-import { overallScore } from '../model/recipes.js?v=fb9656d1';
-import { SOURCES, FLOURS } from '../model/flours.js?v=fb9656d1';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=fb9656d1';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=fb9656d1';
-import { lineChart } from '../lib/charts.js?v=fb9656d1';
-import * as drive from '../lib/drive.js?v=fb9656d1';
-import { tempField, tempDeltaField, } from './common.js?v=fb9656d1';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=fb9656d1';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog } from '../lib/ui.js?v=4a2bd96a';
+import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=4a2bd96a';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=4a2bd96a';
+import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=4a2bd96a';
+import { scheduleStages } from '../model/protocol.js?v=4a2bd96a';
+import { convertYeast } from '../model/dough.js?v=4a2bd96a';
+import { overallScore } from '../model/recipes.js?v=4a2bd96a';
+import { SOURCES, FLOURS } from '../model/flours.js?v=4a2bd96a';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=4a2bd96a';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=4a2bd96a';
+import { lineChart } from '../lib/charts.js?v=4a2bd96a';
+import * as drive from '../lib/drive.js?v=4a2bd96a';
+import * as photos from '../lib/photos.js?v=4a2bd96a';
+import { tempField, tempDeltaField, } from './common.js?v=4a2bd96a';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=4a2bd96a';
 
 let driveAccount = null;
 let syncing = false;
+let syncNote = '';
 drive.onAccount((a) => {
   driveAccount = a;
 });
@@ -261,6 +263,28 @@ function driveCard() {
           try {
             const res = await drive.sync(load(), { envelope: exportStateJSON });
             applySync(res.state);
+            /*
+             * The library names the photographs; this fetches and sends the
+             * pictures themselves, one file each. It runs after the document
+             * so an interrupted sync still leaves the descriptions agreed, and
+             * the next attempt simply moves the bytes that are still missing.
+             */
+            let pics = { sent: 0, fetched: 0, deleted: 0 };
+            if (photos.isSupported()) {
+              pics = await drive.syncPhotos({
+                wanted: res.photoIds || [],
+                removed: res.photosRemoved || [],
+                photos,
+                onProgress: ({ stage, done, total }) => {
+                  syncNote = stage === 'up'
+                    ? `Sending photographs, ${done + 1} of ${total}\u2026`
+                    : `Fetching photographs, ${done + 1} of ${total}\u2026`;
+                  update(() => {});
+                },
+              });
+            }
+            syncNote = '';
+            res.photos = pics;
             drive.rememberSync({
               ok: !res.sessionDisplaced,
               conflict: Boolean(res.sessionDisplaced),
@@ -270,6 +294,7 @@ function driveCard() {
             drive.rememberSync({ ok: false, text: e.message || 'The sync did not finish.' });
           } finally {
             syncing = false;
+            syncNote = '';
             update(() => {});
           }
         },
@@ -284,7 +309,7 @@ function driveCard() {
      * it.
      */
     syncing
-      ? h('p', { class: 'note neutral' }, 'Talking to Google\u2026')
+      ? h('p', { class: 'note neutral' }, syncNote || 'Talking to Google\u2026')
       : last
         ? h('p', { class: `note ${last.ok ? 'good' : (last.conflict ? 'warn' : 'bad')}` }, `${last.text} ${whenAgo(last.at)}.`)
         : h('p', { class: 'note neutral' }, 'Nothing synced from this browser yet. Press Sync now and the result will stay here.'),
@@ -382,6 +407,8 @@ export function describeSync(res) {
    * not exist, and hid the useful fact underneath: the stored copy had no bake
    * either, because whatever wrote it could not carry one.
    */
+  if (res.photos?.sent) parts.push(`${res.photos.sent} photo${res.photos.sent === 1 ? '' : 's'} out`);
+  if (res.photos?.fetched) parts.push(`${res.photos.fetched} photo${res.photos.fetched === 1 ? '' : 's'} in`);
   if (res.sessionMoved && res.sessionHasProgress) {
     parts.push(res.sessionFrom === 'remote'
       ? 'picked up the bake in progress'

@@ -27,7 +27,7 @@ import { recipeFromBlend, overallScore, recipeRating, starterRecipes, houseRecip
 import { bakeStages, ovenLabel, mixerLabel, mixerPhrasing, findMixer, OVENS, MIXERS } from '../src/model/equipment.js';
 import { diagnose } from '../src/model/diagnostics.js';
 import { laterSession } from '../src/lib/drive.js';
-import { update as storeUpdate, load as storeLoad, resetAll, applySync } from '../src/lib/store.js';
+import { update as storeUpdate, load as storeLoad, resetAll, applySync, addPhotoRecord, removePhotoRecord, removePhotoRecordsFor } from '../src/lib/store.js';
 import { derive, findFactor } from '../src/model/metrics.js';
 import { mergeCollections } from '../src/lib/drive.js';
 import { normaliseRecipe, EMPTY_ACTUALS, EMPTY_SCORES, SCHEMA_BASE, exportStateJSON } from '../src/lib/store.js';
@@ -1002,27 +1002,61 @@ test('the schemas actually reject malformed data', () => {
 });
 
 test('every view imports what it uses', async () => {
-  // A missing import throws inside a click handler, where nothing surfaces it:
-  // the button simply does nothing. This has happened twice, so it is pinned.
+  /*
+   * A missing import throws inside a click handler, where nothing surfaces it:
+   * the button simply does nothing. This has happened three times.
+   *
+   * It used to collect every unknown call and then keep only a hardcoded list
+   * of names, which meant it could only ever catch the three mistakes already
+   * made. A helper deleted during a refactor sailed past it and broke the whole
+   * screen. It now reports anything that is neither imported, declared, bound
+   * as a parameter, a keyword, nor a browser global.
+   */
   const { readdirSync, readFileSync } = await import('node:fs');
   const dir = new URL('../src/views', import.meta.url).pathname;
+
+  const KEYWORDS = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'typeof', 'function',
+    'await', 'super', 'async', 'var', 'let', 'const', 'new', 'do', 'else', 'try', 'yield', 'void', 'delete', 'in', 'of']);
+  const GLOBALS = new Set(['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'requestAnimationFrame',
+    'queueMicrotask', 'fetch', 'alert', 'confirm', 'prompt', 'structuredClone', 'isNaN', 'isFinite',
+    'parseInt', 'parseFloat', 'encodeURIComponent', 'decodeURIComponent', 'atob', 'btoa']);
+
   const problems = [];
   for (const file of readdirSync(dir).filter((f) => f.endsWith('.js'))) {
-    const text = readFileSync(`${dir}/${file}`, 'utf8');
-    const imported = new Set([...text.matchAll(/import \{([^}]*)\} from/g)]
-      .flatMap((m) => m[1].split(',').map((x) => x.trim().split(' as ').pop())));
-    const declared = new Set([...text.matchAll(/(?:function|const|let|class)\s+([A-Za-z_$][\w$]*)/g)].map((m) => m[1]));
-    for (const [, name] of text.matchAll(/\b([a-z][A-Za-z0-9_$]*)\(/g)) {
-      if (imported.has(name) || declared.has(name)) continue;
-      if (['if', 'for', 'while', 'switch', 'catch', 'return', 'typeof', 'function', 'await', 'super'].includes(name)) continue;
-      if (/^(parse|Number|String|Object|Array|Math|JSON|console|document|window|set|clear|require)/.test(name)) continue;
-      problems.push(`${file}: ${name}`);
+    const raw = readFileSync(`${dir}/${file}`, 'utf8');
+    /*
+     * Scan the code, not the prose. English inside a string or a comment has
+     * words followed by brackets too, and "as it happened (" is not a call.
+     */
+    const text = raw
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ')
+      .replace(/'(?:\\.|[^'\\])*'/g, "''")
+      .replace(/"(?:\\.|[^"\\])*"/g, '""')
+      .replace(/`(?:\\.|\$\{[^}]*\}|[^`\\])*`/g, '``');
+    const known = new Set([...KEYWORDS, ...GLOBALS]);
+
+    for (const m of raw.matchAll(/import \{([^}]*)\} from/g)) {
+      for (const part of m[1].split(',')) known.add(part.trim().split(' as ').pop());
+    }
+    for (const m of raw.matchAll(/import \* as ([A-Za-z_$][\w$]*)/g)) known.add(m[1]);
+    for (const m of text.matchAll(/(?:function|const|let|class)\s+([A-Za-z_$][\w$]*)/g)) known.add(m[1]);
+    // Destructured bindings and parameter lists: anything named between braces
+    // or parentheses is in scope by the time it is called.
+    for (const m of text.matchAll(/[({]([^(){}]*)[)}]/g)) {
+      for (const part of m[1].split(',')) {
+        const name = part.trim().split(/[:=]/)[0].trim().replace(/^\.\.\./, '');
+        if (/^[A-Za-z_$][\w$]*$/.test(name)) known.add(name);
+      }
+    }
+
+    for (const [, name] of text.matchAll(/(?<![.\w$'"`])([a-z][A-Za-z0-9_$]*)\s*\(/g)) {
+      if (!known.has(name)) problems.push(`${file}: ${name}`);
     }
   }
-  // Only names the app defines itself matter here; globals are filtered above.
-  const ours = problems.filter((p) => /(editCurrent|announceFork|toast|update|render|go|card|stat|pill|icon|chip)\b/.test(p));
-  assert.deepEqual(ours, [], `used but not imported:\n  ${ours.join('\n  ')}`);
+  assert.deepEqual([...new Set(problems)], [], `used but never defined or imported:\n  ${[...new Set(problems)].join('\n  ')}`);
 });
+
 
 test('a logged bake is judged on the time it really had', () => {
   const base = { recipe: DEFAULT_RECIPE, schedule: DEFAULT_SCHEDULE, scores: EMPTY_SCORES };
@@ -1262,6 +1296,87 @@ test('setting a bake aside is said plainly, not buried', async () => {
   assert.ok(!/set aside/.test(clean), 'and nothing alarming is said when nothing was lost');
 });
 
+/* ------------------------- photographs across devices ------------------- */
+
+test('the library names photographs, and does not carry them', () => {
+  /*
+   * The point of the design: descriptions travel in the document, bytes travel
+   * as their own files. A document with a picture inside it is a document that
+   * stops syncing quickly, which was the objection that nearly kept these off
+   * Drive altogether.
+   */
+  const doc = JSON.parse(exportStateJSON({
+    version: 1,
+    recipes: [],
+    bakes: [],
+    settings: {},
+    photos: [{ id: 'ph1', bakeId: 'b1', width: 1600, height: 1200, bytes: 152000, addedAt: '2026-09-19T10:00:00Z' }],
+    photosRemoved: ['ph0'],
+  }));
+  assert.equal(doc.photos.length, 1, 'the photograph is described');
+  assert.equal(doc.photos[0].id, 'ph1');
+  assert.ok(!JSON.stringify(doc).includes('base64'), 'and no bytes ride along');
+  assert.ok(JSON.stringify(doc).length < 2000, `the document stays small: ${JSON.stringify(doc).length} bytes`);
+  assert.deepEqual(doc.photosRemoved, ['ph0'], 'deletions travel too');
+});
+
+test('photographs merge as a union, because they never change', async () => {
+  const { laterSession } = await import('../src/lib/drive.js');
+  assert.ok(laterSession, 'drive module loads');
+
+  // The merge the sync performs, written out.
+  const mine = { photos: [{ id: 'a', bakeId: 'b1' }, { id: 'b', bakeId: 'b1' }], photosRemoved: [] };
+  const theirs = { photos: [{ id: 'b', bakeId: 'b1' }, { id: 'c', bakeId: 'b2' }], photosRemoved: [] };
+  const removedIds = [...new Set([...mine.photosRemoved, ...theirs.photosRemoved])];
+  const gone = new Set(removedIds);
+  const byId = new Map();
+  for (const p of [...theirs.photos, ...mine.photos]) if (!gone.has(p.id)) byId.set(p.id, p);
+  assert.deepEqual([...byId.keys()].sort(), ['a', 'b', 'c'], 'both devices keep every picture');
+});
+
+test('a deleted photograph does not come back on the next sync', () => {
+  /*
+   * Without a record of the deletion the merge is a union, so the other device
+   * would hand the picture straight back along with its bytes. The tombstone
+   * is what makes a delete mean something.
+   */
+  const mine = { photos: [{ id: 'b', bakeId: 'b1' }], photosRemoved: ['a'] };
+  const theirs = { photos: [{ id: 'a', bakeId: 'b1' }, { id: 'b', bakeId: 'b1' }], photosRemoved: [] };
+
+  const removedIds = [...new Set([...mine.photosRemoved, ...theirs.photosRemoved])];
+  const gone = new Set(removedIds);
+  const byId = new Map();
+  for (const p of [...theirs.photos, ...mine.photos]) if (!gone.has(p.id)) byId.set(p.id, p);
+
+  assert.deepEqual([...byId.keys()], ['b'], 'the deleted one stays deleted');
+  assert.deepEqual(removedIds, ['a'], 'and the deletion is carried to the other device');
+});
+
+test('adding a photograph again lifts its deletion', () => {
+  globalThis.localStorage.clear();
+  resetAll();
+  addPhotoRecord({ id: 'ph9', bakeId: 'b1', bytes: 1, addedAt: '2026-09-19T10:00:00Z' });
+  removePhotoRecord('ph9');
+  assert.deepEqual(storeLoad().photosRemoved, ['ph9']);
+  addPhotoRecord({ id: 'ph9', bakeId: 'b1', bytes: 1, addedAt: '2026-09-19T11:00:00Z' });
+  assert.deepEqual(storeLoad().photosRemoved, [], 'a tombstone must not outlive the thing it buried');
+  assert.equal(storeLoad().photos.length, 1);
+  globalThis.localStorage.clear();
+});
+
+test('deleting a bake buries its photographs with it', () => {
+  globalThis.localStorage.clear();
+  resetAll();
+  addPhotoRecord({ id: 'p1', bakeId: 'b1', bytes: 1, addedAt: '2026-09-19T10:00:00Z' });
+  addPhotoRecord({ id: 'p2', bakeId: 'b1', bytes: 1, addedAt: '2026-09-19T10:01:00Z' });
+  addPhotoRecord({ id: 'p3', bakeId: 'b2', bytes: 1, addedAt: '2026-09-19T10:02:00Z' });
+  const ids = removePhotoRecordsFor('b1');
+  assert.deepEqual(ids.sort(), ['p1', 'p2']);
+  assert.deepEqual(storeLoad().photos.map((p) => p.id), ['p3'], 'the other bake keeps its own');
+  assert.deepEqual(storeLoad().photosRemoved.sort(), ['p1', 'p2'], 'so they do not return from the other device');
+  globalThis.localStorage.clear();
+});
+
 test('what sync writes to Drive is a valid export document', () => {
   /*
    * Sync uploads the merge of both sides, which is not the state in storage,
@@ -1404,7 +1519,7 @@ test('every kind of storage the app uses is disclosed, not only the obvious one'
   if (/indexedDB/i.test(sources)) {
     assert.match(page, /IndexedDB/i, 'the page must name the second store');
     assert.match(page, /photograph/i, 'and say what is in it');
-    assert.match(page, /never leave the device|not in the JSON export/i, 'and where it does not go');
+    assert.match(page, /not in the JSON export/i, 'and where it does not go');
   }
   assert.ok(!/sessionStorage\.setItem\('canotto-lab\/(?!drive-token)/.test(sources),
     'anything new in sessionStorage would need documenting too');

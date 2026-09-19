@@ -1,21 +1,21 @@
 // Log: every bake, and what the differences between them add up to.
 
-import { h, card, pill, chip, selectField, numberField, toast, icon, confirmDialog } from '../lib/ui.js?v=fb9656d1';
-import { update, updateBake, deleteBake, download, exportBakesJSON } from '../lib/store.js?v=fb9656d1';
-import { computeRecipe } from '../model/dough.js?v=fb9656d1';
-import { scheduleStages } from '../model/protocol.js?v=fb9656d1';
-import { fermentUnits } from '../model/ferment.js?v=fb9656d1';
-import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=fb9656d1';
-import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js?v=fb9656d1';
-import { scatterChart, barChart, linearFit } from '../lib/charts.js?v=fb9656d1';
-import { fmtTemp, fmtDuration, round } from '../model/units.js?v=fb9656d1';
-import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js?v=fb9656d1';
-import { stars, scoreInputs, tempField } from './common.js?v=fb9656d1';
-import { bakeCSV } from '../lib/csv.js?v=fb9656d1';
-import { actualStages, projectedStages, hasTimings, sayDrift, PHASE_BOUNDS } from '../model/timeline.js?v=fb9656d1';
-import { STEPS } from '../model/protocol.js?v=fb9656d1';
-import * as photos from '../lib/photos.js?v=fb9656d1';
-import { fmtClock, fmtDay } from '../lib/ui.js?v=fb9656d1';
+import { h, card, pill, chip, selectField, numberField, toast, icon, confirmDialog } from '../lib/ui.js?v=4a2bd96a';
+import { update, updateBake, deleteBake, download, exportBakesJSON, photosForBake, addPhotoRecord, removePhotoRecord, removePhotoRecordsFor } from '../lib/store.js?v=4a2bd96a';
+import { computeRecipe } from '../model/dough.js?v=4a2bd96a';
+import { scheduleStages } from '../model/protocol.js?v=4a2bd96a';
+import { fermentUnits } from '../model/ferment.js?v=4a2bd96a';
+import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=4a2bd96a';
+import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js?v=4a2bd96a';
+import { scatterChart, barChart, linearFit } from '../lib/charts.js?v=4a2bd96a';
+import { fmtTemp, fmtDuration, round } from '../model/units.js?v=4a2bd96a';
+import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js?v=4a2bd96a';
+import { stars, scoreInputs, tempField } from './common.js?v=4a2bd96a';
+import { bakeCSV } from '../lib/csv.js?v=4a2bd96a';
+import { actualStages, projectedStages, hasTimings, sayDrift, PHASE_BOUNDS } from '../model/timeline.js?v=4a2bd96a';
+import { STEPS } from '../model/protocol.js?v=4a2bd96a';
+import * as photos from '../lib/photos.js?v=4a2bd96a';
+import { fmtClock, fmtDay } from '../lib/ui.js?v=4a2bd96a';
 
 export default function renderLog(ctx) {
   const { s } = ctx;
@@ -132,7 +132,7 @@ function bakeCard(ctx, b) {
         pill(`${b.recipe.baseYeastPct}% ${b.recipe.yeastType.toUpperCase()}`, 'neutral'),
         Number.isFinite(b.actuals?.ambientTempC) ? pill(`ambient ${fmtTemp(b.actuals.ambientTempC, u)}`, 'neutral') : null,
         hasTimings(b.doneAt) ? pill('timed', 'good') : null,
-        photoCount(b.id) ? pill(`${photoCount(b.id)} photo${photoCount(b.id) === 1 ? '' : 's'}`, 'neutral') : null
+        photoCount(ctx, b.id) ? pill(`${photoCount(ctx, b.id)} photo${photoCount(ctx, b.id) === 1 ? '' : 's'}`, 'neutral') : null
       ),
       h('div', {}, h('span', { class: 'rating' }, score === null ? 'Unscored' : `${score.toFixed(1)} / 5`), ' ', stars(score))
     ),
@@ -144,8 +144,12 @@ function bakeCard(ctx, b) {
       h('button', { class: 'btn ghost small', onClick: () => update((st) => { st.ui = { ...st.ui, openBake: open ? null : b.id }; }) }, icon(open ? 'expand_less' : 'expand_more'), open ? 'Close' : 'Open the run'),
       h('button', { class: 'btn ghost small', onClick: () => confirmDialog('Delete this bake? Its photographs go with it.', async () => {
         // Otherwise the pictures outlive the record and nothing can reach them.
-        await photos.removePhotosFor(b.id).catch(() => {});
-        forgetPhotos(b.id);
+        for (const p of photosForBake(ctx.s, b.id)) {
+          // eslint-disable-next-line no-await-in-loop
+          await photos.removeBlob(p.id).catch(() => {});
+          urlCache.delete(p.id);
+        }
+        removePhotoRecordsFor(b.id);
         deleteBake(b.id);
         toast('Deleted');
       }, 'Delete') }, icon('delete'), 'Delete')
@@ -162,39 +166,39 @@ function bakeCard(ctx, b) {
  * bake's list is fetched once and kept here; the fetch ends by asking for a
  * redraw, so the pictures appear a moment after the card opens.
  */
-const photoCache = new Map();
-const photoLoading = new Set();
+const urlCache = new Map();
+const urlLoading = new Set();
 
-function photosFor(bakeId) {
-  if (photoCache.has(bakeId)) return photoCache.get(bakeId);
-  if (!photoLoading.has(bakeId)) {
-    photoLoading.add(bakeId);
+/**
+ * The object URL for a photograph, or null until it has been fetched.
+ *
+ * What photographs exist is known synchronously now, because that lives with
+ * the rest of the library. Only the bytes have to be waited for, and each one
+ * asks for a redraw when it arrives.
+ */
+function urlFor(id) {
+  if (urlCache.has(id)) return urlCache.get(id);
+  if (!urlLoading.has(id)) {
+    urlLoading.add(id);
     photos
-      .listPhotos(bakeId)
-      .then(async (rows) => {
-        for (const row of rows) row.url = await photos.photoUrl(row.id);
-        photoCache.set(bakeId, rows);
-      })
-      .catch(() => photoCache.set(bakeId, []))
+      .photoUrl(id)
+      .then((url) => urlCache.set(id, url))
+      .catch(() => urlCache.set(id, null))
       .finally(() => {
-        photoLoading.delete(bakeId);
+        urlLoading.delete(id);
         update(() => {});
       });
   }
   return null;
 }
 
-const forgetPhotos = (bakeId) => photoCache.delete(bakeId);
-
 /**
  * How many photographs a bake has, for the card that is not open.
  *
- * Counted from the list already fetched, so a closed card shows nothing until
- * something has asked for that bake's photographs. It is a pill, not a fact
- * anyone is waiting on, and fetching for every bake on the screen to fill it
- * in would be a great deal of work for a small number.
+ * Known without touching IndexedDB, because what exists is recorded with the
+ * rest of the library and only the bytes live in the picture store.
  */
-const photoCount = (bakeId) => (photoCache.get(bakeId) || []).length;
+const photoCount = (ctx, bakeId) => photosForBake(ctx.s, bakeId).length;
 
 function lightbox(url) {
   const dlg = h(
@@ -209,7 +213,7 @@ function photoStrip(ctx, b) {
   if (!photos.isSupported()) {
     return h('p', { class: 'note neutral' }, 'This browser has nowhere to keep photographs.');
   }
-  const rows = photosFor(b.id);
+  const rows = photosForBake(ctx.s, b.id);
 
   const pick = () => {
     const input = h('input', { type: 'file', accept: 'image/*', multiple: true, style: { display: 'none' } });
@@ -219,9 +223,9 @@ function photoStrip(ctx, b) {
       try {
         for (const file of files) {
           // eslint-disable-next-line no-await-in-loop
-          await photos.addPhoto(b.id, file);
+          const record = await photos.addPhoto(file);
+          addPhotoRecord({ ...record, bakeId: b.id });
         }
-        forgetPhotos(b.id);
         toast(files.length === 1 ? 'Photo added' : `${files.length} photos added`);
       } catch (e) {
         toast(e.message || 'That image could not be added');
@@ -237,38 +241,44 @@ function photoStrip(ctx, b) {
     'div',
     { class: 'field' },
     h('span', { class: 'field-label' }, 'Photographs'),
-    rows === null
-      ? h('p', { class: 'hint' }, 'Looking\u2026')
-      : rows.length
-        ? h('div', { class: 'photo-grid' }, ...rows.map((row) =>
-            h(
-              'figure',
-              { class: 'photo' },
-              h('img', {
-                src: row.url,
-                alt: `Photograph taken ${new Date(row.addedAt).toLocaleString()}`,
-                loading: 'lazy',
-                onClick: () => lightbox(row.url),
-              }),
-              h('button', {
-                class: 'photo-remove',
-                title: 'Remove this photograph',
-                'aria-label': 'Remove this photograph',
-                onClick: (e) => {
-                  e.stopPropagation();
-                  confirmDialog('Remove this photograph? It is only on this device, so it cannot be recovered.', async () => {
-                    await photos.removePhoto(row.id);
-                    forgetPhotos(b.id);
-                    toast('Removed');
-                    update(() => {});
-                  }, 'Remove');
-                },
-              }, h('span', { class: 'msym' }, 'close'))
-            )
-          ))
-        : h('p', { class: 'hint' }, 'None yet.'),
-    h('div', { class: 'row tight' }, h('button', { class: 'btn ghost small', onClick: pick }, icon('add'), rows && rows.length ? 'Add more' : 'Add photographs')),
-    h('p', { class: 'hint', style: { fontSize: '.72rem' } }, 'Photographs stay in this browser. They are not in the JSON export and they do not sync to a Google account, because a file small enough to sync quickly is a file with no photographs in it.')
+    rows.length
+      ? h('div', { class: 'photo-grid' }, ...rows.map((row) => {
+          const url = urlFor(row.id);
+          return h(
+            'figure',
+            { class: 'photo' },
+            url
+              ? h('img', {
+                  src: url,
+                  alt: `Photograph taken ${new Date(row.addedAt).toLocaleString()}`,
+                  loading: 'lazy',
+                  onClick: () => lightbox(url),
+                })
+              : /*
+                 * Described but not here: this photograph belongs to the
+                 * library and its bytes are still in Drive, on another device,
+                 * or on the way. Saying so beats a broken frame.
+                 */
+                h('div', { class: 'photo-missing', title: 'Not on this device yet' }, h('span', { class: 'msym' }, 'cloud'), h('span', {}, 'Sync to fetch')),
+            h('button', {
+              class: 'photo-remove',
+              title: 'Remove this photograph',
+              'aria-label': 'Remove this photograph',
+              onClick: (e) => {
+                e.stopPropagation();
+                confirmDialog('Remove this photograph? It goes from this device and from your Google account on the next sync.', async () => {
+                  await photos.removeBlob(row.id).catch(() => {});
+                  urlCache.delete(row.id);
+                  removePhotoRecord(row.id);
+                  toast('Removed');
+                }, 'Remove');
+              },
+            }, h('span', { class: 'msym' }, 'close'))
+          );
+        }))
+      : h('p', { class: 'hint' }, 'None yet.'),
+    h('div', { class: 'row tight' }, h('button', { class: 'btn ghost small', onClick: pick }, icon('add'), rows.length ? 'Add more' : 'Add photographs')),
+    h('p', { class: 'hint', style: { fontSize: '.72rem' } }, 'Photographs sync to your Google account as their own files, so they follow you between devices. They are not in the JSON export, which stays small and readable; download one from the picture itself if you want to keep it.')
   );
 }
 
