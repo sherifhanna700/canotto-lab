@@ -771,6 +771,40 @@
       cards().length > 0 && !$$('#main .note.bad').some((n) => /went wrong/.test(n.textContent)),
       `${cards().length} cards, redraw ${document.body.contains(to) ? 'did not happen' : 'happened'}`);
 
+    /* ------------------------------- J21 -------------------------------- */
+    /*
+     * Opening an old run. A score says a bake was good; this says which bake
+     * it was, and lets a picture of it sit alongside.
+     */
+    await goTab(3);
+    /*
+     * Find the button, not a card that mentions bakes. The first attempt
+     * matched the summary card headed "1 bake" and then looked inside it for a
+     * button that was never there.
+     */
+    const openBtn = $$('#main button').find((b) => /Open the run/.test(b.textContent));
+    check('J21.1 a filed bake can be opened', !!openBtn, openBtn ? 'has an Open the run button' : 'no bake filed to open');
+
+    if (openBtn) {
+      openBtn.click();
+      await sleep();
+      await settle();
+      const opened = cards().find((c) => /Photographs/.test(c.textContent));
+      check('J21.2 the run shows how it actually went',
+        !!opened && /Planned/i.test(opened.textContent) && /Actual/i.test(opened.textContent),
+        'planned against actual is shown');
+      check('J21.3 and offers somewhere for photographs',
+        !!opened && $$('button', opened).some((b) => /Add photograph|Add more/.test(b.textContent)),
+        'an add control is there');
+      check('J21.4 and says photographs stay on the device',
+        !!opened && /do not sync|stay in this browser/i.test(opened.textContent),
+        'the limitation is stated, not hidden');
+      check('J21.5 the scores are still editable from the same place',
+        !!opened && /Canotto height/.test(opened.textContent),
+        'scoring is in the run view');
+    }
+    await goTab(0);
+
     /* ------------------------------- J11 -------------------------------- */
     const snapshot = stored();
     check('J11.1 state persisted', !!snapshot && snapshot.recipes.length >= 2 && snapshot.bakes.length === 1,

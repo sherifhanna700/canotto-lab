@@ -167,3 +167,22 @@ an hour lost on a warm bench is worth several hours in a fridge.
    current plan, so trimming a phase cannot move the target with it.
 6. When the projection is over the flour's budget, a cut sized to bring it back
    inside is offered as well.
+
+## J21. Opening an old run
+
+A score records that a bake was good. The run view records which bake it was:
+the hours each phase really ran, when each step was ticked, and what it looked
+like.
+
+1. A filed bake can be opened from the Log.
+2. Opening it shows how the bake actually went, phase by phase, planned against
+   actual.
+3. Photographs can be added to it.
+4. The screen says photographs stay on the device and do not sync, rather than
+   leaving that to be discovered on a second device.
+5. Scores stay editable from the same place, so opening a run is one surface
+   rather than two.
+
+Photographs are scaled down before they are stored: a 4000 pixel phone photo
+should land at 1600 pixels and a couple of hundred kilobytes. They live in
+IndexedDB, survive a reload, and are deleted along with their bake.

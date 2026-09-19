@@ -68,7 +68,12 @@ conditions on the day including ambient temperature, which is what actually vari
 outdoor oven. Score the bake out of five on rim height, honeycomb, blistering, flavour and
 base, and the app names the likely faults from the numbers you recorded.
 
-**Log.** Every bake, and what the differences between them add up to. Once three bakes are
+**Log.** Every bake, and what the differences between them add up to. Open a run and it
+shows how that bake actually went: the hours each phase really took against the hours it
+was meant to, and the clock time every step was ticked off. Photographs can be attached to
+a run and are kept on the device, scaled down on the way in; they are not in the JSON
+export and do not sync, because a file small enough to sync quickly is a file with no
+photographs in it. Once three bakes are
 scored, it ranks each variable by how it correlates with the score and will plot any
 factor against any outcome.
 

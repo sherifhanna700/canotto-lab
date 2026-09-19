@@ -1,17 +1,21 @@
 // Log: every bake, and what the differences between them add up to.
 
-import { h, card, pill, chip, selectField, numberField, toast, icon, confirmDialog } from '../lib/ui.js?v=d41fed29';
-import { update, updateBake, deleteBake, download, exportBakesJSON } from '../lib/store.js?v=d41fed29';
-import { computeRecipe } from '../model/dough.js?v=d41fed29';
-import { scheduleStages } from '../model/protocol.js?v=d41fed29';
-import { fermentUnits } from '../model/ferment.js?v=d41fed29';
-import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=d41fed29';
-import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js?v=d41fed29';
-import { scatterChart, barChart, linearFit } from '../lib/charts.js?v=d41fed29';
-import { fmtTemp, fmtDuration, round } from '../model/units.js?v=d41fed29';
-import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js?v=d41fed29';
-import { stars, scoreInputs, tempField } from './common.js?v=d41fed29';
-import { bakeCSV } from '../lib/csv.js?v=d41fed29';
+import { h, card, pill, chip, selectField, numberField, toast, icon, confirmDialog } from '../lib/ui.js?v=fb9656d1';
+import { update, updateBake, deleteBake, download, exportBakesJSON } from '../lib/store.js?v=fb9656d1';
+import { computeRecipe } from '../model/dough.js?v=fb9656d1';
+import { scheduleStages } from '../model/protocol.js?v=fb9656d1';
+import { fermentUnits } from '../model/ferment.js?v=fb9656d1';
+import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=fb9656d1';
+import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js?v=fb9656d1';
+import { scatterChart, barChart, linearFit } from '../lib/charts.js?v=fb9656d1';
+import { fmtTemp, fmtDuration, round } from '../model/units.js?v=fb9656d1';
+import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js?v=fb9656d1';
+import { stars, scoreInputs, tempField } from './common.js?v=fb9656d1';
+import { bakeCSV } from '../lib/csv.js?v=fb9656d1';
+import { actualStages, projectedStages, hasTimings, sayDrift, PHASE_BOUNDS } from '../model/timeline.js?v=fb9656d1';
+import { STEPS } from '../model/protocol.js?v=fb9656d1';
+import * as photos from '../lib/photos.js?v=fb9656d1';
+import { fmtClock, fmtDay } from '../lib/ui.js?v=fb9656d1';
 
 export default function renderLog(ctx) {
   const { s } = ctx;
@@ -126,7 +130,9 @@ function bakeCard(ctx, b) {
         pill(`${fmtDuration(b.schedule.coldProofHours)} at ${fmtTemp(b.schedule.fridgeTempC, u)}`, 'neutral'),
         pill(`${fu.toFixed(1)} FU`, 'neutral'),
         pill(`${b.recipe.baseYeastPct}% ${b.recipe.yeastType.toUpperCase()}`, 'neutral'),
-        Number.isFinite(b.actuals?.ambientTempC) ? pill(`ambient ${fmtTemp(b.actuals.ambientTempC, u)}`, 'neutral') : null
+        Number.isFinite(b.actuals?.ambientTempC) ? pill(`ambient ${fmtTemp(b.actuals.ambientTempC, u)}`, 'neutral') : null,
+        hasTimings(b.doneAt) ? pill('timed', 'good') : null,
+        photoCount(b.id) ? pill(`${photoCount(b.id)} photo${photoCount(b.id) === 1 ? '' : 's'}`, 'neutral') : null
       ),
       h('div', {}, h('span', { class: 'rating' }, score === null ? 'Unscored' : `${score.toFixed(1)} / 5`), ' ', stars(score))
     ),
@@ -135,10 +141,189 @@ function bakeCard(ctx, b) {
     h(
       'div',
       { class: 'item-actions' },
-      h('button', { class: 'btn ghost small', onClick: () => update((st) => { st.ui = { ...st.ui, openBake: open ? null : b.id }; }) }, icon(open ? 'expand_less' : 'expand_more'), open ? 'Close' : 'Edit'),
-      h('button', { class: 'btn ghost small', onClick: () => confirmDialog('Delete this bake?', () => { deleteBake(b.id); toast('Deleted'); }, 'Delete') }, icon('delete'), 'Delete')
+      h('button', { class: 'btn ghost small', onClick: () => update((st) => { st.ui = { ...st.ui, openBake: open ? null : b.id }; }) }, icon(open ? 'expand_less' : 'expand_more'), open ? 'Close' : 'Open the run'),
+      h('button', { class: 'btn ghost small', onClick: () => confirmDialog('Delete this bake? Its photographs go with it.', async () => {
+        // Otherwise the pictures outlive the record and nothing can reach them.
+        await photos.removePhotosFor(b.id).catch(() => {});
+        forgetPhotos(b.id);
+        deleteBake(b.id);
+        toast('Deleted');
+      }, 'Delete') }, icon('delete'), 'Delete')
     ),
     open ? editor(ctx, b) : null
+  );
+}
+
+/* --------------------------------- photos -------------------------------- */
+
+/*
+ * Photographs are read out of IndexedDB, which is asynchronous, while the
+ * screen is drawn synchronously. Rather than make every render wait, each
+ * bake's list is fetched once and kept here; the fetch ends by asking for a
+ * redraw, so the pictures appear a moment after the card opens.
+ */
+const photoCache = new Map();
+const photoLoading = new Set();
+
+function photosFor(bakeId) {
+  if (photoCache.has(bakeId)) return photoCache.get(bakeId);
+  if (!photoLoading.has(bakeId)) {
+    photoLoading.add(bakeId);
+    photos
+      .listPhotos(bakeId)
+      .then(async (rows) => {
+        for (const row of rows) row.url = await photos.photoUrl(row.id);
+        photoCache.set(bakeId, rows);
+      })
+      .catch(() => photoCache.set(bakeId, []))
+      .finally(() => {
+        photoLoading.delete(bakeId);
+        update(() => {});
+      });
+  }
+  return null;
+}
+
+const forgetPhotos = (bakeId) => photoCache.delete(bakeId);
+
+/**
+ * How many photographs a bake has, for the card that is not open.
+ *
+ * Counted from the list already fetched, so a closed card shows nothing until
+ * something has asked for that bake's photographs. It is a pill, not a fact
+ * anyone is waiting on, and fetching for every bake on the screen to fill it
+ * in would be a great deal of work for a small number.
+ */
+const photoCount = (bakeId) => (photoCache.get(bakeId) || []).length;
+
+function lightbox(url) {
+  const dlg = h(
+    'div',
+    { class: 'modal-backdrop lightbox', onClick: () => dlg.remove() },
+    h('img', { src: url, alt: 'Bake photograph' })
+  );
+  document.body.appendChild(dlg);
+}
+
+function photoStrip(ctx, b) {
+  if (!photos.isSupported()) {
+    return h('p', { class: 'note neutral' }, 'This browser has nowhere to keep photographs.');
+  }
+  const rows = photosFor(b.id);
+
+  const pick = () => {
+    const input = h('input', { type: 'file', accept: 'image/*', multiple: true, style: { display: 'none' } });
+    input.addEventListener('change', async () => {
+      const files = [...(input.files || [])];
+      if (!files.length) return;
+      try {
+        for (const file of files) {
+          // eslint-disable-next-line no-await-in-loop
+          await photos.addPhoto(b.id, file);
+        }
+        forgetPhotos(b.id);
+        toast(files.length === 1 ? 'Photo added' : `${files.length} photos added`);
+      } catch (e) {
+        toast(e.message || 'That image could not be added');
+      }
+      update(() => {});
+      input.remove();
+    });
+    document.body.appendChild(input);
+    input.click();
+  };
+
+  return h(
+    'div',
+    { class: 'field' },
+    h('span', { class: 'field-label' }, 'Photographs'),
+    rows === null
+      ? h('p', { class: 'hint' }, 'Looking\u2026')
+      : rows.length
+        ? h('div', { class: 'photo-grid' }, ...rows.map((row) =>
+            h(
+              'figure',
+              { class: 'photo' },
+              h('img', {
+                src: row.url,
+                alt: `Photograph taken ${new Date(row.addedAt).toLocaleString()}`,
+                loading: 'lazy',
+                onClick: () => lightbox(row.url),
+              }),
+              h('button', {
+                class: 'photo-remove',
+                title: 'Remove this photograph',
+                'aria-label': 'Remove this photograph',
+                onClick: (e) => {
+                  e.stopPropagation();
+                  confirmDialog('Remove this photograph? It is only on this device, so it cannot be recovered.', async () => {
+                    await photos.removePhoto(row.id);
+                    forgetPhotos(b.id);
+                    toast('Removed');
+                    update(() => {});
+                  }, 'Remove');
+                },
+              }, h('span', { class: 'msym' }, 'close'))
+            )
+          ))
+        : h('p', { class: 'hint' }, 'None yet.'),
+    h('div', { class: 'row tight' }, h('button', { class: 'btn ghost small', onClick: pick }, icon('add'), rows && rows.length ? 'Add more' : 'Add photographs')),
+    h('p', { class: 'hint', style: { fontSize: '.72rem' } }, 'Photographs stay in this browser. They are not in the JSON export and they do not sync to a Google account, because a file small enough to sync quickly is a file with no photographs in it.')
+  );
+}
+
+/* ------------------------------ how it ran ------------------------------- */
+
+/**
+ * What the bake actually did, as against what was planned.
+ *
+ * A score on its own says a bake was good. This says which one it was: the
+ * hours each phase really ran, and the clock time each step was ticked off.
+ */
+function howItRan(ctx, b) {
+  if (!hasTimings(b.doneAt)) {
+    return h('p', { class: 'note neutral' }, 'No times were recorded for this bake, so it is judged on the schedule as written.');
+  }
+  const planned = scheduleStages(b.schedule);
+  const stages = actualStages({ doneAt: b.doneAt, schedule: b.schedule, planned });
+  const byId = new Map(STEPS.map((st) => [st.id, st]));
+  const ticked = Object.entries(b.doneAt || {})
+    .filter(([, at]) => Number.isFinite(at))
+    .sort((x, y) => x[1] - y[1]);
+
+  return h(
+    'div',
+    { style: { display: 'grid', gap: '10px' } },
+    h(
+      'div',
+      { class: 'table-wrap' },
+      h(
+        'table',
+        { class: 'compact' },
+        h('thead', {}, h('tr', {}, h('th', {}, 'Phase'), h('th', { class: 'num' }, 'Planned'), h('th', { class: 'num' }, 'Actual'), h('th', { class: 'num' }, 'Diff'))),
+        h('tbody', {}, ...stages.map((x, i) => {
+          const diff = x.state === 'done' ? (x.hours - planned[i].hours) * 3600000 : null;
+          return h(
+            'tr',
+            {},
+            h('td', {}, x.name),
+            h('td', { class: 'num' }, fmtDuration(planned[i].hours)),
+            h('td', { class: 'num' }, x.state === 'done' ? fmtDuration(x.hours) : '\u2014'),
+            h('td', { class: `num${diff !== null && Math.abs(diff) > 1800000 ? ' warn' : ''}` }, diff === null ? '\u2014' : sayDrift(diff))
+          );
+        }))
+      )
+    ),
+    h(
+      'details',
+      { class: 'foldout' },
+      h('summary', {}, `Every step, as it happened (${ticked.length})`),
+      h('ul', { class: 'step-log' }, ...ticked.map(([id, at]) => {
+        const step = byId.get(id);
+        const when = new Date(at);
+        return h('li', {}, h('span', { class: 'step-log-when' }, `${fmtDay(when)} ${fmtClock(when)}`), h('span', {}, step ? step.title({ c: computeRecipe(b.recipe), S: b.schedule, u: ctx.u, E: b.equipment }) : id));
+      }))
+    )
   );
 }
 
@@ -150,6 +335,8 @@ function editor(ctx, b) {
   return h(
     'div',
     { style: { display: 'grid', gap: '12px', marginTop: '6px' } },
+    photoStrip(ctx, b),
+    howItRan(ctx, b),
     scoreInputs(b.scores, setScore),
     h(
       'div',

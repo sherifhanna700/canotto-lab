@@ -54,6 +54,7 @@
     <tr><td><code>canotto-lab/drive-last-sync</code></td><td>What the last sync did and when, so the result stays on screen instead of vanishing with a notification</td></tr>
     <tr><td><code>canotto-lab/drive-token</code></td><td>The key Google issued for your own account, kept for the life of the tab so a reload does not need another one. In session storage, so closing the tab discards it. Google expires it after about an hour regardless.</td></tr>
   </table>
+  <p>Photographs you attach to a bake are kept in this browser too, in IndexedDB rather than the list above, because a single photograph is larger than everything else here put together. They are scaled down and re-encoded before they are stored, they never leave the device, they are not in the JSON export, and they do not sync to a Google account. Deleting a bake deletes its photographs with it, and each one can be removed on its own.</p>
   <p>No cookies are set by this app, for tracking or anything else.</p>
 
   <h2>If you connect a Google account</h2>

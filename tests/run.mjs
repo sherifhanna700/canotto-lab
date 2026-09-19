@@ -1389,6 +1389,27 @@ test('what the usage count left behind is cleared away', async () => {
   globalThis.localStorage.clear();
 });
 
+test('every kind of storage the app uses is disclosed, not only the obvious one', () => {
+  /*
+   * The key-coverage test above walks localStorage keys, so a second kind of
+   * storage could be added without it noticing. Photographs are kept in
+   * IndexedDB precisely because they are too big for the other, and that is
+   * exactly the sort of thing a privacy page quietly stops being true about.
+   */
+  const sources = ['src/lib/photos.js', 'src/lib/store.js', 'src/lib/drive.js', 'src/app.js']
+    .map((f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8'))
+    .join('\n');
+  const page = readFileSync(new URL('../privacy.html', import.meta.url), 'utf8');
+
+  if (/indexedDB/i.test(sources)) {
+    assert.match(page, /IndexedDB/i, 'the page must name the second store');
+    assert.match(page, /photograph/i, 'and say what is in it');
+    assert.match(page, /never leave the device|not in the JSON export/i, 'and where it does not go');
+  }
+  assert.ok(!/sessionStorage\.setItem\('canotto-lab\/(?!drive-token)/.test(sources),
+    'anything new in sessionStorage would need documenting too');
+});
+
 test('the app collects nothing, and the page is allowed to say so', () => {
   /*
    * This guard used to run the other way. The page denied having a server while
