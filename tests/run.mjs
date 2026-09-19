@@ -20,7 +20,7 @@ if (typeof globalThis.localStorage === 'undefined') {
 import { computeRecipe, allocateFlours, convertYeast, DEFAULT_RECIPE, effectiveYeastPct } from '../src/model/dough.js';
 import { blendStats, hydrationRangeForW, estimateW, maturationCeilingForW, bandForW, FLOURS } from '../src/model/flours.js';
 import { rateAt, maturationRateAt, fermentUnits, maturationUnits, yeastForFU, waterTempFor, DEFAULT_MODEL } from '../src/model/ferment.js';
-import { solveSchedule, scheduleStages, STEPS, activeSteps, DEFAULT_SCHEDULE } from '../src/model/protocol.js';
+import { solveSchedule, scheduleStages, STEPS, activeSteps, DEFAULT_SCHEDULE, totalColdHours } from '../src/model/protocol.js';
 import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, TIMED_STEPS, trimmablePhases, trimStage, trimForMaturation } from '../src/model/timeline.js';
 import { suggestPlan, reviewPlan, defaultLeadHours, strengthBand, coldProofWindow, coldProofVerdict, hoursForMaturation, HOUSE_REFERENCE, MATURATION_TARGET } from '../src/model/advisor.js';
 import { recipeFromBlend, overallScore, recipeRating, starterRecipes, houseRecipe } from '../src/model/recipes.js';
@@ -277,6 +277,102 @@ test('water temperature solver uses three or four factors as appropriate', () =>
   near(waterTempFor({ ddtC: 24, flourTempC: 20, roomTempC: 20, frictionC: 8, prefermentTempC: 4 }), 24 * 4 - 52, 1e-9, 'four factor');
 });
 
+/* ------------------------- splitting the cold ferment -------------------- */
+
+test('a recipe saved before the split reads back unchanged', () => {
+  /*
+   * The migration property, and the one worth guarding hardest: bulkColdHours
+   * defaults to zero, so a schedule written before this existed describes the
+   * same dough, phase for phase and unit for unit.
+   */
+  const { bulkColdHours, ...asSavedBefore } = DEFAULT_SCHEDULE;
+  const stages = scheduleStages(asSavedBefore);
+  near(fermentUnits(stages), 17.2, 0.05, 'the house protocol still comes to 17.2 FU');
+  near(maturationUnits(stages), 45, 0.5, 'and 45 MU');
+  assert.equal(stages.find((x) => x.name === 'Bulk cold ferment').hours, 0, 'with no bulk phase');
+});
+
+test('splitting the cold time does not change what the dough gets', () => {
+  /*
+   * Same hours at the same fridge temperature, so the same maturation. The
+   * split is a decision about gluten and gas, not about the model, and the app
+   * must not pretend otherwise by reporting a difference that is not there.
+   */
+  const straight = scheduleStages({ ...DEFAULT_SCHEDULE, bulkColdHours: 0, coldProofHours: 66 });
+  const split = scheduleStages({ ...DEFAULT_SCHEDULE, bulkColdHours: 48, coldProofHours: 18 });
+  near(maturationUnits(split), maturationUnits(straight), 1e-9, 'maturation is identical');
+  near(fermentUnits(split), fermentUnits(straight), 1e-9, 'and so is fermentation');
+  assert.equal(totalColdHours({ ...DEFAULT_SCHEDULE, bulkColdHours: 48, coldProofHours: 18 }), 66);
+});
+
+test('either half of the cold ferment can be nothing', () => {
+  for (const [bulk, balled] of [[0, 66], [66, 0], [48, 18], [0, 0]]) {
+    const stages = scheduleStages({ ...DEFAULT_SCHEDULE, bulkColdHours: bulk, coldProofHours: balled });
+    near(stages.find((x) => x.name === 'Bulk cold ferment').hours, bulk, 1e-9, `bulk ${bulk}`);
+    near(stages.find((x) => x.name === 'Cold proof').hours, balled, 1e-9, `balled ${balled}`);
+    assert.ok(stages.every((x) => x.hours >= 0), 'no phase goes negative');
+  }
+});
+
+test('balling sits between the two cold phases, not before both', () => {
+  /*
+   * The whole point of the split: the dough is divided partway through the
+   * cold ferment. If balling stayed where it was, a bulk phase would be bulk
+   * in name only.
+   */
+  const at = solveSchedule({ ...DEFAULT_SCHEDULE, bulkColdHours: 48, coldProofHours: 18 }).at;
+  assert.ok(at['p3-3'] < at['p3-bulk'], 'the oil veil comes before the bulk ferment');
+  assert.ok(at['p3-bulk'] < at['p3-4'], 'the bulk ferment comes before balling');
+  assert.ok(at['p3-4'] < at['p4-1'], 'and balling before the balled proof');
+  near((at['p3-4'] - at['p3-bulk']) / 60, 48, 0.01, 'the bulk phase is as long as asked');
+  near((at['p5-1'] - at['p4-1']) / 60, 18, 0.01, 'and so is the balled one');
+});
+
+test('with no bulk phase the order is exactly what it always was', () => {
+  const at = solveSchedule(DEFAULT_SCHEDULE).at;
+  near((at['p4-1'] - at['p3-4']) / 60 * 60, DEFAULT_SCHEDULE.ballingMin, 0.01, 'balling runs straight into the cold proof');
+  near((at['p3-4'] - at['p3-bulk']) / 60, 0, 1e-9, 'and the bulk phase takes no time at all');
+});
+
+test('the bulk step is offered only when it is used', () => {
+  const withBulk = activeSteps({ c: { recipe: { frozenBalls: 0 } }, S: { ...DEFAULT_SCHEDULE, bulkColdHours: 48 } });
+  const without = activeSteps({ c: { recipe: { frozenBalls: 0 } }, S: DEFAULT_SCHEDULE });
+  assert.ok(withBulk.some((x) => x.id === 'p3-bulk'), 'shown when there is a bulk ferment');
+  assert.ok(!without.some((x) => x.id === 'p3-bulk'), 'and dropped when there is not');
+});
+
+test('the flour budget is spent on the cold ferment as a whole', () => {
+  const blend = { flours: [{ id: 'caputo-cuoco', pct: 100 }], w: 310 };
+  const straight = coldProofWindow({ blend, schedule: { ...DEFAULT_SCHEDULE, bulkColdHours: 0, coldProofHours: 66 } });
+  const split = coldProofWindow({ blend, schedule: { ...DEFAULT_SCHEDULE, bulkColdHours: 48, coldProofHours: 18 } });
+
+  near(split.actual, 66, 1e-9, 'the figure judged is the two added together');
+  near(split.low, straight.low, 1e-9, 'and the window does not move with the split');
+  near(split.high, straight.high, 1e-9);
+  assert.equal(coldProofVerdict(split).key, coldProofVerdict(straight).key, 'so the verdict is the same');
+  assert.equal(split.split, true, 'but the app knows it is in two parts');
+  assert.equal(straight.split, false);
+});
+
+test('the phase a bake is measured on is found by name, not position', () => {
+  /*
+   * Inserting the bulk phase shifted every later index by one. Anything
+   * reading a phase by number kept returning a figure, just the wrong one.
+   */
+  const t = Date.parse('2026-09-18T08:00:00Z');
+  const H = 3600000;
+  const bake = {
+    recipe: DEFAULT_RECIPE,
+    schedule: { ...DEFAULT_SCHEDULE, bulkColdHours: 24 },
+    scores: EMPTY_SCORES,
+    doneAt: { 'p4-1': t, 'p5-1': t + 30 * H },
+  };
+  const d = derive(bake, DEFAULT_MODEL);
+  near(findFactor('balledColdHours').get(bake, d), 30, 0.01, 'the balled proof is the one that was measured');
+  near(findFactor('bulkColdHours').get(bake, d), 24, 0.01, 'the bulk phase comes from the plan');
+  near(findFactor('coldProofHours').get(bake, d), 54, 0.01, 'and the total is the two together');
+});
+
 /* ------------------------------- timeline ------------------------------- */
 
 const T0 = Date.parse('2026-09-01T08:00:00Z');
@@ -308,8 +404,12 @@ test('a phase still running is measured up to now', () => {
 test('an untouched phase falls back to the plan', () => {
   const planned = scheduleStages(DEFAULT_SCHEDULE);
   const stages = actualStages({ doneAt: {}, schedule: DEFAULT_SCHEDULE, planned });
-  assert.deepEqual(stages.map((x) => x.state), ['planned', 'planned', 'planned', 'planned', 'planned']);
-  near(stages[3].hours, planned[3].hours, 1e-9, 'planned cold proof carried through');
+  assert.ok(stages.length === planned.length, 'one entry per phase, however many there are');
+  assert.ok(stages.every((x) => x.state === 'planned'), 'nothing is claimed as measured');
+  // By name, because a phase inserted ahead of this one would otherwise make
+  // the assertion silently check something else.
+  const proof = stages.findIndex((x) => x.name === 'Cold proof');
+  near(stages[proof].hours, planned[proof].hours, 1e-9, 'planned cold proof carried through');
 });
 
 test('running late shows up as maturation the plan did not ask for', () => {

@@ -1,21 +1,21 @@
 // Setup: the things that describe your kitchen rather than a particular dough.
 // Equipment, the temperatures you actually have, units, saving and sync.
 
-import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=a25ffc47';
-import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=a25ffc47';
-import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=a25ffc47';
-import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=a25ffc47';
-import { scheduleStages } from '../model/protocol.js?v=a25ffc47';
-import { convertYeast } from '../model/dough.js?v=a25ffc47';
-import { overallScore } from '../model/recipes.js?v=a25ffc47';
-import { SOURCES, FLOURS } from '../model/flours.js?v=a25ffc47';
-import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=a25ffc47';
-import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=a25ffc47';
-import { lineChart } from '../lib/charts.js?v=a25ffc47';
-import * as drive from '../lib/drive.js?v=a25ffc47';
-import { isOff, setCounting } from '../lib/count.js?v=a25ffc47';
-import { tempField, tempDeltaField, } from './common.js?v=a25ffc47';
-import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=a25ffc47';
+import { h, card, selectField, textField, numberField, chip, stat, pill, toast, icon, confirmDialog , toggleField } from '../lib/ui.js?v=4272b453';
+import { editCurrent, update, exportJSON, exportStateJSON, importJSON, mergeBakes, download, resetAll, load, applySync } from '../lib/store.js?v=4272b453';
+import { OVENS, MIXERS, findOven, findMixer, ovenLabel, mixerLabel, DEFAULT_EQUIPMENT } from '../model/equipment.js?v=4272b453';
+import { DEFAULT_MODEL, rateAt, maturationRateAt, fermentUnits } from '../model/ferment.js?v=4272b453';
+import { scheduleStages } from '../model/protocol.js?v=4272b453';
+import { convertYeast } from '../model/dough.js?v=4272b453';
+import { overallScore } from '../model/recipes.js?v=4272b453';
+import { SOURCES, FLOURS } from '../model/flours.js?v=4272b453';
+import { fmtTemp, fmtTempDelta, toDisplay, round } from '../model/units.js?v=4272b453';
+import { canSaveToFile, saveToFile, openFromFile, currentFileName } from '../lib/share.js?v=4272b453';
+import { lineChart } from '../lib/charts.js?v=4272b453';
+import * as drive from '../lib/drive.js?v=4272b453';
+import { isOff, setCounting } from '../lib/count.js?v=4272b453';
+import { tempField, tempDeltaField, } from './common.js?v=4272b453';
+import { THEMES, readTheme, setTheme } from '../lib/theme.js?v=4272b453';
 
 let driveAccount = null;
 let syncing = false;

@@ -55,6 +55,14 @@ you want the first pizza on the deck. Change the cold proof and the mix time mov
 the dinner. Quantities in the step text are computed from the live recipe, so the
 checklist and the calculator can never disagree.
 
+The cold ferment after the final mix can be done in one stretch or split in two: a bulk
+ferment with the dough in one piece, then balling, then a balled proof. Either part can be
+zero, and zero bulk is the default, so a recipe saved before this existed describes the
+same dough. The two halves are the same dough at the same fridge temperature, so they
+contribute the same maturation per hour and a flour's budget applies to their sum. What
+the split changes is the dough rather than the arithmetic: in bulk the gluten stays
+continuous, and hours after balling are hours each piece spends relaxing on its own.
+
 **Bake.** Heat modulation scaled to your bake time and your oven, a timer, and the
 conditions on the day including ambient temperature, which is what actually varies for an
 outdoor oven. Score the bake out of five on rim height, honeycomb, blistering, flavour and

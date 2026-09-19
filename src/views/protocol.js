@@ -1,16 +1,16 @@
 // Protocol: the schedule solved backwards from your launch time, and the
 // 19 steps with the measurements you take as you go.
 
-import { h, card, numberField, selectField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=a25ffc47';
-import { update, editCurrent, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=a25ffc47';
-import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=a25ffc47';
-import { fermentUnits, maturationUnits } from '../model/ferment.js?v=a25ffc47';
-import { convertYeast } from '../model/dough.js?v=a25ffc47';
-import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=a25ffc47';
-import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=a25ffc47';
-import { tempField, } from './common.js?v=a25ffc47';
-import { MATURATION_TARGET, MATURATION_WINDOW } from '../model/advisor.js?v=a25ffc47';
-import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, trimmablePhases, trimStage, trimForMaturation } from '../model/timeline.js?v=a25ffc47';
+import { h, card, numberField, selectField, chip, pill, stat, toast, icon, confirmDialog, clockAt, fmtClock, fmtDay, fmtDateTime } from '../lib/ui.js?v=4272b453';
+import { update, editCurrent, EMPTY_ACTUALS, EMPTY_SCORES } from '../lib/store.js?v=4272b453';
+import { PHASES, STEPS, activeSteps, solveSchedule, scheduleStages } from '../model/protocol.js?v=4272b453';
+import { fermentUnits, maturationUnits } from '../model/ferment.js?v=4272b453';
+import { convertYeast } from '../model/dough.js?v=4272b453';
+import { fmtDuration, fmtTemp, round, toDisplay, fromDisplay } from '../model/units.js?v=4272b453';
+import { timelineChart, SERIES_COLORS } from '../lib/charts.js?v=4272b453';
+import { tempField, } from './common.js?v=4272b453';
+import { MATURATION_TARGET, MATURATION_WINDOW } from '../model/advisor.js?v=4272b453';
+import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, trimmablePhases, trimStage, trimForMaturation } from '../model/timeline.js?v=4272b453';
 
 const METRIC_DEFS = {
   ambientTempC: { label: 'Ambient temperature', kind: 'temp', hint: 'Where the dough is sitting right now' },
@@ -269,7 +269,11 @@ function scheduleCard(ctx) {
   const segs = [
     { key: 'bigaRest', label: 'Biga rest', start: m.bigaRestStart, end: m.bigaColdStart },
     { key: 'bigaCold', label: 'Biga cold', start: m.bigaColdStart, end: m.finalMixStart },
-    { key: 'bench', label: 'Mix & bench', start: m.finalMixStart, end: m.coldProofStart },
+    { key: 'bench', label: 'Mix & bench', start: m.finalMixStart, end: m.bulkColdStart },
+    // Zero-length segments are filtered out below, so a dough with no bulk
+    // ferment draws exactly the bar it always drew.
+    { key: 'bulk', label: 'Bulk cold', start: m.bulkColdStart, end: m.ballingStart },
+    { key: 'balling', label: 'Ball', start: m.ballingStart, end: m.coldProofStart },
     { key: 'proof', label: 'Cold proof', start: m.coldProofStart, end: m.temperStart },
     { key: 'temper', label: 'Temper', start: m.temperStart, end: 0 },
   ]

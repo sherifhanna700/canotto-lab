@@ -5,19 +5,19 @@
 // Edits save straight onto the selected recipe, so there is no save step and
 // the name in the list is always the name in the field.
 
-import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=a25ffc47';
-import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download, exportRecipesJSON, exportRecipeJSON } from '../lib/store.js?v=a25ffc47';
-import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=a25ffc47';
-import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=a25ffc47';
-import { scheduleStages, solveSchedule } from '../model/protocol.js?v=a25ffc47';
-import { fermentUnits, maturationUnits, stageBreakdown, yeastForFU, doughTempFrom, doughTempVerdict, frictionFrom } from '../model/ferment.js?v=a25ffc47';
-import { suggestPlan, reviewPlan, defaultLeadHours, coldProofWindow, coldProofVerdict, hoursForMaturation, HOUSE_REFERENCE } from '../model/advisor.js?v=a25ffc47';
-import { recipeFromBlend, deriveRecipe, recipeRating, overallScore } from '../model/recipes.js?v=a25ffc47';
-import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=a25ffc47';
-import { recipeLink, copyText } from '../lib/share.js?v=a25ffc47';
-import { findMixer, mixerLabel } from '../model/equipment.js?v=a25ffc47';
-import { tempField, tempDeltaField, ratingBadge, stars, } from './common.js?v=a25ffc47';
-import { go } from '../app.js?v=a25ffc47';
+import { h, card, numberField, selectField, sliderField, textField, pill, stat, toast, icon, confirmDialog } from '../lib/ui.js?v=4272b453';
+import { update, editCurrent, addRecipe, deleteRecipe, activateRecipe, restoreHouseRecipe, download, exportRecipesJSON, exportRecipeJSON } from '../lib/store.js?v=4272b453';
+import { ingredientRows, YEAST_LABEL, effectiveYeastPct, convertYeast, computeRecipe } from '../model/dough.js?v=4272b453';
+import { floursByCountry, blendStats, blendLabel, hydrationRangeForW } from '../model/flours.js?v=4272b453';
+import { scheduleStages, solveSchedule } from '../model/protocol.js?v=4272b453';
+import { fermentUnits, maturationUnits, stageBreakdown, yeastForFU, doughTempFrom, doughTempVerdict, frictionFrom } from '../model/ferment.js?v=4272b453';
+import { suggestPlan, reviewPlan, defaultLeadHours, coldProofWindow, coldProofVerdict, hoursForMaturation, HOUSE_REFERENCE } from '../model/advisor.js?v=4272b453';
+import { recipeFromBlend, deriveRecipe, recipeRating, overallScore } from '../model/recipes.js?v=4272b453';
+import { fmtGrams, fmtTemp, fmtTempDelta, fmtDuration, round } from '../model/units.js?v=4272b453';
+import { recipeLink, copyText } from '../lib/share.js?v=4272b453';
+import { findMixer, mixerLabel } from '../model/equipment.js?v=4272b453';
+import { tempField, tempDeltaField, ratingBadge, stars, } from './common.js?v=4272b453';
+import { go } from '../app.js?v=4272b453';
 
 const setRecipe = (patch) => editCurrent((c) => Object.assign(c.recipe, patch));
 const setSchedule = (patch) => editCurrent((c) => Object.assign(c.schedule, patch));
@@ -30,7 +30,7 @@ export default function renderRecipe(ctx) {
 /** Maturation a schedule currently spans, so the slider has a starting value. */
 function leadHoursOf(S) {
   const benchHours = (S.finalMixMin + S.benchRest1Min + S.benchRest2Min + 5 + S.oilRestMin + S.ballingMin) / 60;
-  return Math.round(S.bigaRestHours + S.bigaColdHours + benchHours + S.coldProofHours + S.temperHours);
+  return Math.round(S.bigaRestHours + S.bigaColdHours + benchHours + S.bulkColdHours + S.coldProofHours + S.temperHours);
 }
 
 function recipeFileName(r) {
@@ -236,7 +236,7 @@ function recipeRow(ctx, r) {
       ),
       h('div', { style: { textAlign: 'right' } }, isActive ? pill('Loaded', 'accent') : ratingBadge(rating), rating.average ? h('div', {}, stars(rating.average)) : null)
     ),
-    h('div', { class: 'item-sub' }, `${r.recipe.hydrationPct}% hydration · ${r.recipe.baseYeastPct}% ${r.recipe.yeastType.toUpperCase()} · ${fmtDuration(r.schedule.coldProofHours)} cold proof at ${fmtTemp(r.schedule.fridgeTempC, u)} · ${r.recipe.balls} × ${r.recipe.ballWeight} g`),
+    h('div', { class: 'item-sub' }, `${r.recipe.hydrationPct}% hydration · ${r.recipe.baseYeastPct}% ${r.recipe.yeastType.toUpperCase()} · ${fmtDuration((r.schedule.bulkColdHours || 0) + r.schedule.coldProofHours)} cold at ${fmtTemp(r.schedule.fridgeTempC, u)} · ${r.recipe.balls} × ${r.recipe.ballWeight} g`),
     isHouse ? h('div', {}, pill('House protocol', 'neutral')) : null,
     h(
       'div',
@@ -484,20 +484,42 @@ function timingCard(ctx) {
       { class: 'row' },
       numberField({ label: 'Biga ambient rest', value: S.bigaRestHours, min: 0, max: 24, step: 0.25, suffix: 'h', onInput: (v) => setSchedule({ bigaRestHours: v }) }),
       numberField({ label: 'Biga cold hold', value: S.bigaColdHours, min: 0, max: 48, step: 1, suffix: 'h', onInput: (v) => setSchedule({ bigaColdHours: v }) }),
+      /*
+       * The cold ferment after the mix, in two parts. Bulk first, then balled.
+       * Either can be zero, and zero bulk is the shape this protocol had
+       * before the split existed.
+       */
       numberField({
-        label: 'Cold proof',
-        value: S.coldProofHours,
-        min: 1,
+        label: 'Bulk cold ferment',
+        value: S.bulkColdHours,
+        min: 0,
         max: 240,
         step: 1,
         suffix: 'h',
-        // The one field with a right answer, so it carries its own target.
+        hint: S.bulkColdHours > 0 ? 'In one piece, before balling' : 'Zero: ball straight off the bench',
+        allowEmpty: false,
+        onInput: (v) => setSchedule({ bulkColdHours: v }),
+      }),
+      numberField({
+        label: S.bulkColdHours > 0 ? 'Balled cold proof' : 'Cold proof',
+        value: S.coldProofHours,
+        min: 0,
+        max: 240,
+        step: 1,
+        suffix: 'h',
+        // The target is on the total, because the flour cannot tell the two
+        // cold phases apart: same dough, same fridge.
         hint: proofTarget(review.window),
         hintTone: review.window ? coldProofVerdict(review.window).tone : undefined,
         onInput: (v) => setSchedule({ coldProofHours: v }),
       }),
       numberField({ label: 'Counter temper', value: S.temperHours, min: 0, max: 12, step: 0.25, suffix: 'h', onInput: (v) => setSchedule({ temperHours: v }) })
     ),
+
+    S.bulkColdHours > 0
+      ? h('p', { class: 'hint', style: { fontSize: '.75rem', marginTop: '-4px' } },
+          `${fmtDuration(S.bulkColdHours)} in bulk, then balled for ${fmtDuration(S.coldProofHours)}: ${fmtDuration(S.bulkColdHours + S.coldProofHours)} cold in total. The maturation figures below count the total, because the flour cannot tell the two apart. What the split changes is the dough, not the clock: in bulk the gluten stays continuous, and every hour after balling is an hour each piece spends relaxing on its own.`)
+      : null,
 
     h(
       'div',
@@ -512,7 +534,7 @@ function timingCard(ctx) {
           {},
           h('p', { class: `note ${verdict.tone}` }, coldProofWords(verdict, window, c, u)),
           verdict.key !== 'on'
-            ? h('div', { class: 'row tight' }, h('button', { class: 'btn tonal small', onClick: () => { setSchedule({ coldProofHours: Math.round(window.ideal) }); toast(`Cold proof set to ${Math.round(window.ideal)} hours`); } }, icon('schedule'), `Set it to ${Math.round(window.ideal)} h`))
+            ? h('div', { class: 'row tight' }, h('button', { class: 'btn tonal small', onClick: () => applyIdealCold(S, window), }, icon('schedule'), `Set it to ${Math.round(window.ideal)} h`))
             : null
         )
       : null,
@@ -557,6 +579,32 @@ function timingCard(ctx) {
 }
 
 /**
+ * Take the suggestion, when the cold ferment is in two parts.
+ *
+ * The target is a total, so something has to decide where the change lands.
+ * It goes on the balled proof, which is the half people adjust, and the bulk
+ * is left where they put it. If the total wanted is shorter than the bulk
+ * alone, the balled half cannot go below zero, so the bulk has to come down
+ * too, and that is said rather than done silently.
+ */
+function applyIdealCold(S, window) {
+  const total = Math.round(window.ideal);
+  const bulk = S.bulkColdHours || 0;
+  if (!bulk) {
+    setSchedule({ coldProofHours: total });
+    toast(`Cold proof set to ${total} hours`);
+    return;
+  }
+  if (total >= bulk) {
+    setSchedule({ coldProofHours: total - bulk });
+    toast(`Balled proof set to ${total - bulk} h, for ${total} h cold in total`);
+    return;
+  }
+  setSchedule({ bulkColdHours: total, coldProofHours: 0 });
+  toast(`${total} h is shorter than the bulk ferment, so that was shortened instead`);
+}
+
+/**
  * What the Cold proof field is aiming at, said on the field itself. The
  * fridge temperature is already in the card's own description, so it is left
  * out here to keep this to one line on a phone.
@@ -564,7 +612,10 @@ function timingCard(ctx) {
 function proofTarget(w) {
   if (!w) return 'No strength figure for this flour, so no target';
   const range = w.crowded ? `up to ${Math.round(w.high)} h` : `${Math.round(w.low)}\u2013${Math.round(w.high)} h`;
-  return `${coldProofVerdict(w).label} \u00b7 wants ${range}`;
+  // With a bulk phase the figure judged is the two added together, so say so
+  // rather than leave it looking like a verdict on this field alone.
+  const scope = w.split ? ` (${Math.round(w.actual)} h total)` : '';
+  return `${coldProofVerdict(w).label}${scope} \u00b7 wants ${range}`;
 }
 
 /** Far enough from the scaled figure to be worth saying and worth a button. */
@@ -583,19 +634,24 @@ function describeYeast(have, need) {
 function coldProofWords(verdict, w, c, u) {
   const flour = c.flourLabel;
   const at = fmtTemp(w.fridgeTempC, u);
+  // "Yours is 66 h" has to mean the two cold phases together once they exist,
+  // or the sentence reads as a judgement on half the ferment.
+  const yours = w.split
+    ? `${fmtDuration(w.actual)} in total, ${fmtDuration(w.bulkHours)} in bulk and ${fmtDuration(w.balledHours)} balled,`
+    : `${fmtDuration(w.actual)},`;
   const range = w.crowded ? `up to ${Math.round(w.high)} hours` : `${Math.round(w.low)} to ${Math.round(w.high)} hours`;
   if (w.crowded && verdict.key.endsWith('long')) {
-    return `The biga and the bench already use ${w.spentElsewhere.toFixed(0)} of the ${w.ceiling} maturation units ${flour} can take, which leaves about ${Math.round(w.high)} hours for the fridge at ${at}. This flour is not strong enough to carry a biga this long and a cold proof of ${fmtDuration(w.actual)} as well. Shorten the biga cold hold, or use a stronger flour.`;
+    return `The biga and the bench already use ${w.spentElsewhere.toFixed(0)} of the ${w.ceiling} maturation units ${flour} can take, which leaves about ${Math.round(w.high)} hours for the fridge at ${at}. This flour is not strong enough to carry a biga this long and ${fmtDuration(w.actual)} of cold ferment as well. Shorten the biga cold hold, or use a stronger flour.`;
   }
   switch (verdict.key) {
     case 'far-long':
     case 'long':
-      return `At ${at}, ${flour} wants ${range} in the cold. Yours is ${fmtDuration(w.actual)}, which is longer than the gluten will take. Protease keeps working in the fridge, so the dough will be slack and tear when you open it. Shorten it, or run the fridge colder.`;
+      return `At ${at}, ${flour} wants ${range} in the cold. Yours is ${yours} which is longer than the gluten will take. Protease keeps working in the fridge, so the dough will be slack and tear when you open it. Shorten it, or run the fridge colder.`;
     case 'far-short':
     case 'short':
-      return `At ${at}, ${flour} wants ${range} in the cold. Yours is ${fmtDuration(w.actual)}, which is short of what this flour can take. The dough will be stiffer to open and plainer to taste. There is room to go longer.`;
+      return `At ${at}, ${flour} wants ${range} in the cold. Yours is ${yours} which is short of what this flour can take. The dough will be stiffer to open and plainer to taste. There is room to go longer.`;
     default:
-      return `At ${at}, ${flour} wants ${range} in the cold and yours is ${fmtDuration(w.actual)}. A warmer fridge would shorten that window, a colder one would stretch it.`;
+      return `At ${at}, ${flour} wants ${range} in the cold and yours is ${yours.replace(/,$/, '')}. A warmer fridge would shorten that window, a colder one would stretch it.`;
   }
 }
 

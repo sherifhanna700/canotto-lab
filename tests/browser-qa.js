@@ -628,6 +628,69 @@
 
     await goTab(0);
 
+    /* ------------------------------- J20 -------------------------------- */
+    /*
+     * Splitting the cold ferment. The dough is divided partway through, so
+     * balling has to move between the two cold phases rather than before both.
+     */
+    await goTab(0);
+    const numIn = (label) => labelled(label, false)?.querySelector('input[type=number]');
+    const setNumber = async (label, v) => {
+      const el = numIn(label);
+      if (!el) return false;
+      el.value = String(v);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.blur();
+      el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+      await settle();
+      return true;
+    };
+
+    check('J20.1 a bulk cold ferment can be set', !!numIn('Bulk cold ferment'), 'the field is there');
+    const maturationBefore = statValue('Maturation');
+
+    await setNumber('Bulk cold ferment', 48);
+    await setNumber('Balled cold proof', 18);
+
+    check('J20.2 the balled phase renames itself once the ferment is split',
+      !!labelled('Balled cold proof', false), 'reads "Balled cold proof"');
+    check('J20.3 the same total cold time gives the same maturation',
+      statValue('Maturation') === maturationBefore,
+      `${maturationBefore} -> ${statValue('Maturation')}`);
+    check('J20.4 the target is judged on the two together',
+      /total/.test(numIn('Balled cold proof')?.closest('label')?.querySelector('.hint')?.textContent || ''),
+      numIn('Balled cold proof')?.closest('label')?.querySelector('.hint')?.textContent);
+
+    await goTab(1);
+    const stepTitles = $$('#main .step .step-title').map((t) => t.textContent);
+    const iVeil = stepTitles.findIndex((t) => /oil veil/i.test(t));
+    const iBulk = stepTitles.findIndex((t) => /Bulk cold ferment/i.test(t));
+    const iBall = stepTitles.findIndex((t) => /Ball on a dry counter/i.test(t));
+    const iProof = stepTitles.findIndex((t) => /Balled cold proof|balls into the/i.test(t));
+    check('J20.5 balling sits between the two cold phases',
+      iVeil < iBulk && iBulk < iBall && iBall < iProof,
+      `veil ${iVeil}, bulk ${iBulk}, ball ${iBall}, proof ${iProof}`);
+
+    const when = (i) => $$('#main .step .step-time')[i]?.textContent || '';
+    check('J20.6 the bulk ferment actually takes the time asked for',
+      when(iBulk) !== when(iBall) && when(iBulk) !== '',
+      `${when(iBulk)} -> ${when(iBall)}`);
+
+    /* Back to one cold phase, and the protocol must read as it always did. */
+    await goTab(0);
+    await setNumber('Bulk cold ferment', 0);
+    await goTab(1);
+    const after = $$('#main .step .step-title').map((t) => t.textContent);
+    const skipped = $$('#main .step').find((el) => /Bulk cold ferment/i.test(el.querySelector('.step-title')?.textContent || ''));
+    check('J20.7 with no bulk phase the step drops out',
+      !skipped || /SKIPPED/i.test(skipped.textContent),
+      skipped ? 'shown as skipped' : 'not shown');
+    check('J20.8 and balling runs straight into the cold proof',
+      after.findIndex((t) => /Ball on a dry counter/i.test(t)) < after.findIndex((t) => /balls into the/i.test(t)),
+      'order restored');
+    await goTab(0);
+
     /* ------------------------------- J18 -------------------------------- */
     /*
      * Tapping straight from one field to the next. This is the sequence that

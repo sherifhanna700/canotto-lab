@@ -49,9 +49,13 @@
       "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/celsius",
       "description": "Temperature through the mix and bench work."
     },
+    "bulkColdHours": {
+      "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/hours",
+      "description": "The cold ferment before the dough is divided, with the dough in one piece. Zero means it is balled straight off the bench and does all of its cold time as balls, which is the older shape of this protocol and the default, so a schedule written before this field existed describes the same dough. Together with coldProofHours it makes up the cold ferment after the final mix; either may be zero. The two are at the same fridge temperature, so they contribute the same maturation per hour and a flour's budget applies to their sum. What the split changes is the dough rather than the arithmetic: in bulk the gluten stays continuous, and hours after balling are hours each piece spends relaxing alone."
+    },
     "coldProofHours": {
       "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/hours",
-      "description": "The balls' cold proof. Usually the longest phase."
+      "description": "The cold ferment after the dough is balled. Usually the longest phase, and the whole of the cold ferment unless bulkColdHours is set. May be zero if all the cold time is done in bulk."
     },
     "fridgeTempC": {
       "$ref": "https://sherifhanna700.github.io/canotto-lab/schema/common.schema.json#/$defs/celsius",

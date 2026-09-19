@@ -3,21 +3,31 @@
 // Compare and Lab both work off this list, so adding a field here makes it
 // available as an axis, a grouping and a correlation candidate everywhere.
 
-import { computeRecipe } from './dough.js?v=a25ffc47';
-import { scheduleStages } from './protocol.js?v=a25ffc47';
-import { projectedStages, PHASE_BOUNDS, hasTimings } from './timeline.js?v=a25ffc47';
-import { fermentUnits, maturationUnits } from './ferment.js?v=a25ffc47';
-import { convertYeast } from './dough.js?v=a25ffc47';
-import { overallScore, SCORE_KEYS } from './recipes.js?v=a25ffc47';
-import { maturationCeilingForW } from './flours.js?v=a25ffc47';
-import { toDisplay } from './units.js?v=a25ffc47';
-import { ovenLabel, mixerLabel } from './equipment.js?v=a25ffc47';
+import { computeRecipe } from './dough.js?v=4272b453';
+import { scheduleStages } from './protocol.js?v=4272b453';
+import { projectedStages, PHASE_BOUNDS, hasTimings } from './timeline.js?v=4272b453';
+import { fermentUnits, maturationUnits } from './ferment.js?v=4272b453';
+import { convertYeast } from './dough.js?v=4272b453';
+import { overallScore, SCORE_KEYS } from './recipes.js?v=4272b453';
+import { maturationCeilingForW } from './flours.js?v=4272b453';
+import { toDisplay } from './units.js?v=4272b453';
+import { ovenLabel, mixerLabel } from './equipment.js?v=4272b453';
+
+/** One phase's length, found by name so inserting a phase cannot shift it. */
+const phaseHours = (d, name) => d.stages.find((x) => x.name === name)?.hours ?? 0;
 
 /** Inputs: things you chose. */
 export const FACTORS = [
   { key: 'hydrationPct', label: 'Hydration', unit: '%', get: (b) => b.recipe.hydrationPct },
   { key: 'fermentationUnits', label: 'Fermentation load', unit: 'FU', get: (b, d) => d.fu },
-  { key: 'coldProofHours', label: 'Cold proof', unit: 'h', get: (b, d) => d.stages[3]?.hours ?? b.schedule.coldProofHours },
+  /*
+   * By name, not by position. These used to be read by index, which broke
+   * silently the moment a phase was inserted before them: the figure kept
+   * coming out, it was just the wrong phase's.
+   */
+  { key: 'coldProofHours', label: 'Cold ferment, total', unit: 'h', get: (b, d) => phaseHours(d, 'Bulk cold ferment') + phaseHours(d, 'Cold proof') },
+  { key: 'bulkColdHours', label: 'Of that, in bulk', unit: 'h', get: (b, d) => phaseHours(d, 'Bulk cold ferment') },
+  { key: 'balledColdHours', label: 'Of that, balled', unit: 'h', get: (b, d) => phaseHours(d, 'Cold proof') },
   { key: 'fridgeTempC', label: 'Cold ferment temperature', unit: '°', temp: true, get: (b) => b.actuals?.fridgeTempC ?? b.schedule.fridgeTempC },
   { key: 'yeastPct', label: 'Inoculation', unit: '%', get: (b, d) => d.c.yeastPct },
   { key: 'maturationUnits', label: 'Maturation load', unit: 'MU', get: (b, d) => d.mu },

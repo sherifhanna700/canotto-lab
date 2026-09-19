@@ -18,12 +18,22 @@
  * physically changes place or state, which is why they are the ones worth
  * timing: everything between them is the same dough at the same temperature.
  */
-import { DEFAULT_MODEL, maturationRateAt, maturationUnits } from './ferment.js?v=a25ffc47';
+import { DEFAULT_MODEL, maturationRateAt, maturationUnits } from './ferment.js?v=4272b453';
 
 export const PHASE_BOUNDS = [
   { name: 'Biga ambient rest', from: 'p1-3', to: 'p1-4', tempKey: 'bigaRoomTempC', plan: 'bigaRestHours' },
   { name: 'Biga cold hold', from: 'p1-4', to: 'p2-1', tempKey: 'bigaFridgeTempC', plan: 'bigaColdHours' },
-  { name: 'Mix & bench', from: 'p2-1', to: 'p4-1', tempKey: 'benchTempC', plan: null },
+  /*
+   * The bench ends at whichever comes next. With a bulk cold ferment that is
+   * the tub going into the fridge; without one the dough is balled straight
+   * off the bench. Listing both means the phase is still measured either way,
+   * rather than falling back to the plan whenever the bulk step is unused.
+   */
+  { name: 'Mix & bench', from: 'p2-1', to: ['p3-bulk', 'p3-4'], tempKey: 'benchTempC', plan: null },
+  { name: 'Bulk cold ferment', from: 'p3-bulk', to: 'p3-4', tempKey: 'fridgeTempC', plan: 'bulkColdHours' },
+  // Balling has a duration in minutes rather than hours, so there is no single
+  // knob to trim it by, but it is still worth timing.
+  { name: 'Balling', from: 'p3-4', to: 'p4-1', tempKey: 'benchTempC', plan: null },
   { name: 'Cold proof', from: 'p4-1', to: 'p5-1', tempKey: 'fridgeTempC', plan: 'coldProofHours' },
   { name: 'Counter temper', from: 'p5-1', to: 'p5-4', tempKey: 'roomTempC', plan: 'temperHours' },
 ];
@@ -32,12 +42,26 @@ export const PHASE_BOUNDS = [
  * The steps whose times bound a phase. Every step is stamped when it is
  * checked off, but only these ten decide how long a phase actually ran.
  */
-export const TIMED_STEPS = [...new Set(PHASE_BOUNDS.flatMap((p) => [p.from, p.to]))];
+export const TIMED_STEPS = [...new Set(PHASE_BOUNDS.flatMap((p) => [p.from, p.to].flat()))];
 
 export const HOUR = 3600000;
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
-const stamp = (doneAt, id) => num(doneAt?.[id]);
+
+/**
+ * The time of a bound, which may name more than one step.
+ *
+ * A phase can end at different places depending on how the dough is being
+ * run, so a bound is a list in order of preference and the first one actually
+ * recorded is the one that counts.
+ */
+const stamp = (doneAt, id) => {
+  for (const one of [id].flat()) {
+    const at = num(doneAt?.[one]);
+    if (at !== null) return at;
+  }
+  return null;
+};
 
 /**
  * Phase durations as they really ran.

@@ -7,9 +7,9 @@
 //      moment you want the first pizza to hit the deck, which is what makes
 //      "same recipe, different timing" an experiment you can actually run.
 
-import { fmtGrams, fmtTemp, fmtDuration } from './units.js?v=a25ffc47';
-import { stageFlourLabel } from './dough.js?v=a25ffc47';
-import { mixerPhrasing, mixerLabel } from './equipment.js?v=a25ffc47';
+import { fmtGrams, fmtTemp, fmtDuration } from './units.js?v=4272b453';
+import { stageFlourLabel } from './dough.js?v=4272b453';
+import { mixerPhrasing, mixerLabel } from './equipment.js?v=4272b453';
 
 /**
  * Room temperature defaults to 21.1 °C, which is exactly 70 °F.
@@ -29,6 +29,21 @@ export const DEFAULT_SCHEDULE = {
   oilRestMin: 30,
   ballingMin: 15,
   benchTempC: 21.1,
+  /*
+   * The cold ferment after the final mix, in two parts.
+   *
+   * bulkColdHours is the dough in one piece, before it is divided; then it is
+   * balled and coldProofHours is the balls. Either can be zero. Zero bulk is
+   * the older shape of this protocol and stays the default, so a recipe saved
+   * before this existed reads back unchanged.
+   *
+   * They are separate because they are not the same thing to the dough. In
+   * bulk the gluten stays continuous and gas has nowhere to go but through it;
+   * balled, each piece has its own skin and relaxes on its own. Bakers who
+   * split them are choosing how much of the maturation happens before that
+   * division, and the app cannot tell them apart if it only has one number.
+   */
+  bulkColdHours: 0,
   coldProofHours: 66,
   fridgeTempC: 2.8,
   temperHours: 4,
@@ -65,7 +80,10 @@ export function solveSchedule(s = DEFAULT_SCHEDULE) {
   const temperStart = launch - S.temperHours * 60;
   const coldProofStart = temperStart - S.coldProofHours * 60;
   const ballingStart = coldProofStart - S.ballingMin;
-  const oilVeil = ballingStart - S.oilRestMin;
+  // The bulk cold ferment sits before the balling, so the dough is divided
+  // between the two cold phases rather than before either of them.
+  const bulkColdStart = ballingStart - S.bulkColdHours * 60;
+  const oilVeil = bulkColdStart - S.oilRestMin;
   const fold2 = oilVeil - S.benchRest2Min - 5;
   const fold1 = fold2 - S.benchRest1Min;
   const benchStart = fold1;
@@ -91,6 +109,7 @@ export function solveSchedule(s = DEFAULT_SCHEDULE) {
       'p3-1': fold1,
       'p3-2': fold2,
       'p3-3': oilVeil,
+      'p3-bulk': bulkColdStart,
       'p3-4': ballingStart,
       'p4-1': coldProofStart,
       'p4-2': coldProofStart,
@@ -100,22 +119,41 @@ export function solveSchedule(s = DEFAULT_SCHEDULE) {
       'p5-3': stretch,
       'p5-4': launch,
     },
-    marks: { bigaStart, bigaRestStart, bigaColdStart, finalMixStart, benchStart, coldProofStart, temperStart, preheat, launch },
+    marks: { bigaStart, bigaRestStart, bigaColdStart, finalMixStart, benchStart, bulkColdStart, ballingStart, coldProofStart, temperStart, preheat, launch },
   };
 }
 
 /** The fermentation stages implied by a schedule, for the FU model. */
+/**
+ * The dough's life as a list of phases, in order, each at one temperature.
+ *
+ * Balling is its own phase rather than part of the bench, because a bulk cold
+ * ferment goes before it and the balled proof after. The list keeps the same
+ * shape whether or not a bulk phase is used: with bulkColdHours at zero that
+ * phase is simply zero hours long, and bench, balling and cold proof run back
+ * to back exactly as they did when there was only one cold phase. Splitting
+ * balling out of the bench changes no total, since it was already counted at
+ * the same bench temperature.
+ */
 export function scheduleStages(s = DEFAULT_SCHEDULE) {
   const S = { ...DEFAULT_SCHEDULE, ...s };
-  const benchHours = (S.finalMixMin + S.benchRest1Min + S.benchRest2Min + 5 + S.oilRestMin + S.ballingMin) / 60;
+  const benchHours = (S.finalMixMin + S.benchRest1Min + S.benchRest2Min + 5 + S.oilRestMin) / 60;
   return [
     { name: 'Biga ambient rest', hours: S.bigaRestHours, tempC: S.bigaRoomTempC },
     { name: 'Biga cold hold', hours: S.bigaColdHours, tempC: S.bigaFridgeTempC },
     { name: 'Mix & bench', hours: benchHours, tempC: S.benchTempC },
+    { name: 'Bulk cold ferment', hours: S.bulkColdHours, tempC: S.fridgeTempC },
+    { name: 'Balling', hours: S.ballingMin / 60, tempC: S.benchTempC },
     { name: 'Cold proof', hours: S.coldProofHours, tempC: S.fridgeTempC },
     { name: 'Counter temper', hours: S.temperHours, tempC: S.roomTempC },
   ];
 }
+
+/** The cold time after the final mix, however it is split. */
+export const totalColdHours = (s = DEFAULT_SCHEDULE) => {
+  const S = { ...DEFAULT_SCHEDULE, ...s };
+  return S.bulkColdHours + S.coldProofHours;
+};
 
 /* ---------------------------------------------------------------------- */
 
@@ -218,11 +256,29 @@ export const STEPS = [
       `Turn the bulk onto the counter into a smooth dome. Drizzle ${b(fmtGrams(c.weigh.oil))} of extra virgin olive oil across the top and smooth it into a micro-thin, glossy film. Invert the tub over the dough and rest ${b(`${S.oilRestMin} minutes`)} undisturbed. ${b('Do not laminate.')}`,
   },
   {
-    id: 'p3-4', phase: 3, n: 4,
+    /*
+     * The id says 3 and the number says 4 because this step was added after
+     * the others were named, and the ids are what a saved bake refers to.
+     * Renaming them to tidy the numbering would orphan every recorded time.
+     */
+    id: 'p3-bulk', phase: 3, n: 4,
+    title: ({ S, u }) => `Bulk cold ferment at ${fmtTemp(S.fridgeTempC, u)}`,
+    badge: ({ S }) => (S.bulkColdHours > 0 ? fmtDuration(S.bulkColdHours) : 'SKIPPED'),
+    skipWhen: ({ S }) => !(S?.bulkColdHours > 0),
+    body: ({ S, u }) =>
+      !(S.bulkColdHours > 0)
+        ? `Not in use. This dough goes straight from the bench to balling, and does all of its cold time as balls. Set a bulk cold ferment on the Recipe screen to split it.`
+        : `Put the tub in the fridge ${b('whole and undivided')} at ${b(fmtTemp(S.fridgeTempC, u))} for ${b(fmtDuration(S.bulkColdHours))}. Leave it alone: no folds, no peeking. In one piece the gluten stays continuous and the gas it makes has nowhere to go but through it, which is the point of doing this part in bulk rather than balled.`,
+  },
+  {
+    id: 'p3-4', phase: 3, n: 5,
     title: ({ c }) => `Ball on a dry counter (${c.recipe.balls} × ${c.recipe.ballWeight} g)`,
     badge: ({ c }) => `${c.recipe.balls} × ${c.recipe.ballWeight} g`,
-    body: ({ c }) =>
+    body: ({ c, S }) =>
       `Cut into ${b(`${c.recipe.balls} portions of ${c.recipe.ballWeight} g`)}. ${b('Keep the counter dry.')} Drag and cup each ball so friction pulls the oiled skin taut while the un-oiled bottom seam seals airtight. ` +
+      (S.bulkColdHours > 0
+        ? `The dough is cold and firm out of the bulk ferment, which makes it easier to handle and slower to relax, so shape a little more gently and let the seam do the work. `
+        : '') +
       (c.recipe.frozenBalls > 0
         ? `${c.freshBalls} will cold proof fresh, ${c.recipe.frozenBalls} go to the freezer.`
         : `All ${c.recipe.balls} will cold proof fresh.`),
@@ -230,7 +286,9 @@ export const STEPS = [
 
   {
     id: 'p4-1', phase: 4, n: 1,
-    title: ({ c, S, u }) => `Fresh batch: ${c.freshBalls} balls into the ${fmtTemp(S.fridgeTempC, u)} fridge`,
+    title: ({ c, S, u }) => (S.bulkColdHours > 0
+      ? `Balled cold proof: ${c.freshBalls} balls back into the ${fmtTemp(S.fridgeTempC, u)} fridge`
+      : `Fresh batch: ${c.freshBalls} balls into the ${fmtTemp(S.fridgeTempC, u)} fridge`),
     badge: ({ S }) => fmtDuration(S.coldProofHours),
     body: ({ c, S, u }) =>
       `Place the ${b(`${c.freshBalls} fresh balls`)} in airtight proofing boxes, spaced about 3 inches apart. The oil veil holds moisture without crusting. Hold undisturbed at ${b(fmtTemp(S.fridgeTempC, u))} for ${b(fmtDuration(S.coldProofHours))}.`,

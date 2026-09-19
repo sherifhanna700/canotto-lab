@@ -16,9 +16,9 @@
 // The phase proportions come from the house protocol, so a stronger flour
 // stretches that schedule and a weaker one shortens it.
 
-import { maturationUnits, fermentUnits, maturationRateAt, yeastForFU, DEFAULT_MODEL } from './ferment.js?v=a25ffc47';
-import { maturationCeilingForW, hydrationRangeForW, findFlour } from './flours.js?v=a25ffc47';
-import { DEFAULT_SCHEDULE } from './protocol.js?v=a25ffc47';
+import { maturationUnits, fermentUnits, maturationRateAt, yeastForFU, DEFAULT_MODEL } from './ferment.js?v=4272b453';
+import { maturationCeilingForW, hydrationRangeForW, findFlour } from './flours.js?v=4272b453';
+import { DEFAULT_SCHEDULE } from './protocol.js?v=4272b453';
 
 /** Share of total maturation time each phase takes, from the house protocol. */
 const TIME_SHARES = { bigaRest: 0.043, bigaCold: 0.192, coldProof: 0.72, temper: 0.045 };
@@ -61,15 +61,20 @@ export function strengthBand(w) {
   return { key: 'extra-strong', label: 'Extra strong', blurb: 'Takes more maturation than most schedules will give it.' };
 }
 
-/** Bench work is a handling requirement, not a lever. Its length is fixed. */
+/**
+ * Bench work is a handling requirement, not a lever. Its length is fixed.
+ *
+ * Balling is counted separately by the caller, because it now sits between the
+ * two cold phases rather than inside the bench, so it must not be added here
+ * as well.
+ */
 function benchHours() {
   return (
     DEFAULT_SCHEDULE.finalMixMin +
     DEFAULT_SCHEDULE.benchRest1Min +
     DEFAULT_SCHEDULE.benchRest2Min +
     5 +
-    DEFAULT_SCHEDULE.oilRestMin +
-    DEFAULT_SCHEDULE.ballingMin
+    DEFAULT_SCHEDULE.oilRestMin
   ) / 60;
 }
 
@@ -141,11 +146,20 @@ export function coldProofWindow({ blend, schedule, model = DEFAULT_MODEL }) {
   if (!ceiling || !schedule) return null;
 
   const S = { ...DEFAULT_SCHEDULE, ...schedule };
+  /*
+   * Everything except the cold time after the mix. That cold time may be split
+   * between a bulk ferment and a balled proof, and the flour cannot tell them
+   * apart: both are the same dough at the same fridge temperature, so the
+   * budget applies to the two together. Splitting them is a decision about
+   * gluten and gas, not about maturation, and the window here is about
+   * maturation.
+   */
   const bench = benchHours();
   const others = [
     { hours: S.bigaRestHours, tempC: S.bigaRoomTempC },
     { hours: S.bigaColdHours, tempC: S.bigaFridgeTempC },
     { hours: bench, tempC: S.benchTempC },
+    { hours: S.ballingMin / 60, tempC: S.benchTempC },
     { hours: S.temperHours, tempC: S.roomTempC },
   ];
   const spentElsewhere = maturationUnits(others, model);
@@ -171,7 +185,11 @@ export function coldProofWindow({ blend, schedule, model = DEFAULT_MODEL }) {
     low: hoursFor(MATURATION_WINDOW.low),
     ideal: hoursFor(MATURATION_TARGET),
     high: hoursFor(MATURATION_WINDOW.high),
-    actual: S.coldProofHours,
+    // The whole cold ferment, however it is divided.
+    actual: S.bulkColdHours + S.coldProofHours,
+    bulkHours: S.bulkColdHours,
+    balledHours: S.coldProofHours,
+    split: S.bulkColdHours > 0,
   };
 }
 
