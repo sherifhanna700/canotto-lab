@@ -333,6 +333,55 @@ test('with no bulk phase the order is exactly what it always was', () => {
   near((at['p3-4'] - at['p3-bulk']) / 60, 0, 1e-9, 'and the bulk phase takes no time at all');
 });
 
+test('the published schema names every step the phases are bounded by', () => {
+  /*
+   * The schema described the five phases this protocol used to have, and went
+   * on describing them after a sixth and seventh were added. Nothing failed,
+   * because a description is prose: it was simply wrong, and wrong in the one
+   * document other people would build against.
+   */
+  const bake = readFileSync(new URL('../schema/bake.schema.json', import.meta.url), 'utf8');
+  const readme = readFileSync(new URL('../schema/README.md', import.meta.url), 'utf8');
+
+  for (const id of TIMED_STEPS) {
+    assert.ok(bake.includes(id), `bake.schema.json does not mention the bounding step ${id}`);
+    assert.ok(readme.includes(id), `schema/README.md does not mention the bounding step ${id}`);
+  }
+  for (const phase of PHASE_BOUNDS) {
+    assert.ok(readme.toLowerCase().includes(phase.name.toLowerCase().replace(' & ', ' and ')),
+      `schema/README.md does not list the phase "${phase.name}"`);
+  }
+
+  // Every knob the phases are planned by has to be in the protocol schema.
+  const protocolSchema = readFileSync(new URL('../schema/protocol.schema.json', import.meta.url), 'utf8');
+  for (const phase of PHASE_BOUNDS) {
+    if (!phase.plan) continue;
+    assert.ok(protocolSchema.includes(phase.plan), `protocol.schema.json is missing ${phase.plan}`);
+  }
+});
+
+test('a step skipped by the schedule is not skipped when the schedule uses it', () => {
+  /*
+   * Found by asking whether the protocol really adapts. A step can be skipped
+   * because of the recipe, as the freezer steps are, or because of the
+   * schedule, as the bulk cold ferment is when set to zero. The protocol view
+   * was asking with the recipe alone, so the bulk step read as skipped however
+   * long the bulk ferment was, which also left it impossible to tick off.
+   */
+  const bulk = STEPS.find((x) => x.id === 'p3-bulk');
+  const recipeOnly = { c: { recipe: { frozenBalls: 0 } } };
+  assert.equal(bulk.skipWhen(recipeOnly), true, 'with no schedule it cannot know, and says skipped');
+  assert.equal(bulk.skipWhen({ ...recipeOnly, S: { ...DEFAULT_SCHEDULE, bulkColdHours: 48 } }), false,
+    'but given the schedule it is plainly in use');
+
+  // Every step that skips on the schedule must tolerate being asked without
+  // one, or the protocol screen throws rather than renders.
+  for (const step of STEPS) {
+    if (!step.skipWhen) continue;
+    assert.doesNotThrow(() => step.skipWhen(recipeOnly), `${step.id} must survive being asked without a schedule`);
+  }
+});
+
 test('the bulk step is offered only when it is used', () => {
   const withBulk = activeSteps({ c: { recipe: { frozenBalls: 0 } }, S: { ...DEFAULT_SCHEDULE, bulkColdHours: 48 } });
   const without = activeSteps({ c: { recipe: { frozenBalls: 0 } }, S: DEFAULT_SCHEDULE });

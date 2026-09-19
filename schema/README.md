@@ -97,9 +97,19 @@ phases:
 | --- | --- | --- |
 | Biga ambient rest | `p1-3` | `p1-4` |
 | Biga cold hold | `p1-4` | `p2-1` |
-| Mix and bench | `p2-1` | `p4-1` |
-| Cold proof | `p4-1` | `p5-1` |
+| Mix and bench | `p2-1` | `p3-bulk`, else `p3-4` |
+| Bulk cold ferment | `p3-bulk` | `p3-4` |
+| Balling | `p3-4` | `p4-1` |
+| Balled cold proof | `p4-1` | `p5-1` |
 | Counter temper | `p5-1` | `p5-4` |
+
+The cold ferment after the final mix is in two parts, and the dough is divided
+between them: a bulk ferment in one piece, then balling, then a balled proof.
+Either part may be zero. With `bulkColdHours` at zero the bulk phase is zero
+hours long, `p3-bulk` is never ticked, and balling runs straight from the bench
+into the cold proof, which is the shape this protocol had before the split
+existed. That is why the bench ends at whichever of the two steps comes next
+rather than at a fixed one.
 
 A phase with both bounds present ran for the difference between them. A phase
 missing either bound ran for whatever `schedule` says. Anything judging a bake

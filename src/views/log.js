@@ -1,17 +1,17 @@
 // Log: every bake, and what the differences between them add up to.
 
-import { h, card, pill, chip, selectField, numberField, toast, icon, confirmDialog } from '../lib/ui.js?v=80e891dd';
-import { update, updateBake, deleteBake, download, exportBakesJSON } from '../lib/store.js?v=80e891dd';
-import { computeRecipe } from '../model/dough.js?v=80e891dd';
-import { scheduleStages } from '../model/protocol.js?v=80e891dd';
-import { fermentUnits } from '../model/ferment.js?v=80e891dd';
-import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=80e891dd';
-import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js?v=80e891dd';
-import { scatterChart, barChart, linearFit } from '../lib/charts.js?v=80e891dd';
-import { fmtTemp, fmtDuration, round } from '../model/units.js?v=80e891dd';
-import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js?v=80e891dd';
-import { stars, scoreInputs, tempField } from './common.js?v=80e891dd';
-import { bakeCSV } from '../lib/csv.js?v=80e891dd';
+import { h, card, pill, chip, selectField, numberField, toast, icon, confirmDialog } from '../lib/ui.js?v=d41fed29';
+import { update, updateBake, deleteBake, download, exportBakesJSON } from '../lib/store.js?v=d41fed29';
+import { computeRecipe } from '../model/dough.js?v=d41fed29';
+import { scheduleStages } from '../model/protocol.js?v=d41fed29';
+import { fermentUnits } from '../model/ferment.js?v=d41fed29';
+import { overallScore, SCORE_KEYS } from '../model/recipes.js?v=d41fed29';
+import { FACTORS, OUTCOMES, derive, findFactor, findOutcome, factorValue, factorLabel } from '../model/metrics.js?v=d41fed29';
+import { scatterChart, barChart, linearFit } from '../lib/charts.js?v=d41fed29';
+import { fmtTemp, fmtDuration, round } from '../model/units.js?v=d41fed29';
+import { diagnose, DIAGNOSTICS } from '../model/diagnostics.js?v=d41fed29';
+import { stars, scoreInputs, tempField } from './common.js?v=d41fed29';
+import { bakeCSV } from '../lib/csv.js?v=d41fed29';
 
 export default function renderLog(ctx) {
   const { s } = ctx;

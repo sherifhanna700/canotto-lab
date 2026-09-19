@@ -686,6 +686,32 @@
     check('J20.7 with no bulk phase the step drops out',
       !skipped || /SKIPPED/i.test(skipped.textContent),
       skipped ? 'shown as skipped' : 'not shown');
+
+    /*
+     * The step has to be live when it is in use, not merely present. It read
+     * as skipped whatever the schedule said, which also left it impossible to
+     * tick, and every check above still passed because they only looked at
+     * order and timing.
+     */
+    await goTab(0);
+    await setNumber('Bulk cold ferment', 48);
+    await goTab(1);
+    const bulkStep = $$('#main .step').find((el) => /Bulk cold ferment/i.test(el.querySelector('.step-title')?.textContent || ''));
+    const bulkBadge = bulkStep?.querySelector('.pill')?.textContent || '';
+    check('J20.9 the bulk step is live, not faded, when it is in use',
+      !/SKIPPED/i.test(bulkBadge) && (bulkStep?.style.opacity || '1') === '1',
+      `badge "${bulkBadge}", opacity ${bulkStep?.style.opacity || '1'}`);
+
+    const countBefore = $('#progress-text')?.textContent;
+    bulkStep?.querySelector('.step-check')?.click();
+    await settle();
+    check('J20.10 and can be ticked off like any other step',
+      stored()?.current?.done?.includes('p3-bulk'),
+      `progress ${countBefore} -> ${$('#progress-text')?.textContent}`);
+
+    await goTab(0);
+    await setNumber('Bulk cold ferment', 0);
+    await goTab(0);
     check('J20.8 and balling runs straight into the cold proof',
       after.findIndex((t) => /Ball on a dry counter/i.test(t)) < after.findIndex((t) => /balls into the/i.test(t)),
       'order restored');
