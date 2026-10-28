@@ -139,8 +139,17 @@ export function scheduleStages(s = DEFAULT_SCHEDULE) {
   const S = { ...DEFAULT_SCHEDULE, ...s };
   const benchHours = (S.finalMixMin + S.benchRest1Min + S.benchRest2Min + 5 + S.oilRestMin) / 60;
   return [
-    { name: 'Biga ambient rest', hours: S.bigaRestHours, tempC: S.bigaRoomTempC },
-    { name: 'Biga cold hold', hours: S.bigaColdHours, tempC: S.bigaFridgeTempC },
+    /*
+     * The biga holds only part of the flour, and only that part is maturing.
+     *
+     * Counting these two stages against the whole dough said the flour had
+     * spent far more of its budget than it had: at 45% preferment the biga's
+     * enzyme work was being charged at more than twice its real size, which
+     * made every biga schedule read as over-matured. `flourShare` is what
+     * fraction of the flour is actually in the dough at this point.
+     */
+    { name: 'Biga ambient rest', hours: S.bigaRestHours, tempC: S.bigaRoomTempC, flourShare: (S.prefermentFlourPct ?? 45) / 100 },
+    { name: 'Biga cold hold', hours: S.bigaColdHours, tempC: S.bigaFridgeTempC, flourShare: (S.prefermentFlourPct ?? 45) / 100 },
     { name: 'Mix & bench', hours: benchHours, tempC: S.benchTempC },
     { name: 'Bulk cold ferment', hours: S.bulkColdHours, tempC: S.fridgeTempC },
     { name: 'Balling', hours: S.ballingMin / 60, tempC: S.benchTempC },

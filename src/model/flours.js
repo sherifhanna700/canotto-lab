@@ -22,13 +22,24 @@ export const SOURCES = [
   { id: 'pizzablab-friction', label: 'Friction factor: heat generated during dough mixing', url: 'https://www.pizzablab.com/learning-and-resources/mixing-kneading/friction-factor-in-dough-making/' },
   { id: 'pizzaheaven-nuvola', label: 'Caputo Nuvola: the best flour for airy crust', url: 'https://thepizzaheaven.com/caputo-nuvola/' },
   { id: 'pizzaheaven-canotto', label: 'Mastering canotto pizza', url: 'https://thepizzaheaven.com/mastering-canotto-pizza/' },
+  { id: 'lapa', label: 'Caputo Nuvola vs Cuoco: which Caputo flour for which pizza', url: 'https://www.lapa.ch/en/blog/lapablog-4/caputo-nuvola-vs-cuoco-which-caputo-flour-for-which-pizza-575' },
 ];
 
 /**
- * W bands. Fermentation hours and hydration windows are the published guide
- * values; the hydration figures are deliberately conservative and the style
- * shift in the advisor moves them for canotto and pan styles.
- * Source: housegardenhobby pizza flour guide.
+ * W bands, from the housegardenhobby guide.
+ *
+ * Read these as a rough sense of what a strength is for, not as a schedule.
+ * The source gives no temperature for any of the hour figures, and the bands
+ * cannot share one: "same-day dough, 2 to 12 hours" is plainly a worktop and
+ * "biga, up to 72 hours" is plainly a fridge. Hours without a temperature
+ * cannot be converted to another temperature, so the app no longer tries. A
+ * flour that publishes its own window, with the temperature it was measured
+ * at, is used instead wherever one exists.
+ *
+ * The hydration figures have the same problem in a different form: W is the
+ * work needed to blow a bubble of dough, which is gluten strength, not how
+ * much water the flour will take. They stay only as a last resort for a flour
+ * whose own absorption is unknown, and are labelled as such.
  */
 export const W_BANDS = [
   { min: 0, max: 249, ferment: [2, 12], hydration: [55, 60], label: 'W 180 to 240' },
@@ -37,6 +48,29 @@ export const W_BANDS = [
   { min: 320, max: Infinity, ferment: [48, 72], hydration: [70, 80], label: 'W 320 and above' },
 ];
 
+/**
+ * The temperature a published window was meant at, where the source omits it.
+ *
+ * Most mills and guides publish hours without a temperature, which on its own
+ * makes the figure unusable: the same 24 hours is a different dough on a
+ * worktop and in a fridge. Where a source does say, the pattern is consistent
+ * and matches how these doughs are actually worked: a short window is a direct
+ * dough left out, a long one is refrigerated maturation. Caputo's own range
+ * reads exactly that way, with Nuvola at 8 to 24 hours out and Cuoco at 24 to
+ * 72 in the fridge at 3 to 4 degrees.
+ *
+ * So a window with no stated temperature is read by that rule, and marked as
+ * inferred rather than published, because it is this app's reading and not the
+ * miller's word. Anything shown from it says so.
+ */
+export const INFERRED_ROOM_C = 20;
+export const INFERRED_FRIDGE_C = 4;
+
+export function inferFermentAtC(hours) {
+  if (!Array.isArray(hours)) return null;
+  return hours[1] > 24 ? INFERRED_FRIDGE_C : INFERRED_ROOM_C;
+}
+
 export function bandForW(w) {
   if (!Number.isFinite(w)) return null;
   return W_BANDS.find((b) => w >= b.min && w <= b.max) || W_BANDS[W_BANDS.length - 1];
@@ -44,11 +78,11 @@ export function bandForW(w) {
 
 export const FLOURS = [
   // ---- Italy ----
-  { id: 'caputo-cuoco', brand: 'Caputo', name: 'Cuoco (Chef, red)', country: 'IT', grade: '00', protein: 13.0, w: 310, wRange: [300, 320], ferment: [48, 96], sourced: true, source: 'pizzaplan', notes: 'Built for 24 to 72 h cold maturation. The reference flour for long biga canotto.' },
-  { id: 'caputo-pizzeria', brand: 'Caputo', name: 'Pizzeria (blue)', country: 'IT', grade: '00', protein: 12.5, w: 265, wRange: [260, 270], ferment: [24, 72], sourced: true, source: 'pizzaplan', notes: 'Classic Neapolitan. Comfortable at 60 to 65% hydration.' },
-  { id: 'caputo-nuvola', brand: 'Caputo', name: 'Nuvola', country: 'IT', grade: '0', protein: 12.5, w: 270, wRange: [260, 280], ferment: [24, 72], sourced: true, source: 'pizzaplan', notes: 'Engineered for the contemporary canotto. Absorbs 65 to 70% comfortably, light digestible crumb.' },
-  { id: 'caputo-nuvola-super', brand: 'Caputo', name: 'Nuvola Super', country: 'IT', grade: '0', protein: 13.5, w: 320, wRange: [300, 320], ferment: [48, 96], sourced: true, source: 'pizzaplan', notes: 'Stronger Nuvola. Protein published as 13.5% ± 0.5.' },
-  { id: 'caputo-saccorosso', brand: 'Caputo', name: 'Saccorosso / Rinforzato', country: 'IT', grade: '00', protein: 13.0, w: 290, wRange: [280, 300], ferment: [24, 72], sourced: true, source: 'pizzaplan', notes: 'Reinforced. Sits just below Cuoco in strength.' },
+  { id: 'caputo-cuoco', brand: 'Caputo', name: 'Cuoco (Chef, red)', country: 'IT', grade: '00', protein: 13.0, w: 310, wRange: [300, 320], ferment: [24, 72], fermentAtC: 4, fermentAtCFrom: 'published', hydration: [65, 75], sourced: true, source: 'lapa', notes: 'Built for 24 to 72 h in the fridge. The reference flour for long biga canotto.' },
+  { id: 'caputo-pizzeria', brand: 'Caputo', name: 'Pizzeria (blue)', country: 'IT', grade: '00', protein: 12.5, w: 265, wRange: [260, 270], ferment: [8, 24], hydration: [58, 65], sourced: true, source: 'lapa', notes: 'Classic Neapolitan direct dough, 8 to 24 hours.' },
+  { id: 'caputo-nuvola', brand: 'Caputo', name: 'Nuvola', country: 'IT', grade: '0', protein: 12.5, w: 270, wRange: [260, 280], ferment: [8, 24], fermentAtC: 20, fermentAtCFrom: 'published', hydration: [65, 70], sourced: true, source: 'lapa', notes: 'Engineered for the contemporary canotto. Absorbs 65 to 70% comfortably, light digestible crumb.' },
+  { id: 'caputo-nuvola-super', brand: 'Caputo', name: 'Nuvola Super', country: 'IT', grade: '0', protein: 13.5, w: 320, wRange: [300, 320], ferment: [16, 48], hydration: [70, 80], sourced: true, source: 'lapa', notes: 'Stronger Nuvola, for very high hydration and maximum alveolation.' },
+  { id: 'caputo-saccorosso', brand: 'Caputo', name: 'Saccorosso / Rinforzato', country: 'IT', grade: '00', protein: 13.0, w: 290, wRange: [280, 300], ferment: [24, 72], hydration: [65, 75], sourced: true, source: 'lapa', notes: 'Reinforced. The professional pack of Cuoco; sits just below it in strength.' },
   { id: 'caputo-manitoba', brand: 'Caputo', name: 'Manitoba Oro', country: 'IT', grade: '0', protein: 14.5, w: 390, wRange: [370, 410], ferment: [48, 96], sourced: false, source: 'pizzaplan', notes: 'Very strong. Use as a blending flour to lift W, rarely on its own.' },
   { id: 'caputo-integrale', brand: 'Caputo', name: 'Integrale (whole wheat)', country: 'IT', grade: 'Integrale', protein: 13.0, w: 260, ferment: [8, 24], sourced: false, notes: 'Whole grain. Drinks more water and ferments faster than the W suggests.' },
   { id: 'caputo-semola', brand: 'Caputo', name: 'Semola rimacinata', country: 'IT', grade: 'Semola', protein: 12.5, w: null, sourced: false, notes: 'Durum. Dusting flour, or up to 10% of the blend for bite.' },
@@ -120,6 +154,8 @@ export function blendStats(entries) {
   let fLow = 0;
   let fHigh = 0;
   let fWeight = 0;
+  const atCs = new Set();
+  let inferred = false;
 
   for (const e of list) {
     const src = e.id ? findFlour(e.id) : null;
@@ -134,21 +170,47 @@ export function blendStats(entries) {
     protein += (Number.isFinite(p) ? p : 0) * share;
     w += (Number.isFinite(ww) ? ww : 0) * share;
     const fer = src?.ferment;
-    if (fer) {
+    const atC = Number.isFinite(src?.fermentAtC) ? src.fermentAtC : inferFermentAtC(fer);
+    if (fer && Number.isFinite(atC)) {
       fLow += fer[0] * share;
       fHigh += fer[1] * share;
       fWeight += share;
+      atCs.add(atC);
+      if (src?.fermentAtCFrom !== 'published') inferred = true;
     }
   }
 
   const wMid = Math.round(w);
   const band = bandForW(wMid);
-  // Prefer the published maturation window; fall back to the W band.
-  const ferment = fWeight > 0.5 ? [Math.round(fLow / fWeight), Math.round(fHigh / fWeight)] : band ? band.ferment : null;
+
+  /*
+   * The published window, when there is one and it means the same thing for
+   * every flour in the blend.
+   *
+   * Two published windows can only be averaged if they were measured at the
+   * same temperature: Cuoco's 24 to 72 hours is a fridge and Nuvola's 8 to 24
+   * is a worktop, and the midpoint of those two is not a window, it is a
+   * number with no meaning. Where they disagree the band is used instead, and
+   * flagged as the guide figure it is.
+   */
+  const published = fWeight > 0.5 && atCs.size === 1;
+  const ferment = published
+    ? [Math.round(fLow / fWeight), Math.round(fHigh / fWeight)]
+    : band ? band.ferment : null;
+  const fermentAtC = published ? [...atCs][0] : null;
+  /*
+   * Three kinds of answer, and the baker is told which they are looking at:
+   * the miller's own window with its own temperature, that window read at a
+   * temperature this app inferred, or the strength guide, which states no
+   * temperature at all and cannot be converted to one.
+   */
+  const fermentFrom = published ? (inferred ? 'inferred' : 'published') : 'guide';
 
   return {
     protein: Math.round(protein * 10) / 10,
     w: wMid,
+    fermentAtC,
+    fermentFrom,
     band,
     ferment,
     fermentSourced: fWeight > 0.5,
@@ -173,16 +235,36 @@ export function blendStats(entries) {
  * they are accumulated. A 72 hour cold proof and a 36 hour warm one land in
  * much the same place, which is what bakers have always said.
  */
-export function maturationCeilingForW(w) {
-  if (!Number.isFinite(w)) return null;
-  const band = bandForW(w);
-  if (!band) return null;
-  return band.ferment[1];
+/**
+ * How much enzyme work this flour can carry, in maturation units.
+ *
+ * Only answerable when the window was published together with the temperature
+ * it was measured at. Hours at an unknown temperature are not a budget, they
+ * are a number, and converting them to another temperature invents precision
+ * that was never in the source. This used to take the top of the W band and
+ * treat those hours as units at 20 degrees, which inflated every cold proof by
+ * the ratio between a fridge and a worktop: Cuoco came out wanting 102 hours
+ * when its own maker publishes 24 to 72.
+ *
+ * Returns null when nothing can honestly be computed, and the caller says so
+ * instead of printing a ceiling nobody can stand behind.
+ */
+export function maturationBudget(blend, rateAt) {
+  const hours = blend?.ferment;
+  if (!Array.isArray(hours) || !Number.isFinite(blend?.fermentAtC)) return null;
+  const rate = rateAt(blend.fermentAtC);
+  if (!Number.isFinite(rate) || rate <= 0) return null;
+  return { mu: hours[1] * rate, hours, atC: blend.fermentAtC };
+}
+
+/** Kept under the old name so nothing silently reads the wrong ceiling. */
+export function maturationCeilingForW() {
+  throw new Error('A ceiling needs the temperature its hours were published at; use maturationBudget.');
 }
 
 /** Kept under the old name so nothing silently reads the wrong ceiling. */
 export function fuCeilingForW() {
-  throw new Error('The flour ceiling is a maturation limit now; use maturationCeilingForW.');
+  throw new Error('The flour ceiling is a maturation limit now; use maturationBudget.');
 }
 
 /**

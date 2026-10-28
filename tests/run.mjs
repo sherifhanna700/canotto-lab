@@ -18,7 +18,7 @@ if (typeof globalThis.localStorage === 'undefined') {
   };
 }
 import { computeRecipe, allocateFlours, convertYeast, DEFAULT_RECIPE, effectiveYeastPct } from '../src/model/dough.js';
-import { blendStats, hydrationRangeForW, estimateW, maturationCeilingForW, bandForW, FLOURS } from '../src/model/flours.js';
+import { blendStats, hydrationRangeForW, estimateW, maturationBudget, bandForW, FLOURS } from '../src/model/flours.js';
 import { rateAt, maturationRateAt, fermentUnits, maturationUnits, yeastForFU, waterTempFor, DEFAULT_MODEL } from '../src/model/ferment.js';
 import { solveSchedule, scheduleStages, STEPS, activeSteps, DEFAULT_SCHEDULE, totalColdHours } from '../src/model/protocol.js';
 import { actualStages, projectedStages, drifts, projectedLaunch, sayDrift, hasTimings, PHASE_BOUNDS, TIMED_STEPS, trimmablePhases, trimStage, trimForMaturation } from '../src/model/timeline.js';
@@ -233,12 +233,47 @@ test('yeast and time trade off inversely against a reference bake', () => {
 });
 
 test('a stronger flour can absorb a longer cold proof', () => {
-  assert.ok(maturationCeilingForW(340) > maturationCeilingForW(260), 'W buys maturation headroom');
+  /*
+   * Measured from each flour's published window and the temperature it was
+   * published at, not from the W band. The band gave hours with no temperature
+   * and they were used as if they were units at 20 degrees, which inflated
+   * every cold proof: Cuoco came out wanting 102 hours against a published 24
+   * to 72.
+   */
+  const rate = (t) => maturationRateAt(t);
+  const strong = maturationBudget(blendStats([{ id: 'caputo-cuoco', pct: 100 }]), rate);
+  const softer = maturationBudget(blendStats([{ id: 'caputo-nuvola', pct: 100 }]), rate);
+  assert.ok(strong.mu > softer.mu, `Cuoco ${strong.mu.toFixed(1)} should carry more than Nuvola ${softer.mu.toFixed(1)}`);
+});
+
+test('a window with no temperature is not treated as a budget', () => {
+  // Semola carries the guide's hours, which state no temperature. Hours at an
+  // unknown temperature cannot be converted to a fridge, so nothing is claimed.
+  const blend = blendStats([{ id: 'caputo-semola', pct: 100 }]);
+  assert.equal(blend.fermentFrom, 'guide');
+  assert.equal(maturationBudget(blend, (t) => maturationRateAt(t)), null);
+});
+
+test("the advice never contradicts the flour's own published window", () => {
+  /*
+   * The whole complaint in one check. For every flour that publishes a window
+   * at a stated temperature, the length the app suggests has to sit inside
+   * that window once both are put at the same temperature.
+   */
+  const rate = (t) => maturationRateAt(t);
+  for (const f of FLOURS.filter((x) => x.fermentAtCFrom === 'published')) {
+    const blend = blendStats([{ id: f.id, pct: 100 }]);
+    const budget = maturationBudget(blend, rate);
+    const ideal = budget.mu * MATURATION_TARGET;
+    const publishedMU = [f.ferment[0] * rate(f.fermentAtC), f.ferment[1] * rate(f.fermentAtC)];
+    assert.ok(ideal >= publishedMU[0] && ideal <= publishedMU[1],
+      `${f.id}: suggests ${ideal.toFixed(1)} MU, published window is ${publishedMU[0].toFixed(1)} to ${publishedMU[1].toFixed(1)}`);
+  }
 });
 
 /* --------------------- the cold proof window verdict --------------------- */
 
-const cuoco = { flours: [{ id: 'caputo-cuoco', pct: 100 }], w: 310 };
+const cuoco = blendStats([{ id: 'caputo-cuoco', pct: 100 }]);
 const windowFor = (fridgeTempC, coldProofHours) => {
   const schedule = { ...DEFAULT_SCHEDULE, fridgeTempC, coldProofHours };
   return coldProofWindow({ blend: cuoco, schedule });
@@ -253,11 +288,11 @@ test('the same cold proof reads differently at different fridge temperatures', (
 });
 
 test('the window moves with flour strength as well as temperature', () => {
-  const weak = coldProofWindow({ blend: { flours: [{ id: 'caputo-nuvola', pct: 100 }], w: 270 }, schedule: { ...DEFAULT_SCHEDULE, coldProofHours: 66 } });
-  const strong = coldProofWindow({ blend: { flours: [{ id: 'polselli-super', pct: 100 }], w: 330 }, schedule: { ...DEFAULT_SCHEDULE, coldProofHours: 66 } });
+  const weak = coldProofWindow({ blend: blendStats([{ id: 'caputo-nuvola', pct: 100 }]), schedule: { ...DEFAULT_SCHEDULE, coldProofHours: 66 } });
+  const strong = coldProofWindow({ blend: blendStats([{ id: 'caputo-cuoco', pct: 100 }]), schedule: { ...DEFAULT_SCHEDULE, coldProofHours: 66 } });
   assert.ok(strong.high > weak.high, 'stronger flour tolerates longer');
-  assert.equal(coldProofVerdict(strong).key, 'on', '66 h suits a W 330 flour');
-  assert.ok(coldProofVerdict(weak).key.endsWith('long'), '66 h is too long for a W 270 flour');
+  assert.equal(coldProofVerdict(strong).key, 'on', '66 h suits Cuoco, whose window is 24 to 72 h in the fridge');
+  assert.ok(coldProofVerdict(weak).key.endsWith('long'), '66 h is too long for a flour meant for 8 to 24 h out');
 });
 
 test('a short cold proof is called short', () => {
@@ -702,7 +737,9 @@ test('the flour library only carries flours a biga canotto can use', () => {
 });
 
 test('the lead time defaults to the middle of the published window', () => {
-  near(defaultLeadHours(blendStats([{ id: 'caputo-cuoco', pct: 100 }])), 72, 0.51, 'Cuoco window midpoint');
+  // Cuoco publishes 24 to 72 hours, so the middle is 48. It used to read 72,
+  // from a stored window of 48 to 96 that the miller never published.
+  near(defaultLeadHours(blendStats([{ id: 'caputo-cuoco', pct: 100 }])), 48, 0.51, 'Cuoco window midpoint');
 });
 
 test('review flags a schedule that overruns the flour', () => {

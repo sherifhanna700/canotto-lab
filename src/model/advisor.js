@@ -17,7 +17,7 @@
 // stretches that schedule and a weaker one shortens it.
 
 import { maturationUnits, fermentUnits, maturationRateAt, yeastForFU, DEFAULT_MODEL } from './ferment.js?v=2313eb03';
-import { maturationCeilingForW, hydrationRangeForW, findFlour } from './flours.js?v=2313eb03';
+import { maturationBudget, hydrationRangeForW, findFlour } from './flours.js?v=2313eb03';
 import { DEFAULT_SCHEDULE } from './protocol.js?v=2313eb03';
 
 /** Share of total maturation time each phase takes, from the house protocol. */
@@ -28,6 +28,18 @@ const CANOTTO_HYDRATION_SHIFT = 2;
 
 /** Grades that shift how much water the blend will take, in points. */
 const ABSORPTION = { Integrale: 4, Whole: 4, Semola: -1.5 };
+
+/**
+ * The flour's budget in maturation units, or null when it cannot be known.
+ *
+ * A window published without the temperature it was measured at is not a
+ * budget. Rather than invent one, every caller here degrades to saying
+ * nothing about length, which is what the app can honestly support.
+ */
+function budgetMU(blend, model) {
+  const budget = maturationBudget(blend, (t) => maturationRateAt(t, model));
+  return budget ? budget.mu : null;
+}
 
 /** Aim to spend most of a flour's maturation budget, leaving a margin. */
 export const MATURATION_TARGET = 0.9;
@@ -116,7 +128,7 @@ function stagesFor(totalHours, temps) {
  */
 export function hoursForMaturation(blend, opts = {}) {
   const model = opts.model || DEFAULT_MODEL;
-  const ceiling = maturationCeilingForW(blend?.w);
+  const ceiling = budgetMU(blend, model);
   if (!ceiling) return null;
   const target = ceiling * (opts.fraction ?? MATURATION_TARGET);
   const temps = tempsFrom(opts);
@@ -142,7 +154,7 @@ export function hoursForMaturation(blend, opts = {}) {
  * takes to spend the rest of the budget.
  */
 export function coldProofWindow({ blend, schedule, model = DEFAULT_MODEL }) {
-  const ceiling = maturationCeilingForW(blend?.w);
+  const ceiling = budgetMU(blend, model);
   if (!ceiling || !schedule) return null;
 
   const S = { ...DEFAULT_SCHEDULE, ...schedule };
@@ -226,7 +238,7 @@ export function suggestPlan(blend, opts = {}) {
 
   const fu = fermentUnits(laid.stages, model);
   const mu = maturationUnits(laid.stages, model);
-  const ceiling = maturationCeilingForW(w);
+  const ceiling = budgetMU(blend, model);
   const reference = opts.reference || HOUSE_REFERENCE;
   const idyPct = yeastForFU(fu, { refYeastPct: reference.yeastPct, refFU: reference.fu });
 
@@ -280,7 +292,23 @@ export function reviewPlan({ blend, stages, schedule, idyPct, reference = HOUSE_
   const notes = [];
   const mu = maturationUnits(stages, model);
   const fu = fermentUnits(stages, model);
-  const ceiling = maturationCeilingForW(blend?.w);
+  const ceiling = budgetMU(blend, model);
+
+  if (!Number.isFinite(ceiling)) {
+    /*
+     * Say why there is no verdict rather than quietly skipping it. The guide
+     * figure is still worth showing; what cannot be done is converting it to
+     * this baker's fridge, because the guide never said what temperature its
+     * own hours were at.
+     */
+    notes.push({
+      key: 'maturation',
+      tone: 'neutral',
+      text: blend?.ferment
+        ? `This flour does not publish a maturation window with the temperature it was measured at, so the length cannot be judged against it. The strength guide suggests roughly ${blend.ferment[0]} to ${blend.ferment[1]} hours, without saying at what temperature.`
+        : 'Nothing is published about how long this flour can go, so the length is not judged here.',
+    });
+  }
 
   if (Number.isFinite(ceiling)) {
     const load = mu / ceiling;

@@ -6,10 +6,10 @@
 import { computeRecipe } from './dough.js?v=2313eb03';
 import { scheduleStages } from './protocol.js?v=2313eb03';
 import { projectedStages, PHASE_BOUNDS, hasTimings } from './timeline.js?v=2313eb03';
-import { fermentUnits, maturationUnits } from './ferment.js?v=2313eb03';
+import { fermentUnits, maturationUnits, maturationRateAt } from './ferment.js?v=2313eb03';
 import { convertYeast } from './dough.js?v=2313eb03';
 import { overallScore, SCORE_KEYS } from './recipes.js?v=2313eb03';
-import { maturationCeilingForW } from './flours.js?v=2313eb03';
+import { maturationBudget } from './flours.js?v=2313eb03';
 import { toDisplay } from './units.js?v=2313eb03';
 import { ovenLabel, mixerLabel } from './equipment.js?v=2313eb03';
 
@@ -88,7 +88,9 @@ export function derive(bake, model) {
   const fu = fermentUnits(stages, model);
   const idy = convertYeast(bake.recipe.baseYeastPct, bake.recipe.yeastType, 'idy');
   const mu = maturationUnits(stages, model);
-  const ceiling = maturationCeilingForW(c.blend?.w);
+  // Null for a flour with no window published at a stated temperature, which
+  // leaves maturationPct null rather than measured against an invented limit.
+  const ceiling = maturationBudget(c.blend, (t) => maturationRateAt(t, model))?.mu ?? null;
   return { c, stages, planned, timed: hasTimings(bake.doneAt), fu, idy, mu, maturationPct: ceiling ? (mu / ceiling) * 100 : null };
 }
 

@@ -66,9 +66,18 @@ export function fermentUnits(stages, m = DEFAULT_MODEL) {
   return (stages || []).reduce((sum, s) => sum + (Number(s.hours) || 0) * rateAt(Number(s.tempC), m), 0);
 }
 
-/** Enzyme work delivered by the same stages. */
+/**
+ * Enzyme work delivered by the same stages.
+ *
+ * Weighted by how much of the flour is present. A preferment matures only the
+ * flour that is in it, so a biga's hours count for the share of the flour it
+ * holds rather than for all of it. Stages without a share are the whole dough.
+ */
 export function maturationUnits(stages, m = DEFAULT_MODEL) {
-  return (stages || []).reduce((sum, s) => sum + (Number(s.hours) || 0) * maturationRateAt(Number(s.tempC), m), 0);
+  return (stages || []).reduce((sum, s) => {
+    const share = Number.isFinite(s.flourShare) ? s.flourShare : 1;
+    return sum + (Number(s.hours) || 0) * maturationRateAt(Number(s.tempC), m) * share;
+  }, 0);
 }
 
 /** Per-stage contribution of both, plus running totals, for the phase table. */
